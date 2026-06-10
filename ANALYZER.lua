@@ -1,60 +1,131 @@
 --[[
-   Roblox Public Profile Analyzer  v2.7.0
+   Roblox Public Profile Analyzer  v3.3.0
    ---------------------------------------------------------------
-   Nuevo/arreglado en v2.7.0 (sobre v2.6.0):
-     • FIX CHAT: se ELIMINÓ la elevación de identidad del hilo
-       (setthreadidentity(8)) que ponía el script a nivel CoreScript
-       sin regresarlo — causa probable de que se quitara el chat de
-       Roblox. Abrir navegador ahora cae limpio al modal de copiar link.
-     • FIX VISOR 3D: el ViewportFrame ahora usa un WorldModel (necesario
-       para renderizar accesorios/MeshParts del avatar), el modelo se
-       lleva al origen, se ancla, se desactiva el Humanoid, la cámara se
-       encuadra con CFrame.lookAt y la rotación va por RenderStepped.
-       Hay timeout de 12s con aviso si no carga.
-     • COMPARADOR rehecho: filas de alto automático con texto envuelto
-       (ya no se corta "Solo visible en cuenta…"), columnas A/B claras
-       y resalta en verde el valor mayor.
-     • AJUSTES (pestaña nueva): Auto-Execute (con URL del script),
-       selector de tema e historial/favoritos (movidos aquí).
-     • NOTIFICACIÓN de Auto-Execute al abrir (una sola vez).
+   Cambios en v3.3.0 (sobre v3.2.5):
+     • INTEGRACIÓN NX Head Tags (Fase 1 · coexistencia segura). El módulo
+       "NX Head Tag System V2" (BillboardGui de roles sobre las cabezas) se
+       pega VERBATIM al final de este archivo, en su propio bloque do...end
+       (solo expone el global _G.NXHeadTags). No se modifica su lógica.
+       Este Analyzer NO toca sus internos: solo lo enciende/apaga por su
+       API pública (_G.NXHeadTags.SetEnabled) desde un toggle en Ajustes.
+       - Nuevo: preferencia persistente store.headTags (on/off), recordada
+         entre sesiones en el mismo archivo de guardado.
+       - Nuevo: tarjeta "🏷️ NX Head Tags" en la pestaña Ajustes con un
+         botón Activado/Desactivado que respeta el tema en vivo.
+       - Al cargar, si dejaste los tags apagados, se paran sin tocar su
+         código. Si el módulo no está presente, el Analyzer corre igual.
+       (Fase 2 futura: capa NX Core + TagSource + chip de tag leído vía
+        GetTag dentro de la tarjeta de perfil. Aquí NO se incluye.)
 
-   Nuevo en v2.6.0: Items, grupos, badges, RAP, trust score, gráfico,
-     unirse al servidor, comparador, historial/favoritos, temas.
-   Nuevo en v2.5.0: visor de personaje 3D + 2D.
-   Nuevo en v2.4.0: tema blanco y negro (estilo Quick Chat NX).
+   Cambios en v3.2.5 (sobre v3.2.4):
+     • NUEVO: NX Tags. Sistema de etiquetas personalizadas que lee un JSON
+       público (UserId -> { tag, color, icon }) desde GitHub. Si el UserId
+       analizado está en el JSON, muestra una insignia de color con icono +
+       texto debajo del avatar en la pestaña Perfil; si no está, no muestra
+       nada. El JSON se descarga UNA vez al iniciar y se cachea (lookup
+       instantáneo). Soporta colores por nombre (cyan, red, gold...) o hex
+       "#RRGGBB". Falla en silencio si el JSON no carga: no rompe nada.
+       Repo: github.com/dreennx/nx-tags
 
-   Nuevo en v2.3.0 (sobre v2.2.4, sin romper nada):
-     • TEMA (color): todos los fondos están centralizados en la tabla C
-       de abajo -> cambia ahí y afecta todo el panel de una.
-     • SUSCRIPCIÓN: la fila "Premium" ahora se llama "Suscripción".
-       Roblox reemplazó Premium por Plus (30/04/2026) y quitó el badge
-       de Premium del perfil (30/05/2026), así que para OTROS usuarios
-       ya no es detectable de forma confirmada -> se muestra "Solo
-       visible en cuenta propia". Para TU cuenta se usa MembershipType.
-       (Premium y Plus no se distinguen limpiamente por API, se reporta
-       como "Premium / Plus".)
-     • PANEL REDIMENSIONABLE: hay un agarre (esquina inferior derecha)
-       para estirar la ventana. Tamaño mínimo limitado. La conexión
-       solo se engancha mientras redimensionas (igual que el arrastre,
-       para no tirar FPS).
-     • DESCRIPCIÓN EXPANDIBLE: ya no se corta ni se sale. Si es larga
-       se ve recortada con un botón "Mostrar más" / "Mostrar menos".
-       La tarjeta crece sola (AutomaticSize) y recorta lo que sobre.
-     • COPIAR ID: la fila UserId trae botón "Copiar".
-     • ESTADO / ACTIVIDAD: fila de estado en tiempo real (Online,
-       Jugando, En Studio, Offline) vía la API de presencia. Si el
-       jugador tiene la presencia privada saldrá Offline.
-     • PESTAÑA ANÁLISIS (nueva): amigos en común (cuántos y cuáles),
-       nivel de influencia (heurística) y detector de alt (heurística).
-       Lo heurístico está marcado como tal: NO es dato confirmado.
-     • TODO DENTRO DE LAS TARJETAS: ClipsDescendants + auto-size para
-       que ningún texto se escape del UI.
+   Cambios en v3.2.4 (sobre v3.2.3):
+     • Verificación completa de la solicitud de actualización. Ya estaban
+       implementados y se confirmaron: (1) visor 3D ELIMINADO (el visor de
+       avatar es 2D puro, sin ViewportFrame/cámara/modelo); (2) solicitud
+       de amistad con token CSRF, verificación previa de estado, botón de
+       un solo uso y estados de color (disponible/enviando/enviada/error);
+       (3) modelo de Riesgo ALT ponderado (Antigüedad 25, Actividad 25,
+       Red social 20, Perfil 15, Verificación 10, Historial 5) con bandas
+       0-20/21-40/41-60/61-80/81-100; (4) barras de análisis animadas con %.
+     • MEJORA de transparencia del análisis: la tarjeta de Riesgo ALT ahora
+       añade una explicación contextual según el nivel, lista los factores
+       con ✓, y muestra el DESGLOSE ponderado (riesgo por área con su peso).
+     • Datos verificados (endpoints oficiales): Username, Display Name,
+       Amigos, Seguidores, Siguiendo, Edad de cuenta, Avatar, Descripción,
+       IDs, grupos, badges, favoritos y juegos creados.
 
-   --- Historial previo (intacto) ---
-   v2.2.4: detección de executor, overlay full-screen, texto sin desborde.
-   v2.2.3: modal verde "Link copiado", pasos numerados.
-   v2.2.2: identidad elevada + lista extendida de funciones executor.
-   (resto de notas en versiones anteriores)
+   Cambios en v3.2.3 (sobre v3.2.2):
+     • FIX nombres de la lista de amigos: la API de amigos a veces no
+       devuelve name/displayName (datos parciales sin sesión) y salían
+       vacíos. Ahora se resuelven en lote con el endpoint de usuarios
+       (IDs -> nombres). Antes salía solo "@".
+     • La lista de amigos YA NO es una pestaña aparte. Ahora la fila
+       "Amigos" de Estadísticas es un BOTÓN desplegable: se abre hacia
+       abajo con animación suave (y se cierra al volver a pulsar).
+     • Al pulsar "Analizar →" en un amigo se abre una TARJETA modal
+       vertical con animación (escala + fade): avatar de cuerpo entero,
+       Display Name, @usuario con botón de copiar, descripción, nº de
+       amigos y edad de cuenta, + botón "Análisis completo".
+     • Buscador: el placeholder vuelve a ser solo "Usuario o ID" (antes
+       traía una URL larga que se salía del cuadro). Textos con recorte
+       para que nada se desborde de la UI.
+
+   Cambios en v3.2.2 (sobre v3.2.1):
+     • NUEVA pestaña "Amigos" — Explorador de redes. Lista navegable de
+       Amigos / Seguidores / Siguiendo del perfil analizado. Cada usuario
+       es una tarjeta clickeable (avatar + nombre + "Analizar →") que
+       SALTA a analizar a esa persona, así puedes ir de cuenta en cuenta.
+       Seguidores/Siguiendo se cargan de 100 en 100 con botón "Cargar más"
+       (la API los pagina); los Amigos vienen todos de una. Carga perezosa:
+       solo pide datos al abrir la pestaña, y se resetea al cambiar de
+       perfil. Avatares vía rbxthumb (sin peticiones HTTP, cargan solos).
+
+   Cambios en v3.2.1 (sobre v3.2.0):
+     • Controles estilo macOS / Tor: los tres "circulitos" (rojo,
+       amarillo, verde) arriba a la izquierda de la cabecera, en lugar
+       de los botones X y "—". Rojo = cerrar, amarillo = ocultar
+       (sigue funcionando con [RightShift]), verde = maximizar/restaurar
+       (~90% de pantalla). El símbolo de cada uno aparece al pasar el
+       cursor por encima, como en el navegador en Mac.
+
+   Cambios en v3.2.0 (sobre v3.1.1):
+     • NUEVO TEMA "tor": estilo Tor Browser, fondo oscuro con tinte
+       morado y acento violeta (el morado de Tor). Se elige en la
+       pestaña Ajustes como los demás y se aplica al instante.
+     • UI estilo navegador: el buscador ahora parece una barra de
+       direcciones (forma de píldora, candado 🔒 a la izquierda y texto
+       tipo URL), y la cabecera tiene botón minimizar "—" además del de
+       cerrar, como los controles de ventana de un navegador.
+     • MODO DISCRETO: tecla rápida [RightShift] que oculta/muestra TODA
+       la interfaz al instante sin cerrarla ni perder el análisis. El
+       botón "—" también oculta (se recupera con la tecla). Además el
+       ScreenGui usa un nombre neutro ("UtilityPanel") para no delatar
+       qué hace el script en el árbol de instancias.
+
+   Cambios en v3.1.1 (sobre v3.1.0):
+     • "Copiar TXT" ahora SIEMPRE incluye los nombres anteriores.
+       Antes solo los añadía si ya habías abierto la pestaña Perfil
+       (que es la que llenaba la caché). Ahora, si la caché está vacía,
+       el botón pide el historial bajo demanda (getNameHistory) y luego
+       copia. Reusa la caché si ya existe, así que no re-pide la API.
+       Además, si no hay nombres anteriores escribe "ninguno", y si la
+       API falla escribe "no disponible" (antes omitía la línea).
+     • "Copiar JSON" igualado: pide el historial bajo demanda, añade el
+       campo NombresAnteriores y ya NO vuelca los campos de caché internos
+       (los "_itemsCached", "_namesCached", etc.) en el JSON exportado.
+
+   Cambios en v3.1.0 (sobre v3.0.0):
+     • REINCORPORADO: Historial de nombres en la pestaña Perfil
+       (usa la API username-history; ya estaba la función getNameHistory
+       sin usar, ahora se vuelve a renderizar). Con caché por-sección:
+       no re-pide la API al cambiar de tema/re-render.
+     • FIX color de Estado: el color de la fila "Estado" ahora se
+       re-deriva del TIPO de presencia en cada render (presenceColorFor),
+       en vez de quedar congelado con el color del tema anterior.
+       Antes, al cambiar de tema en vivo, el color del Estado no se
+       actualizaba; ahora sí.
+     • INFO corregida (suscripción): comentario afinado con datos reales.
+       Roblox Plus sustituyó a Premium para NUEVAS suscripciones el
+       30/04/2026; el bonus de Robux extra de Premium se quitó el
+       30/05/2026; el badge de Premium del perfil se retiró (lo reemplazó
+       el badge de Plus). Quienes ya tenían Premium conservan su plan.
+       La API no distingue limpiamente Premium de Plus -> se reporta junto.
+
+   Base previa (intacta, de v3.0.0):
+     • Suscripción (Premium/Plus), panel redimensionable, descripción
+       expandible, copiar ID, estado/actividad, unirse al servidor,
+       enviar solicitud de amistad, precio del avatar, visor de personaje
+       3D/2D, análisis (confianza, influencia, alt, actividad, amigos en
+       común), items/grupos/badges/RAP, tema en vivo.
 --]]
 
 -- ====================== SERVICIOS ======================
@@ -67,15 +138,13 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- ====================== PERSISTENCIA (archivo) ======================
--- Igual que Quick Chat: si el executor tiene sistema de archivos, guardamos
--- el tema elegido, el historial de búsquedas y los favoritos.
+-- Si el executor tiene sistema de archivos, guardamos el tema elegido.
 local SAVE_FILE = "ProfileAnalyzer_data.json"
 local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
 
-local store = { theme = "negro", history = {}, favorites = {},
-	autoexec = false, autoexecUrl = "", autoexecAsked = false }
+local store = { theme = "negro", headTags = true }
 
 local function saveStore()
 	if not hasFS then return end
@@ -88,58 +157,17 @@ local function loadStore()
 		if isfile(SAVE_FILE) then
 			local ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(SAVE_FILE)) end)
 			if ok and type(decoded) == "table" then
-				store.theme     = decoded.theme or "negro"
-				store.history   = type(decoded.history) == "table" and decoded.history or {}
-				store.favorites = type(decoded.favorites) == "table" and decoded.favorites or {}
-				store.autoexec  = decoded.autoexec or false
-				store.autoexecUrl = decoded.autoexecUrl or ""
-				store.autoexecAsked = decoded.autoexecAsked or false
+				store.theme = decoded.theme or "negro"
+				if type(decoded.headTags) == "boolean" then store.headTags = decoded.headTags end
 			end
 		end
 	end)
 end
 loadStore()
 
--- ====================== AUTO-EXECUTE (carpeta autoexec del executor) ======================
--- HONESTO: esto depende 100% del executor. Solo funciona si:
---   1) Tu executor soporta writefile.
---   2) Tu executor lee una carpeta de auto-ejecución (autoexec/).
---   3) Tienes la URL de tu script (loadstring) para volver a cargarlo.
--- Escribimos un pequeño "loader" en varias rutas comunes de autoexec.
-local AUTOEXEC_FILE = "ProfileAnalyzer_autoexec.lua"
-local AUTOEXEC_DIRS = { "autoexec", "autoexecute", "auto-exec" }
-
-local function autoexecEnable(url)
-	if not hasFS then return false, "Tu executor no soporta writefile." end
-	if not url or url == "" then return false, "Falta la URL del script (escríbela arriba)." end
-	local code = ('loadstring(game:HttpGet("%s"))()'):format(url)
-	local wrote = false
-	for _, dir in ipairs(AUTOEXEC_DIRS) do
-		if type(makefolder) == "function" then pcall(makefolder, dir) end
-		local path = dir .. "/" .. AUTOEXEC_FILE
-		if pcall(writefile, path, code) then wrote = true end
-	end
-	pcall(writefile, AUTOEXEC_FILE, code) -- algunos executors usan la raíz
-	if wrote then
-		return true, "Auto-execute activado. Se ejecutará al inyectar (si tu executor soporta autoexec)."
-	end
-	return false, "No se pudo escribir en la carpeta autoexec de tu executor."
-end
-
-local function autoexecDisable()
-	if not hasFS then return end
-	for _, dir in ipairs(AUTOEXEC_DIRS) do
-		local path = dir .. "/" .. AUTOEXEC_FILE
-		if type(delfile) == "function" then pcall(delfile, path) end
-		pcall(writefile, path, "-- auto-execute desactivado")
-	end
-	if type(delfile) == "function" then pcall(delfile, AUTOEXEC_FILE) end
-end
 
 -- ====================== TEMAS ======================
 -- 'onAccent' = texto que va ENCIMA del acento (debe contrastar con él).
--- El cambio de tema se guarda y se aplica al REABRIR el script (limpio y
--- sin riesgo de romper la UI en caliente).
 local THEMES = {
 	negro = {
 		bg=Color3.fromRGB(12,12,12), card=Color3.fromRGB(22,22,22), input=Color3.fromRGB(22,22,22),
@@ -165,15 +193,56 @@ local THEMES = {
 		text=Color3.fromRGB(225,235,228), subtext=Color3.fromRGB(120,140,128),
 		modalBg=Color3.fromRGB(14,24,18), modalStep=Color3.fromRGB(10,18,12),
 	},
+	-- Tema estilo Tor Browser: fondo oscuro con tinte morado y acento violeta
+	-- (el morado #7D4698 de Tor, aclarado para que resalte sobre el fondo).
+	tor = {
+		bg=Color3.fromRGB(20,15,28), card=Color3.fromRGB(31,23,43), input=Color3.fromRGB(26,19,38),
+		link=Color3.fromRGB(20,15,28), neutral=Color3.fromRGB(42,31,58), border=Color3.fromRGB(60,45,82),
+		accent=Color3.fromRGB(160,100,210), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
+		text=Color3.fromRGB(235,230,242), subtext=Color3.fromRGB(150,135,168),
+		modalBg=Color3.fromRGB(26,20,38), modalStep=Color3.fromRGB(18,14,26),
+	},
 }
 
--- C arranca con el tema guardado. Cambiar 'store.theme' y guardar -> efecto al reabrir.
+-- C arranca con el tema guardado. El tema se aplica EN VIVO.
 local C = {}
 local function applyTheme(name)
 	local t = THEMES[name] or THEMES.negro
 	for k, v in pairs(t) do C[k] = v end
 end
 applyTheme(store.theme)
+
+-- ====================== SISTEMA DE TEMA EN VIVO ======================
+-- Cada elemento se registra con su "rol" de color. Al cambiar de tema,
+-- repaint() recorre el registro y actualiza todo al instante (sin reabrir).
+local roleMap = {}
+local function themed(inst, prop, role)
+	table.insert(roleMap, { inst = inst, prop = prop, role = role })
+	pcall(function() inst[prop] = C[role] end)
+	return inst
+end
+
+local repaintExtra = {}  -- funciones extra a llamar en cada repaint (casos especiales)
+local function onRepaint(fn) table.insert(repaintExtra, fn) end
+
+local function repaint()
+	for _, e in ipairs(roleMap) do
+		if e.inst then
+			pcall(function() e.inst[e.prop] = C[e.role] end)
+		end
+	end
+	for _, fn in ipairs(repaintExtra) do pcall(fn) end
+end
+
+local rerenderCurrent  -- forward: re-pinta las pestañas de contenido con el tema nuevo
+local function setTheme(name)
+	applyTheme(name)
+	store.theme = name
+	saveStore()
+	repaint()
+	if rerenderCurrent then pcall(rerenderCurrent) end
+end
 
 -- ====================== DETECCIÓN DE EXECUTOR ======================
 local function detectExecutor()
@@ -203,8 +272,12 @@ end
 local EXECUTOR_NAME = detectExecutor()
 
 -- ====================== LIMPIAR INSTANCIAS ANTERIORES ======================
+-- Nombre neutro para el ScreenGui: no delata qué hace el script si alguien
+-- mira el árbol de instancias. Constante (no aleatorio) para poder limpiar
+-- la instancia anterior al recargar.
+local GUI_NAME = "UtilityPanel"
 for _, child in ipairs(playerGui:GetChildren()) do
-	if child:IsA("ScreenGui") and child.Name == "ProfileAnalyzer" then
+	if child:IsA("ScreenGui") and child.Name == GUI_NAME then
 		child:Destroy()
 	end
 end
@@ -253,6 +326,104 @@ local function apiPost(url, payload)
 	return nil, (ok and res and res.StatusCode) or "connection_failure"
 end
 
+-- POST autenticado con token CSRF (X-CSRF-TOKEN). Los endpoints que MODIFICAN
+-- algo (p. ej. enviar solicitud de amistad) lo exigen: el primer POST devuelve
+-- 403 con el token en la cabecera, y se reintenta con él. Devuelve:
+--   body (tabla o nil), statusCode (número o string), errorsList (tabla)
+local cachedCsrf = nil
+local function postAuth(url, payload)
+	if not httpRequest then return nil, "no_http_request", nil end
+	local function doReq(token)
+		local headers = { ["Content-Type"] = "application/json" }
+		if token then headers["X-CSRF-TOKEN"] = token end
+		local ok, res = pcall(httpRequest, {
+			Url = url, Method = "POST", Headers = headers,
+			Body = HttpService:JSONEncode(payload or {}),
+		})
+		if not ok or not res then return nil end
+		return res
+	end
+	local res = doReq(cachedCsrf)
+	-- 403 => token inválido/ausente: lo tomamos de la cabecera y reintentamos
+	if res and tonumber(res.StatusCode) == 403 then
+		local h = res.Headers or {}
+		local token = h["x-csrf-token"] or h["X-CSRF-TOKEN"] or h["X-Csrf-Token"]
+		if token then
+			cachedCsrf = token
+			res = doReq(token)
+		end
+	end
+	if not res then return nil, "connection_failure", nil end
+	local body
+	if res.Body and res.Body ~= "" then
+		local ok2, dec = pcall(function() return HttpService:JSONDecode(res.Body) end)
+		body = ok2 and dec or nil
+	end
+	local errs = (type(body) == "table" and body.errors) or nil
+	return body, res.StatusCode, errs
+end
+
+-- ====================== NX TAGS (etiquetas personalizadas) ======================
+-- Lee un JSON público (UserId -> { tag, color, icon }) desde GitHub y lo cachea.
+-- Se descarga UNA sola vez al cargar el script; el lookup luego es instantáneo.
+-- Si el JSON no carga o el usuario no está, simplemente no se muestra tag.
+-- Estructura esperada:  { "8396392068": { "tag": "NX OWNER", "color": "cyan", "icon": "👑" } }
+local NX_TAGS_URL = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/tags.json"
+local nxTags = nil           -- nil = aún no cargado; tabla = listo (puede estar vacía)
+local nxLoading = false
+
+local function loadNXTags()
+	if nxTags ~= nil or nxLoading then return end
+	nxLoading = true
+	task.spawn(function()
+		local body = rawGet(NX_TAGS_URL)        -- usa el GET crudo del script (con fallback)
+		local parsed = {}
+		if body then
+			pcall(function()
+				local decoded = HttpService:JSONDecode(body)
+				if type(decoded) == "table" then parsed = decoded end
+			end)
+		end
+		nxTags = parsed                          -- nunca queda en nil: evita reintentos infinitos
+		nxLoading = false
+	end)
+end
+
+-- Convierte el nombre de color del JSON a Color3. Acepta nombres comunes o hex "#RRGGBB".
+local NX_COLORS = {
+	cyan = Color3.fromRGB(0, 229, 255),  red = Color3.fromRGB(255, 76, 76),
+	green = Color3.fromRGB(80, 220, 120), blue = Color3.fromRGB(80, 150, 255),
+	yellow = Color3.fromRGB(255, 214, 64), orange = Color3.fromRGB(255, 150, 40),
+	purple = Color3.fromRGB(180, 110, 255), pink = Color3.fromRGB(255, 110, 200),
+	white = Color3.fromRGB(245, 245, 245), gold = Color3.fromRGB(255, 196, 64),
+	gray = Color3.fromRGB(170, 170, 170), grey = Color3.fromRGB(170, 170, 170),
+	black = Color3.fromRGB(30, 30, 30),
+}
+local function nxColor(name)
+	if type(name) == "string" then
+		local hex = name:match("^#?(%x%x%x%x%x%x)$")
+		if hex then
+			return Color3.fromRGB(tonumber(hex:sub(1, 2), 16),
+				tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16))
+		end
+		local c = NX_COLORS[name:lower()]
+		if c then return c end
+	end
+	return NX_COLORS.cyan      -- por defecto
+end
+
+-- Devuelve { tag, icon, color(Color3) } para un userId, o nil si no tiene tag.
+local function getNXTag(userId)
+	if type(nxTags) ~= "table" then return nil end
+	local entry = nxTags[tostring(userId)]
+	if type(entry) ~= "table" then return nil end
+	local tagText = entry.tag or entry.text or ""
+	if tagText == "" and (entry.icon == nil or entry.icon == "") then return nil end
+	return { tag = tagText, icon = entry.icon or "", color = nxColor(entry.color) }
+end
+
+loadNXTags()      -- precarga al iniciar (no bloquea: corre en segundo plano)
+
 -- ====================== HELPERS DE DATOS ======================
 local function countPaged(url, limit)
 	limit = limit or 100
@@ -274,12 +445,6 @@ local function toNum(v)
 	if v == nil then return 0 end
 	local s = tostring(v):gsub("%+", "")
 	return tonumber(s) or 0
-end
-
--- Extrae los días de la cadena "2301 días (~6.3 años)"
-local function daysFromAge(ageStr)
-	local d = tostring(ageStr):match("(%d+)%s*d[ií]as")
-	return tonumber(d) or 0
 end
 
 -- ====================== BÚSQUEDA ROBUSTA ======================
@@ -329,21 +494,30 @@ local function getAvatar(userId)
 	return img
 end
 
+-- Devuelve 4 valores: fechaISO, etiquetaTexto, díasNumérico, añosNumérico.
+-- Los DOS números evitan re-parsear el texto luego (causa del bug histórico
+-- de "0 días": la 'í' de "días" es UTF-8 de 2 bytes y rompía [ií]).
 local function formatAge(isoCreated)
-	if not isoCreated then return nil, nil end
+	if not isoCreated then return nil, nil, 0, 0 end
 	local y, m, d = isoCreated:match("(%d+)-(%d+)-(%d+)")
-	if not y then return isoCreated:sub(1,10), nil end
+	if not y then return isoCreated:sub(1,10), nil, 0, 0 end
 	local created = os.time{ year = tonumber(y), month = tonumber(m), day = tonumber(d) }
 	local days = math.floor((os.time() - created) / 86400)
+	if days < 0 then days = 0 end
 	local years = days / 365.25
-	return isoCreated:sub(1,10), string.format("%d días (~%.1f años)", days, years)
+	local label = string.format("%d días (~%.1f años)", days, years)
+	return isoCreated:sub(1,10), label, days, years
 end
 
 -- ====================== SUSCRIPCIÓN (Premium / Plus) ======================
--- Honesto: para otros usuarios ya no es detectable (Roblox quitó el badge
--- de Premium el 30/05/2026 y Plus reemplazó a Premium el 30/04/2026).
--- Para TU propia cuenta se lee MembershipType. Premium y Plus no se
--- distinguen limpiamente por API, por eso se reporta junto.
+-- INFO (v3.1.0, verificada): Roblox Plus sustituyó a Premium para NUEVAS
+-- suscripciones el 30/04/2026; el bonus del 10% en compras extra de Robux
+-- de Premium se quitó el 30/05/2026; el badge de Premium del perfil se
+-- retiró (lo reemplazó el badge de Plus). Quienes ya tenían Premium
+-- conservan su plan. Para OTROS usuarios ya no es detectable por el perfil
+-- (no hay badge confirmable) -> "Solo visible en cuenta propia". Para TU
+-- propia cuenta se lee MembershipType, pero la API no distingue limpiamente
+-- Premium de Plus, por eso se reporta junto como "Premium / Plus".
 local function getSubscription(userId)
 	if userId ~= player.UserId then
 		return "Solo visible en cuenta propia"
@@ -382,27 +556,47 @@ local function getPresence(userId)
 	end
 end
 
--- ====================== ITEMS EQUIPADOS (avatar actual) ======================
--- Devuelve lista de { id=assetId, name=... }. Los nombres se piden aparte.
+-- Color de presencia derivado del TIPO (no del color del tema viejo). Así,
+-- al cambiar de tema EN VIVO, el color del Estado se re-deriva correcto en
+-- cada render en vez de quedarse congelado con el tema anterior.
+local function presenceColorFor(t)
+	if t == 2 or t == 1 then return C.good
+	elseif t == 3 then return C.warn
+	else return C.subtext end
+end
+
+-- ====================== ITEMS EQUIPADOS (avatar actual) + PRECIO ======================
+-- Devuelve: lista de { id, name, price } y el precio TOTAL del avatar.
+-- price viene del catálogo (lowestPrice para limiteds, price para normales).
+-- Si un item es gratis o sin precio, cuenta como 0.
 local function getWornItems(userId)
 	local data = apiGet("https://avatar.roblox.com/v1/users/" .. userId .. "/currently-wearing")
-	if not data or not data.assetIds then return nil end
+	if not data or not data.assetIds then return nil, nil end
 	local items = {}
 	for _, id in ipairs(data.assetIds) do
-		table.insert(items, { id = id, name = nil })
+		table.insert(items, { id = id, name = nil, price = nil })
 	end
-	-- pedir nombres en lote (catálogo). Si falla, quedan solo los IDs.
+	local total = 0
+	-- pedir nombres + precios en lote (catálogo). Si falla, quedan solo los IDs.
 	if #items > 0 then
 		local ids = {}
 		for _, it in ipairs(items) do table.insert(ids, { itemType = "Asset", id = it.id }) end
 		local resp = apiPost("https://catalog.roblox.com/v1/catalog/items/details", { items = ids })
 		if resp and resp.data then
 			local byId = {}
-			for _, d in ipairs(resp.data) do byId[d.id] = d.name end
-			for _, it in ipairs(items) do it.name = byId[it.id] end
+			for _, d in ipairs(resp.data) do byId[d.id] = d end
+			for _, it in ipairs(items) do
+				local d = byId[it.id]
+				if d then
+					it.name = d.name
+					-- precio: lowestPrice (limiteds/reventa) o price (normal)
+					it.price = d.lowestPrice or d.price or 0
+					total = total + (tonumber(it.price) or 0)
+				end
+			end
 		end
 	end
-	return items
+	return items, total
 end
 
 -- ====================== GRUPOS CON RANGO ======================
@@ -439,7 +633,6 @@ end
 local function getRAP(userId)
 	local data = apiGet("https://www.rolimons.com/playerapi/player/" .. userId)
 	if not data then return nil end
-	-- Rolimon's devuelve 'value' (RAP estimado) cuando el jugador existe
 	if data.success == false then return nil end
 	return {
 		rap = data.value or data.rap,
@@ -448,51 +641,73 @@ local function getRAP(userId)
 end
 
 -- ====================== SCORE DE CONFIANZA (heurística 0-100) ======================
+-- Usa data.AccountAgeDays (NÚMERO). La actividad real (badges+juegos) es un
+-- pilar y los amigos no dominan. Penaliza la cuenta "fantasma": vieja pero
+-- sin grupos/badges/juegos/favs.
 local function computeTrust(data)
-	local score = 0
-	local reasons = {}
-	local days   = (tostring(data.AccountAge):match("(%d+)%s*d[ií]as") and tonumber(tostring(data.AccountAge):match("(%d+)%s*d[ií]as"))) or 0
-	local friends = tonumber((tostring(data.Friends):gsub("%+",""))) or 0
-	local groups  = tonumber((tostring(data.Groups):gsub("%+",""))) or 0
-	local badges  = tonumber((tostring(data.Badges):gsub("%+",""))) or 0
+	local days     = data.AccountAgeDays or 0
+	local friends  = toNum(data.Friends)
+	local groups   = toNum(data.Groups)
+	local badges   = toNum(data.Badges)
+	local favs     = toNum(data.Favorites)
+	local games    = toNum(data.CreatedGames)
 	local verified = (data.Verified == "Sí")
 
-	-- antigüedad (máx 35)
-	if days >= 1825 then score = score + 35; table.insert(reasons, "Cuenta muy antigua (+35)")
-	elseif days >= 730 then score = score + 25; table.insert(reasons, "Cuenta antigua (+25)")
-	elseif days >= 365 then score = score + 18; table.insert(reasons, "Más de 1 año (+18)")
-	elseif days >= 90 then score = score + 10; table.insert(reasons, "Algunos meses (+10)")
-	elseif days >= 30 then score = score + 4; table.insert(reasons, "Cuenta reciente (+4)")
-	else table.insert(reasons, "Cuenta muy nueva (+0)") end
+	local score, reasons = 0, {}
+	local function add(pts, txt) score = score + pts; reasons[#reasons + 1] = txt end
 
-	-- amigos (máx 25)
-	if friends >= 50 then score = score + 25; table.insert(reasons, "Muchos amigos (+25)")
-	elseif friends >= 10 then score = score + 15; table.insert(reasons, "Amigos normales (+15)")
-	elseif friends >= 1 then score = score + 6; table.insert(reasons, "Pocos amigos (+6)")
-	else table.insert(reasons, "0 amigos (+0)") end
+	-- Antigüedad (máx 25)
+	if days >= 1825 then add(25, "Cuenta de 5+ años (+25)")
+	elseif days >= 730 then add(19, "Cuenta de 2+ años (+19)")
+	elseif days >= 365 then add(13, "Más de 1 año (+13)")
+	elseif days >= 90  then add(7,  "Algunos meses (+7)")
+	elseif days >= 30  then add(3,  "Cuenta reciente (+3)")
+	else add(0, "Cuenta muy nueva (+0)") end
 
-	-- grupos (máx 20)
-	if groups >= 5 then score = score + 20; table.insert(reasons, "Varios grupos (+20)")
-	elseif groups >= 1 then score = score + 10; table.insert(reasons, "Algún grupo (+10)")
-	else table.insert(reasons, "0 grupos (+0)") end
+	-- Actividad real: badges + experiencias (máx 25)
+	local act = 0
+	if badges >= 25 then act = act + 15
+	elseif badges >= 10 then act = act + 11
+	elseif badges >= 3 then act = act + 7
+	elseif badges >= 1 then act = act + 3 end
+	if games >= 3 then act = act + 10
+	elseif games >= 1 then act = act + 5 end
+	act = math.min(act, 25)
+	add(act, "Actividad badges/juegos (+" .. act .. ")")
 
-	-- badges (máx 10)
-	if badges >= 10 then score = score + 10; table.insert(reasons, "Actividad en juegos (+10)")
-	elseif badges >= 1 then score = score + 5; table.insert(reasons, "Algo de actividad (+5)") end
+	-- Amigos (máx 15) — peso reducido
+	if friends >= 50 then add(15, "Muchos amigos (+15)")
+	elseif friends >= 10 then add(10, "Amigos normales (+10)")
+	elseif friends >= 1 then add(5, "Pocos amigos (+5)")
+	else add(0, "0 amigos (+0)") end
 
-	-- verificado (máx 10)
-	if verified then score = score + 10; table.insert(reasons, "Insignia verificada (+10)") end
+	-- Grupos (máx 15)
+	if groups >= 5 then add(15, "Varios grupos (+15)")
+	elseif groups >= 1 then add(8, "Algún grupo (+8)")
+	else add(0, "0 grupos (+0)") end
 
-	if score > 100 then score = 100 end
+	-- Favoritos (máx 5)
+	if favs >= 5 then add(5, "Favoritos (+5)")
+	elseif favs >= 1 then add(2, "Algún favorito (+2)") end
+
+	-- Verificado (máx 10)
+	if verified then add(10, "Insignia verificada (+10)") end
+
+	-- PENALIZACIÓN: cuenta vieja pero "fantasma"
+	local ghost = (days >= 730) and badges == 0 and groups == 0 and games == 0 and favs == 0
+	if ghost then
+		local penalty = (friends <= 1) and 25 or 15
+		add(-penalty, "⚠️ Cuenta antigua sin actividad (-" .. penalty .. ")")
+	end
+
+	score = math.clamp(score, 0, 100)
 	local label, color = "Bajo", C.bad
 	if score >= 70 then label, color = "Alto", C.good
 	elseif score >= 40 then label, color = "Medio", C.warn end
-	return score, label, color, reasons, days, friends, groups, badges
+	return score, label, color, reasons
 end
 
 -- ====================== AMIGOS EN COMÚN ======================
--- Solo tiene sentido al analizar a OTRA persona. Requiere que ambas
--- listas de amigos sean públicas.
 local function getMutualFriends(userId)
 	if userId == player.UserId then return nil end
 	local mine = apiGet("https://friends.roblox.com/v1/users/" .. player.UserId .. "/friends")
@@ -509,50 +724,213 @@ local function getMutualFriends(userId)
 	return mutual
 end
 
--- ====================== INFLUENCIA (heurística) ======================
-local function computeInfluence(data)
-	local score = 0
+-- ====================== INFLUENCIA inteligente 0-100 ======================
+local function computeInfluence(data, rap)
 	local followers = toNum(data.Followers)
+	local following = toNum(data.Following)
 	local groups    = toNum(data.Groups)
-	local favs      = toNum(data.Favorites)
-	local days      = daysFromAge(data.AccountAge)
+	local badges    = toNum(data.Badges)
+	local games     = toNum(data.CreatedGames)
+	local days      = data.AccountAgeDays or 0
+	local verified  = (data.Verified == "Sí")
 
-	if followers >= 1000 then score += 3
-	elseif followers >= 100 then score += 2
-	elseif followers >= 10 then score += 1 end
+	local score = 0
+	if followers >= 10000 then score = score + 35
+	elseif followers >= 1000 then score = score + 28
+	elseif followers >= 100 then score = score + 18
+	elseif followers >= 25 then score = score + 10
+	elseif followers >= 5 then score = score + 4 end
 
-	if groups >= 10 then score += 2
-	elseif groups >= 3 then score += 1 end
+	if followers >= 10 then
+		local ratio = followers / math.max(following, 1)
+		if ratio >= 5 then score = score + 12
+		elseif ratio >= 2 then score = score + 8
+		elseif ratio >= 1 then score = score + 4 end
+	end
 
-	if favs >= 20 then score += 1 end
+	if verified then score = score + 15 end
 
-	if days >= 1825 then score += 2
-	elseif days >= 365 then score += 1 end
+	if games >= 5 then score = score + 12
+	elseif games >= 1 then score = score + 6 end
 
-	local level, color = "Bajo", C.subtext
-	if score >= 6 then level, color = "Alto", C.good
-	elseif score >= 3 then level, color = "Medio", C.warn end
-	return level, color
+	if groups >= 10 then score = score + 8 elseif groups >= 3 then score = score + 4 end
+	if badges >= 50 then score = score + 8 elseif badges >= 10 then score = score + 4 end
+
+	if rap and rap > 0 then
+		if rap >= 1000000 then score = score + 10
+		elseif rap >= 100000 then score = score + 7
+		elseif rap >= 10000 then score = score + 4
+		elseif rap >= 1000 then score = score + 2 end
+	end
+
+	if days >= 1825 then score = score + 5 elseif days >= 365 then score = score + 2 end
+
+	score = math.clamp(score, 0, 100)
+	local level, color = "Muy Bajo", C.subtext
+	if score >= 75 then level, color = "Muy Alto", C.good
+	elseif score >= 50 then level, color = "Alto", C.good
+	elseif score >= 30 then level, color = "Medio", C.warn
+	elseif score >= 15 then level, color = "Bajo", C.warn end
+	return score, level, color
 end
 
--- ====================== DETECTOR DE ALT (heurística) ======================
-local function computeAlt(data)
-	local reasons = {}
-	local days    = daysFromAge(data.AccountAge)
-	local friends = toNum(data.Friends)
-	local groups  = toNum(data.Groups)
+-- ====================== RIESGO ALT (modelo ponderado 0-100) ======================
+-- Pesos: Antigüedad 25%, Actividad 25%, Red social 20%, Perfil 15%,
+-- Verificación 10%, Historial 5%. Cada dimensión da un sub-riesgo 0-100
+-- (0 = nada sospechoso, 100 = muy típico de alt) y se promedia ponderado.
+-- 'data._namesCached' / 'data._itemsCached' afinan Perfil/Historial si ya se
+-- cargaron (al abrir Perfil/Items); si no, se asumen neutros (no penaliza).
+-- Devuelve: score, nivel, color, factores{}, desglose{ {nombre, riesgo, peso} }
+local function computeAltRisk(data)
+	local days     = data.AccountAgeDays or 0
+	local friends  = toNum(data.Friends)
+	local followers= toNum(data.Followers)
+	local following= toNum(data.Following)
+	local groups   = toNum(data.Groups)
+	local favs     = toNum(data.Favorites)
+	local badges   = toNum(data.Badges)
+	local games    = toNum(data.CreatedGames)
+	local verified = (data.Verified == "Sí")
+	local hasDesc  = data.Description and data.Description ~= "" and data.Description ~= "Sin descripción"
+	local prevNames = (type(data._namesCached) == "table") and #data._namesCached or nil
+	local itemCount = (type(data._itemsCached) == "table") and #data._itemsCached or nil
+
+	local factors = {}
+	local function note(t) factors[#factors + 1] = t end
+
+	-- 1) ANTIGÜEDAD (25%): cuanto más nueva, más riesgo
+	local ageRisk
+	if days <= 3 then ageRisk = 100; note("Cuenta de " .. days .. " día(s)")
+	elseif days <= 7 then ageRisk = 92; note("Cuenta de menos de 1 semana")
+	elseif days <= 14 then ageRisk = 82; note("Cuenta de menos de 2 semanas")
+	elseif days <= 30 then ageRisk = 66; note("Cuenta de menos de 1 mes")
+	elseif days <= 90 then ageRisk = 46; note("Cuenta de pocos meses")
+	elseif days <= 180 then ageRisk = 30
+	elseif days <= 365 then ageRisk = 18
+	elseif days <= 730 then ageRisk = 8
+	elseif days <= 1825 then ageRisk = 3
+	else ageRisk = 0 end
+
+	-- 2) ACTIVIDAD (25%): badges, juegos, favoritos, grupos
+	local act = 0
+	if badges >= 50 then act = act + 4 elseif badges >= 15 then act = act + 3
+	elseif badges >= 5 then act = act + 2 elseif badges >= 1 then act = act + 1 end
+	if games >= 1 then act = act + 2 end
+	if favs >= 10 then act = act + 2 elseif favs >= 1 then act = act + 1 end
+	if groups >= 5 then act = act + 2 elseif groups >= 1 then act = act + 1 end
+	act = math.min(act, 8)
+	local activityRisk = math.clamp(100 - act * 12.5, 0, 100)
+	if badges == 0 then note("Sin badges") end
+	if groups == 0 then note("0 grupos") end
+	if favs == 0 then note("0 favoritos") end
+	if games == 0 then note("Sin experiencias creadas") end
+
+	-- 3) RED SOCIAL (20%): amigos + seguidores
+	local soc = 0
+	if friends >= 50 then soc = soc + 3 elseif friends >= 20 then soc = soc + 2.5
+	elseif friends >= 10 then soc = soc + 2 elseif friends >= 3 then soc = soc + 1
+	elseif friends >= 1 then soc = soc + 0.5 end
+	if followers >= 100 then soc = soc + 2 elseif followers >= 10 then soc = soc + 1.5
+	elseif followers >= 1 then soc = soc + 0.5 end
+	soc = math.min(soc, 5)
+	local socialRisk = math.clamp(100 - soc * 20, 0, 100)
+	if friends == 0 then note("0 amigos")
+	elseif friends <= 1 then note(friends .. " amigo") end
+	if followers == 0 then note("0 seguidores") end
+	-- crecimiento desbalanceado: sigue a muchos pero nadie le sigue
+	if following >= 30 and followers == 0 then note("Sigue a muchos pero sin seguidores") end
+
+	-- 4) PERFIL (15%): personalización (descripción + items equipados)
+	local prof, profMax = 0, 2.5
+	if hasDesc then prof = prof + 1.5 else note("Sin descripción") end
+	if itemCount ~= nil then
+		if itemCount >= 1 then prof = prof + 1 else note("Avatar sin items equipados") end
+	else
+		prof = prof + 0.5   -- desconocido: beneficio parcial (no penaliza de más)
+	end
+	local profileRisk = math.clamp(100 - (prof / profMax) * 100, 0, 100)
+
+	-- 5) VERIFICACIÓN (10%)
+	local verifyRisk = verified and 0 or 40
+	if verified then note("Insignia verificada (atenúa)") end
+
+	-- 6) HISTORIAL DE NOMBRES (5%)
+	local historyRisk
+	if prevNames == nil then historyRisk = 50            -- desconocido: neutro
+	elseif prevNames >= 1 then historyRisk = 10          -- historial real
+	else historyRisk = 65; note("Sin nombres anteriores") end
+
+	local raw = ageRisk * 0.25 + activityRisk * 0.25 + socialRisk * 0.20
+		+ profileRisk * 0.15 + verifyRisk * 0.10 + historyRisk * 0.05
+	local score = math.clamp(math.floor(raw + 0.5), 0, 100)
+
+	local level, color = "Muy Bajo", C.good
+	if score >= 81 then level, color = "Muy Alto", C.bad
+	elseif score >= 61 then level, color = "Alto", C.bad
+	elseif score >= 41 then level, color = "Medio", C.warn
+	elseif score >= 21 then level, color = "Bajo", C.good end
+
+	local breakdown = {
+		{ "Antigüedad", math.floor(ageRisk + 0.5), 25 },
+		{ "Actividad", math.floor(activityRisk + 0.5), 25 },
+		{ "Red social", math.floor(socialRisk + 0.5), 20 },
+		{ "Perfil", math.floor(profileRisk + 0.5), 15 },
+		{ "Verificación", math.floor(verifyRisk + 0.5), 10 },
+		{ "Historial", math.floor(historyRisk + 0.5), 5 },
+	}
+	return score, level, color, factors, breakdown
+end
+
+-- ====================== ACTIVIDAD 0-100 ======================
+local function computeActivity(data)
+	local badges  = toNum(data.Badges)
+	local games   = toNum(data.CreatedGames)
 	local favs    = toNum(data.Favorites)
+	local groups  = toNum(data.Groups)
+	local playing = (data.PresenceType == 2)
 
-	if days <= 30 then table.insert(reasons, "Creada hace " .. days .. " días") end
-	if friends == 0 then table.insert(reasons, "0 amigos") end
-	if groups == 0 then table.insert(reasons, "0 grupos") end
-	if favs == 0 then table.insert(reasons, "0 favoritos") end
+	local score = 0
+	if badges >= 50 then score = score + 35
+	elseif badges >= 15 then score = score + 25
+	elseif badges >= 5 then score = score + 15
+	elseif badges >= 1 then score = score + 6 end
+	if games >= 1 then score = score + 15 end
+	if favs >= 10 then score = score + 15 elseif favs >= 1 then score = score + 7 end
+	if groups >= 5 then score = score + 15 elseif groups >= 1 then score = score + 7 end
+	if playing then score = score + 20 end
 
-	local isAlt = (#reasons >= 3)
-	return isAlt, reasons
+	score = math.clamp(score, 0, 100)
+	local level, color = "Inactiva", C.subtext
+	if score >= 70 then level, color = "Muy Activa", C.good
+	elseif score >= 45 then level, color = "Activa", C.good
+	elseif score >= 20 then level, color = "Moderada", C.warn end
+	return score, level, color
+end
+
+-- ====================== RESUMEN AUTOMÁTICO ======================
+local function buildSummary(data, trust, trustLvl, alt, altLvl, infl, inflLvl, actLvl)
+	local s = {}
+	local yrs  = data.AccountAgeYears or 0
+	local days = data.AccountAgeDays or 0
+	s[#s+1] = string.format("Cuenta de ~%.1f años (%d días).", yrs, days)
+	s[#s+1] = string.format("Actividad %s; confianza %s (%d/100).", actLvl, trustLvl, trust)
+	s[#s+1] = string.format("Riesgo de alt %s (%d/100).", altLvl, alt)
+	s[#s+1] = string.format("Influencia %s (%d/100).", inflLvl, infl)
+	if data.Verified == "Sí" then s[#s+1] = "Tiene insignia verificada." end
+	if days >= 730 and toNum(data.Badges) == 0 and toNum(data.Groups) == 0 then
+		s[#s+1] = "Atención: cuenta antigua con muy poca actividad (posible cuenta comprada o abandonada)."
+	end
+	if alt >= 60 then
+		s[#s+1] = "El perfil encaja con patrones de cuenta secundaria/alt."
+	elseif alt < 20 then
+		s[#s+1] = "No muestra patrones típicos de alt."
+	end
+	return table.concat(s, " ")
 end
 
 -- ====================== HISTORIAL DE NOMBRES ======================
+-- API username-history: trae los nombres anteriores del usuario.
+-- Páginas de 100, hasta 10 páginas (máx 1000). Devuelve lista única + flag.
 local function getNameHistory(userId)
 	local allNames = {}
 	local cursor = nil
@@ -574,7 +952,7 @@ local function getNameHistory(userId)
 		pagesFetched = pagesFetched + 1
 	until (not cursor) or pagesFetched >= maxPages
 
-	if cursor and pagesFetched >= maxPages then hasMore = true end
+	if cursor and cursor ~= "" and pagesFetched >= maxPages then hasMore = true end
 
 	local seen, unique = {}, {}
 	for _, name in ipairs(allNames) do
@@ -593,7 +971,7 @@ local function gatherData(userId)
 	local profile = apiGet("https://users.roblox.com/v1/users/" .. userId)
 	if not profile then return nil end
 
-	local createdDate, accountAge = formatAge(profile.created)
+	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(profile.created)
 
 	local results = {}
 	local pending = 7
@@ -632,6 +1010,8 @@ local function gatherData(userId)
 		Verified       = profile.hasVerifiedBadge and "Sí" or "No",
 		Created        = createdDate or "No disponible",
 		AccountAge     = accountAge or "No disponible",
+		AccountAgeDays  = accountAgeDays or 0,   -- NÚMERO (fuente única para heurísticas)
+		AccountAgeYears = accountAgeYears or 0,  -- NÚMERO
 		Subscription   = getSubscription(userId),
 		Presence       = presText,
 		PresenceColor  = presColor,
@@ -651,7 +1031,7 @@ end
 
 -- ====================== GUI ======================
 local gui = Instance.new("ScreenGui")
-gui.Name = "ProfileAnalyzer"
+gui.Name = GUI_NAME
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
@@ -675,6 +1055,25 @@ track(gui.AncestryChanged:Connect(function(_, newParent)
 	if not newParent then cleanupAll() end
 end))
 
+-- ====================== MODO DISCRETO (tecla ocultar/mostrar) ======================
+-- Una sola tecla esconde/muestra TODA la interfaz al instante, sin cerrarla ni
+-- perder el análisis cargado. Pensado para no llamar la atención: si alguien
+-- mira tu pantalla, la ocultas y la recuperas con la misma tecla. También hay
+-- un botón "—" en la cabecera que solo oculta (se recupera con la tecla).
+local HIDE_KEY = Enum.KeyCode.RightShift
+local guiHidden = false
+local function setHidden(h)
+	guiHidden = h
+	gui.Enabled = not h
+end
+track(UserInputService.InputBegan:Connect(function(input, processed)
+	-- no togglear si el juego ya procesó la tecla o si estás escribiendo
+	if processed or UserInputService:GetFocusedTextBox() then return end
+	if input.KeyCode == HIDE_KEY then
+		setHidden(not guiHidden)
+	end
+end))
+
 -- ====================== VENTANA ======================
 local MIN_W, MIN_H = 420, 360   -- tamaño mínimo al redimensionar
 local main = Instance.new("Frame")
@@ -687,10 +1086,12 @@ main.Active = true
 main.ClipsDescendants = true
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+themed(main, "BackgroundColor3", "bg")
 local stroke = Instance.new("UIStroke", main)
 stroke.Color = C.accent
 stroke.Transparency = 0.55
 stroke.Thickness = 1.5
+themed(stroke, "Color", "accent")
 
 -- Header
 local header = Instance.new("Frame", main)
@@ -699,25 +1100,71 @@ header.BackgroundColor3 = C.accent
 header.BackgroundTransparency = 0.85
 header.BorderSizePixel = 0
 Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
+themed(header, "BackgroundColor3", "accent")
 
 local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -50, 1, 0)
-title.Position = UDim2.new(0, 14, 0, 0)
+title.Size = UDim2.new(1, -94, 1, 0)
+title.Position = UDim2.new(0, 80, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.Text = "Roblox Profile Analyzer"
 title.TextColor3 = C.accent
 title.TextSize = 18
 title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextTruncate = Enum.TextTruncate.AtEnd
+themed(title, "TextColor3", "accent")
 
-local closeBtn = Instance.new("ImageButton", header)
-closeBtn.Size = UDim2.new(0, 20, 0, 20)
-closeBtn.Position = UDim2.new(1, -30, 0.5, -10)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Image = "rbxassetid://3926305904"
-closeBtn.ImageRectOffset = Vector2.new(244, 204)
-closeBtn.ImageRectSize = Vector2.new(24, 24)
-track(closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end))
+-- ====================== CONTROLES ESTILO macOS / Tor ======================
+-- Los tres "circulitos" arriba a la izquierda, como el navegador en Mac:
+--   rojo = cerrar · amarillo = ocultar (minimizar) · verde = maximizar.
+-- En reposo se ven lisos; al pasar el cursor por encima aparece su símbolo.
+
+-- Maximizar/restaurar: guarda el tamaño/posición previos y alterna a ~90%
+-- de la pantalla. Vuelve a su tamaño original al pulsar de nuevo.
+local maximized, prevSize, prevPos = false, nil, nil
+local function toggleMaximize()
+	if maximized then
+		if prevSize then main.Size = prevSize end
+		if prevPos then main.Position = prevPos end
+		maximized = false
+	else
+		prevSize, prevPos = main.Size, main.Position
+		local cam = workspace.CurrentCamera
+		local vp = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
+		local w = math.max(MIN_W, math.floor(vp.X * 0.9))
+		local h = math.max(MIN_H, math.floor(vp.Y * 0.9))
+		main.Size = UDim2.new(0, w, 0, h)
+		main.Position = UDim2.new(0.5, -w/2, 0.5, -h/2)
+		maximized = true
+	end
+end
+
+local function makeTrafficLight(x, color, glyph, onClick)
+	local b = Instance.new("TextButton", header)
+	b.Size = UDim2.new(0, 14, 0, 14)
+	b.Position = UDim2.new(0, x, 0.5, -7)
+	b.BackgroundColor3 = color
+	b.Text = glyph
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 11
+	b.TextColor3 = Color3.fromRGB(55, 40, 35)   -- símbolo oscuro (estilo Mac)
+	b.TextTransparency = 1                        -- oculto hasta pasar el cursor
+	b.AutoButtonColor = false
+	b.BorderSizePixel = 0
+	b.ZIndex = 3
+	Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)  -- círculo perfecto
+	local st = Instance.new("UIStroke", b)
+	st.Color = Color3.fromRGB(0, 0, 0); st.Transparency = 0.82; st.Thickness = 1
+	b.MouseEnter:Connect(function() b.TextTransparency = 0 end)
+	b.MouseLeave:Connect(function() b.TextTransparency = 1 end)
+	track(b.MouseButton1Click:Connect(onClick))
+	return b
+end
+
+-- rojo / amarillo / verde, espaciados a la izquierda (como en macOS/Tor)
+makeTrafficLight(14, Color3.fromRGB(255, 95, 86),  "×", function() gui:Destroy() end)
+makeTrafficLight(34, Color3.fromRGB(255, 189, 46), "–", function() setHidden(true) end)
+makeTrafficLight(54, Color3.fromRGB(39, 201, 63),  "+", function() toggleMaximize() end)
 
 -- ====================== BÚSQUEDA ======================
 local searchFrame = Instance.new("Frame", main)
@@ -727,7 +1174,7 @@ searchFrame.BackgroundTransparency = 1
 
 local searchBox = Instance.new("TextBox", searchFrame)
 searchBox.Size = UDim2.new(0, 200, 0, 28)
-searchBox.PlaceholderText = "Nombre de usuario o ID"
+searchBox.PlaceholderText = "Usuario o ID"
 searchBox.Text = ""
 searchBox.Font = Enum.Font.Gotham
 searchBox.TextSize = 14
@@ -735,7 +1182,25 @@ searchBox.BackgroundColor3 = C.input
 searchBox.TextColor3 = C.text
 searchBox.ClearTextOnFocus = false
 searchBox.BorderSizePixel = 0
-Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 6)
+searchBox.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 14)
+local sbPad = Instance.new("UIPadding", searchBox)
+sbPad.PaddingLeft = UDim.new(0, 26)
+sbPad.PaddingRight = UDim.new(0, 8)
+themed(searchBox, "BackgroundColor3", "input")
+themed(searchBox, "TextColor3", "text")
+
+-- Candado a la izquierda, look de barra de direcciones de navegador.
+local lockGlyph = Instance.new("TextLabel", searchFrame)
+lockGlyph.Size = UDim2.new(0, 16, 0, 28)
+lockGlyph.Position = UDim2.new(0, 7, 0, 0)
+lockGlyph.BackgroundTransparency = 1
+lockGlyph.Text = "🔒"
+lockGlyph.Font = Enum.Font.Gotham
+lockGlyph.TextSize = 11
+lockGlyph.TextColor3 = C.subtext
+lockGlyph.ZIndex = 2
+themed(lockGlyph, "TextColor3", "subtext")
 
 local SUG_MAX = 5
 local suggestionFrame = Instance.new("Frame", searchFrame)
@@ -845,6 +1310,8 @@ analyzeBtn.TextSize = 14
 analyzeBtn.TextColor3 = C.onAccent
 analyzeBtn.BorderSizePixel = 0
 Instance.new("UICorner", analyzeBtn).CornerRadius = UDim.new(0, 6)
+themed(analyzeBtn, "BackgroundColor3", "accent")
+themed(analyzeBtn, "TextColor3", "onAccent")
 
 local statusLabel = Instance.new("TextLabel", searchFrame)
 statusLabel.Size = UDim2.new(1, -320, 0, 28)
@@ -853,9 +1320,10 @@ statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 13
 statusLabel.TextColor3 = C.subtext
-statusLabel.Text = ""
+statusLabel.Text = "Tip: [RShift] oculta/muestra"
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
+themed(statusLabel, "TextColor3", "subtext")
 
 -- ====================== PESTAÑAS ======================
 local tabBar = Instance.new("ScrollingFrame", main)
@@ -879,7 +1347,33 @@ content.Position = UDim2.new(0, 10, 0, 106)
 content.BackgroundTransparency = 1
 
 local tabs, pages = {}, {}
-local function createTab(name, page)
+local tabByPage = {}      -- page -> botón (para activar una pestaña por código)
+local onShowByPage = {}   -- page -> callback opcional al mostrarse (carga perezosa)
+local activeTab = nil
+local function paintTabs()
+	for _, t in ipairs(tabs) do
+		if t == activeTab then
+			t.BackgroundColor3 = C.accent
+			t.TextColor3 = C.onAccent
+		else
+			t.BackgroundColor3 = C.neutral
+			t.TextColor3 = C.text
+		end
+	end
+end
+onRepaint(paintTabs)
+
+-- Muestra una pestaña por código (la usa el Explorador para saltar a "Perfil").
+local function showPage(page)
+	for _, p in pairs(pages) do p.Visible = false end
+	page.Visible = true
+	activeTab = tabByPage[page]
+	paintTabs()
+	local cb = onShowByPage[page]
+	if cb then pcall(cb) end
+end
+
+local function createTab(name, page, onShow)
 	local btn = Instance.new("TextButton", tabBar)
 	btn.Size = UDim2.new(0, 92, 0, 24)
 	btn.LayoutOrder = #tabs
@@ -890,23 +1384,16 @@ local function createTab(name, page)
 	btn.TextColor3 = C.text
 	btn.BorderSizePixel = 0
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-	track(btn.MouseButton1Click:Connect(function()
-		for _, t in pairs(tabs) do
-			t.BackgroundColor3 = C.neutral
-			t.TextColor3 = C.text          -- inactiva: texto claro sobre negro
-		end
-		for _, p in pairs(pages) do p.Visible = false end
-		btn.BackgroundColor3 = C.accent
-		btn.TextColor3 = C.onAccent        -- activa: texto negro sobre acento blanco
-		page.Visible = true
-	end))
+	tabByPage[page] = btn
+	if onShow then onShowByPage[page] = onShow end
+	track(btn.MouseButton1Click:Connect(function() showPage(page) end))
 	table.insert(tabs, btn)
 	table.insert(pages, page)
 	if #tabs == 1 then
-		btn.BackgroundColor3 = C.accent
-		btn.TextColor3 = C.onAccent
+		activeTab = btn
 		page.Visible = true
 	end
+	paintTabs()
 	return btn
 end
 
@@ -920,6 +1407,7 @@ local function makeScroll(parent)
 	sf.CanvasSize = UDim2.new(0, 0, 0, 0)
 	sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	sf.ClipsDescendants = true
+	themed(sf, "ScrollBarImageColor3", "accent")
 	local layout = Instance.new("UIListLayout", sf)
 	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -952,26 +1440,20 @@ analysisPage.BackgroundTransparency = 1
 analysisPage.Visible = false
 local analysisScroll = makeScroll(analysisPage)
 
-local comparePage = Instance.new("Frame", content)
-comparePage.Size = UDim2.new(1, 0, 1, 0)
-comparePage.BackgroundTransparency = 1
-comparePage.Visible = false
-local compareScroll = makeScroll(comparePage)
-
 local settingsPage = Instance.new("Frame", content)
 settingsPage.Size = UDim2.new(1, 0, 1, 0)
 settingsPage.BackgroundTransparency = 1
 settingsPage.Visible = false
 local settingsScroll = makeScroll(settingsPage)
 
--- ====================== ABRIR URL (intacto) ======================
+-- ====================== ABRIR URL ======================
 local GuiService = game:GetService("GuiService")
 
--- NOTA v2.7.0: se ELIMINÓ la elevación de identidad del hilo
--- (setthreadidentity(8)). Esa línea ponía el script a nivel CoreScript
--- y NO lo regresaba, lo que puede romper sistemas del cliente como el
--- chat de Roblox. Sin eso, OpenBrowserWindow quizá no abra en algunos
--- executors, pero el flujo cae limpio al modal de "copiar link".
+-- NOTA: se ELIMINÓ la elevación de identidad del hilo (setthreadidentity(8)).
+-- Esa línea ponía el script a nivel CoreScript y NO lo regresaba, lo que
+-- puede romper sistemas del cliente como el chat de Roblox. Sin eso,
+-- OpenBrowserWindow quizá no abra en algunos executors, pero el flujo cae
+-- limpio al modal de "copiar link".
 local function openURL(url)
 	local ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
 	if ok then return true end
@@ -1156,13 +1638,7 @@ local function showLinkModal(url)
 end
 
 -- ====================== VISOR DE PERSONAJE (3D + 2D) ======================
--- Modal "épico": muestra el avatar del jugador.
---   • 3D: modelo real (CreateHumanoidModelFromUserId) dentro de un
---         ViewportFrame, que puedes ROTAR arrastrando con el mouse/dedo.
---   • 2D: thumbnails oficiales de Roblox (cuerpo completo / busto / cabeza),
---         con sub-botones para cambiar entre los tres.
 local function showCharacterModal(userId, username)
-	-- limpiar uno previo
 	local prev = gui:FindFirstChild("CharModal")
 	if prev then prev:Destroy() end
 
@@ -1170,24 +1646,33 @@ local function showCharacterModal(userId, username)
 	overlay.Name = "CharModal"
 	overlay.Size = UDim2.new(1, 0, 1, 0)
 	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	overlay.BackgroundTransparency = 0.35
+	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 60
+	TweenService:Create(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.35 }):Play()
 
 	local box = Instance.new("Frame", overlay)
-	box.Size = UDim2.new(0, 420, 0, 500)
-	box.Position = UDim2.new(0.5, -210, 0.5, -250)
+	box.Size = UDim2.new(0, 380, 0, 460)
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.new(0.5, 0, 0.5, 0)
 	box.BackgroundColor3 = C.modalBg
 	box.BorderSizePixel = 0
 	box.ClipsDescendants = true
 	box.ZIndex = 61
 	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
 	local bs = Instance.new("UIStroke", box)
-	bs.Color = C.accent
-	bs.Transparency = 0.4
-	bs.Thickness = 1.5
+	bs.Color = C.accent; bs.Transparency = 0.4; bs.Thickness = 1.5
+	local scale = Instance.new("UIScale", box)
+	scale.Scale = 0.85
+	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 }):Play()
 
-	-- Título
+	local function closeModal()
+		TweenService:Create(scale, TweenInfo.new(0.13), { Scale = 0.85 }):Play()
+		TweenService:Create(overlay, TweenInfo.new(0.13), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.15, function() if overlay and overlay.Parent then overlay:Destroy() end end)
+	end
+
 	local mtitle = Instance.new("TextLabel", box)
 	mtitle.Size = UDim2.new(1, -50, 0, 30)
 	mtitle.Position = UDim2.new(0, 14, 0, 10)
@@ -1195,7 +1680,7 @@ local function showCharacterModal(userId, username)
 	mtitle.Font = Enum.Font.GothamBold
 	mtitle.TextSize = 16
 	mtitle.TextColor3 = C.accent
-	mtitle.Text = "Personaje de " .. tostring(username)
+	mtitle.Text = "Avatar de " .. tostring(username)
 	mtitle.TextXAlignment = Enum.TextXAlignment.Left
 	mtitle.TextTruncate = Enum.TextTruncate.AtEnd
 	mtitle.ZIndex = 62
@@ -1211,99 +1696,34 @@ local function showCharacterModal(userId, username)
 	mClose.BorderSizePixel = 0
 	mClose.ZIndex = 62
 	Instance.new("UICorner", mClose).CornerRadius = UDim.new(0, 6)
-	mClose.MouseButton1Click:Connect(function() overlay:Destroy() end)
+	mClose.MouseButton1Click:Connect(closeModal)
 
-	-- Toggle 3D / 2D
-	local toggle3D = Instance.new("TextButton", box)
-	toggle3D.Size = UDim2.new(0, 90, 0, 26)
-	toggle3D.Position = UDim2.new(0, 14, 0, 46)
-	toggle3D.BackgroundColor3 = C.accent
-	toggle3D.Text = "3D"
-	toggle3D.Font = Enum.Font.GothamBold
-	toggle3D.TextSize = 13
-	toggle3D.TextColor3 = C.onAccent
-	toggle3D.BorderSizePixel = 0
-	toggle3D.ZIndex = 62
-	Instance.new("UICorner", toggle3D).CornerRadius = UDim.new(0, 6)
-
-	local toggle2D = Instance.new("TextButton", box)
-	toggle2D.Size = UDim2.new(0, 90, 0, 26)
-	toggle2D.Position = UDim2.new(0, 110, 0, 46)
-	toggle2D.BackgroundColor3 = C.neutral
-	toggle2D.Text = "2D"
-	toggle2D.Font = Enum.Font.GothamBold
-	toggle2D.TextSize = 13
-	toggle2D.TextColor3 = C.text
-	toggle2D.BorderSizePixel = 0
-	toggle2D.ZIndex = 62
-	Instance.new("UICorner", toggle2D).CornerRadius = UDim.new(0, 6)
-
-	-- Área del lienzo (donde va el viewport 3D o la imagen 2D)
 	local canvas = Instance.new("Frame", box)
-	canvas.Size = UDim2.new(1, -28, 1, -130)
-	canvas.Position = UDim2.new(0, 14, 0, 82)
+	canvas.Size = UDim2.new(1, -28, 1, -56)
+	canvas.Position = UDim2.new(0, 14, 0, 46)
 	canvas.BackgroundColor3 = C.card
 	canvas.BorderSizePixel = 0
 	canvas.ClipsDescendants = true
 	canvas.ZIndex = 61
 	Instance.new("UICorner", canvas).CornerRadius = UDim.new(0, 8)
 
-	-- ---------- VISTA 3D ----------
-	local viewport = Instance.new("ViewportFrame", canvas)
-	viewport.Size = UDim2.new(1, 0, 1, 0)
-	viewport.BackgroundColor3 = C.modalStep
-	viewport.BackgroundTransparency = 0
-	viewport.ZIndex = 62
-	viewport.Ambient = Color3.fromRGB(200, 200, 200)
-	viewport.LightColor = Color3.fromRGB(255, 255, 255)
-	viewport.LightDirection = Vector3.new(-0.4, -1, -0.6)
-	Instance.new("UICorner", viewport).CornerRadius = UDim.new(0, 8)
-
-	-- WorldModel: imprescindible para que accesorios/MeshParts del avatar
-	-- se rendericen dentro del ViewportFrame en versiones modernas.
-	local world = Instance.new("WorldModel")
-	world.Parent = viewport
-
-	local cam = Instance.new("Camera")
-	cam.FieldOfView = 50
-	viewport.CurrentCamera = cam
-	cam.Parent = viewport
-
-	local hint3D = Instance.new("TextLabel", canvas)
-	hint3D.Size = UDim2.new(1, 0, 0, 20)
-	hint3D.Position = UDim2.new(0, 0, 1, -22)
-	hint3D.BackgroundTransparency = 1
-	hint3D.Font = Enum.Font.Gotham
-	hint3D.TextSize = 11
-	hint3D.TextColor3 = C.subtext
-	hint3D.Text = "Cargando modelo 3D..."
-	hint3D.ZIndex = 63
-
-	-- ---------- VISTA 2D ----------
+	-- Vista 2D (miniaturas oficiales): cuerpo / busto / cabeza
 	local img2D = Instance.new("ImageLabel", canvas)
 	img2D.Size = UDim2.new(1, -20, 1, -50)
 	img2D.Position = UDim2.new(0, 10, 0, 10)
 	img2D.BackgroundTransparency = 1
 	img2D.ScaleType = Enum.ScaleType.Fit
-	img2D.Visible = false
 	img2D.ZIndex = 62
 
-	-- sub-botones 2D (cuerpo / busto / cabeza)
 	local subBar = Instance.new("Frame", canvas)
 	subBar.Size = UDim2.new(1, -20, 0, 28)
 	subBar.Position = UDim2.new(0, 10, 1, -36)
 	subBar.BackgroundTransparency = 1
-	subBar.Visible = false
 	subBar.ZIndex = 63
-
-	local function thumbURL(kind)
-		-- usa rbxthumb (carga directa, sin esperas)
-		return ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
-	end
 
 	local sub2DButtons = {}
 	local function set2DKind(kind, btn)
-		img2D.Image = thumbURL(kind)
+		img2D.Image = ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
 		for _, b in ipairs(sub2DButtons) do
 			b.BackgroundColor3 = C.neutral
 			b.TextColor3 = C.text
@@ -1328,136 +1748,8 @@ local function showCharacterModal(userId, username)
 		table.insert(sub2DButtons, b)
 		b.MouseButton1Click:Connect(function() set2DKind(k[2], b) end)
 	end
+	set2DKind("Avatar", sub2DButtons[1])   -- cuerpo entero por defecto
 
-	-- ---------- CARGA DEL MODELO 3D ----------
-	local model
-	local yaw = 0
-	local loaded3D = false
-
-	-- timeout: si en 12s no cargó, avisar
-	task.delay(12, function()
-		if overlay.Parent and not loaded3D then
-			hint3D.Text = "El modelo 3D está tardando o no cargó. Prueba la vista 2D."
-		end
-	end)
-
-	task.spawn(function()
-		local ok, result = pcall(function()
-			return Players:CreateHumanoidModelFromUserId(userId)
-		end)
-		if not overlay.Parent then
-			if ok and result then pcall(function() result:Destroy() end) end
-			return
-		end
-		if not ok or not result then
-			hint3D.Text = "No se pudo cargar el modelo 3D. Usa la vista 2D."
-			return
-		end
-		model = result
-
-		-- anclar todo para que no se caiga ni camine
-		for _, part in ipairs(model:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.Anchored = true
-				part.CanCollide = false
-			end
-		end
-		-- desactivar el Humanoid para que no intente animar/caer
-		local hum = model:FindFirstChildOfClass("Humanoid")
-		if hum then
-			pcall(function() hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end)
-			pcall(function() hum.EvaluateStateMachine = false end)
-		end
-
-		-- mover el modelo al origen (0,0,0) para encuadrar fácil
-		pcall(function() model:PivotTo(CFrame.new(0, 0, 0)) end)
-		model.Parent = world
-
-		-- medir el modelo
-		local center, msize
-		local ok2 = pcall(function() center, msize = model:GetBoundingBox() end)
-		if not ok2 or not center then
-			center = CFrame.new(0, 0, 0)
-			msize = Vector3.new(4, 6, 2)
-		end
-		local target = center.Position
-		local dist = math.max(msize.X, msize.Y, 5) * 1.5 + 3
-
-		local function updateCam()
-			local x = math.sin(yaw) * dist
-			local z = math.cos(yaw) * dist
-			local eye = target + Vector3.new(x, msize.Y * 0.1, z)
-			cam.CFrame = CFrame.lookAt(eye, target)
-		end
-		updateCam()
-		loaded3D = true
-		hint3D.Text = "Arrastra para girar"
-
-		-- rotación: capturamos el arrastre y aplicamos en RenderStepped
-		local dragging, lastX, dxAccum = false, 0, 0
-		local RunService = game:GetService("RunService")
-		local renderConn
-		renderConn = RunService.RenderStepped:Connect(function()
-			if not overlay.Parent or not viewport.Parent then
-				renderConn:Disconnect()
-				return
-			end
-			if dxAccum ~= 0 then
-				yaw = yaw + dxAccum * 0.01
-				dxAccum = 0
-				updateCam()
-			end
-		end)
-
-		viewport.InputBegan:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1
-				or inp.UserInputType == Enum.UserInputType.Touch then
-				dragging = true
-				lastX = inp.Position.X
-			end
-		end)
-		viewport.InputEnded:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1
-				or inp.UserInputType == Enum.UserInputType.Touch then
-				dragging = false
-			end
-		end)
-		viewport.InputChanged:Connect(function(inp)
-			if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
-				or inp.UserInputType == Enum.UserInputType.Touch) then
-				dxAccum = dxAccum + (inp.Position.X - lastX)
-				lastX = inp.Position.X
-			end
-		end)
-	end)
-
-	-- ---------- LÓGICA DE LOS TOGGLES ----------
-	local function show3D()
-		viewport.Visible = true
-		hint3D.Visible = true
-		img2D.Visible = false
-		subBar.Visible = false
-		toggle3D.BackgroundColor3 = C.accent;  toggle3D.TextColor3 = C.onAccent
-		toggle2D.BackgroundColor3 = C.neutral; toggle2D.TextColor3 = C.text
-	end
-	local function show2D()
-		viewport.Visible = false
-		hint3D.Visible = false
-		img2D.Visible = true
-		subBar.Visible = true
-		toggle2D.BackgroundColor3 = C.accent;  toggle2D.TextColor3 = C.onAccent
-		toggle3D.BackgroundColor3 = C.neutral; toggle3D.TextColor3 = C.text
-		if img2D.Image == "" then set2DKind("Avatar", sub2DButtons[1]) end
-	end
-	toggle3D.MouseButton1Click:Connect(show3D)
-	toggle2D.MouseButton1Click:Connect(show2D)
-
-	-- limpiar modelo al cerrar
-	overlay.AncestryChanged:Connect(function(_, parent)
-		if not parent and model then pcall(function() model:Destroy() end) end
-	end)
-
-	-- cerrar tocando el fondo
 	overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch then
@@ -1466,16 +1758,13 @@ local function showCharacterModal(userId, username)
 			local bsz = box.AbsoluteSize
 			if pos.X < bp.X or pos.X > bp.X + bsz.X
 				or pos.Y < bp.Y or pos.Y > bp.Y + bsz.Y then
-				overlay:Destroy()
+				closeModal()
 			end
 		end
 	end)
-
-	show3D()  -- empezar en 3D
 end
 
 -- ====================== RENDER: FILA NORMAL ======================
--- copyable = true agrega un botón "Copiar" a la derecha (para UserId, etc.)
 local function addRow(parent, label, value, copyable, valueColor)
 	local frame = Instance.new("Frame", parent)
 	frame.Size = UDim2.new(1, -4, 0, 28)
@@ -1530,8 +1819,6 @@ local function addRow(parent, label, value, copyable, valueColor)
 end
 
 -- ====================== RENDER: DESCRIPCIÓN EXPANDIBLE ======================
--- Recorta descripciones largas con "Mostrar más" / "Mostrar menos".
--- La tarjeta crece sola y recorta todo lo que sobre (nada se sale del UI).
 local function addDescription(parent, text)
 	text = tostring(text or "Sin descripción")
 
@@ -1572,7 +1859,7 @@ local function addDescription(parent, text)
 	body.TextYAlignment = Enum.TextYAlignment.Top
 	body.Text = text
 
-	local COLLAPSED = 160        -- caracteres visibles cuando está colapsada
+	local COLLAPSED = 160
 	local isLong = #text > COLLAPSED
 	local expanded = false
 
@@ -1649,10 +1936,601 @@ local function addNoteCard(parent, titleText, bodyText, accentColor)
 	return card
 end
 
+-- Barra normalizada 0-100. Devuelve (row, fill, valLabel) para actualizar luego.
+local function addScoreBar(parent, label, score, levelTxt, color, order)
+	local row = Instance.new("Frame", parent)
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, 0, 0, 26)
+	row.BackgroundTransparency = 1
+
+	local lab = Instance.new("TextLabel", row)
+	lab.Size = UDim2.new(0, 88, 1, 0)
+	lab.BackgroundTransparency = 1
+	lab.Font = Enum.Font.Gotham
+	lab.TextSize = 12
+	lab.TextColor3 = C.subtext
+	lab.Text = label
+	lab.TextXAlignment = Enum.TextXAlignment.Left
+
+	local track_ = Instance.new("Frame", row)
+	track_.Position = UDim2.new(0, 92, 0.5, -7)
+	track_.Size = UDim2.new(1, -210, 0, 14)
+	track_.BackgroundColor3 = C.neutral
+	track_.BorderSizePixel = 0
+	Instance.new("UICorner", track_).CornerRadius = UDim.new(0, 4)
+
+	local fill = Instance.new("Frame", track_)
+	fill.Size = UDim2.new(0, 0, 1, 0)        -- arranca en 0 y se anima
+	fill.BackgroundColor3 = color
+	fill.BorderSizePixel = 0
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
+	-- barra de progreso animada
+	TweenService:Create(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+		{ Size = UDim2.new(math.clamp(score / 100, 0, 1), 0, 1, 0) }):Play()
+
+	local val = Instance.new("TextLabel", row)
+	val.Position = UDim2.new(1, -112, 0, 0)
+	val.Size = UDim2.new(0, 112, 1, 0)
+	val.BackgroundTransparency = 1
+	val.Font = Enum.Font.GothamBold
+	val.TextSize = 12
+	val.TextColor3 = color
+	val.Text = string.format("%d%% · %s", score, levelTxt)
+	val.TextXAlignment = Enum.TextXAlignment.Right
+	return row, fill, val
+end
+
 local function clearScroll(sf)
 	for _, c in ipairs(sf:GetChildren()) do
 		if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then c:Destroy() end
 	end
+end
+
+-- ====================== RESOLVER NOMBRES EN LOTE ======================
+-- La lista de amigos a veces NO trae name/displayName (datos parciales sin
+-- sesión). Este endpoint (IDs -> usuarios) sí los devuelve siempre. Lo
+-- pedimos en lotes de 100. Es la razón por la que antes salían vacíos.
+local function resolveNames(ids)
+	local map = {}
+	local chunk = {}
+	local function flush()
+		if #chunk == 0 then return end
+		local res = apiPost("https://users.roblox.com/v1/users", {
+			userIds = chunk, excludeBannedUsers = false,
+		})
+		if res and res.data then
+			for _, u in ipairs(res.data) do
+				map[u.id] = { name = u.name, displayName = u.displayName, verified = u.hasVerifiedBadge }
+			end
+		end
+		chunk = {}
+	end
+	for _, id in ipairs(ids) do
+		table.insert(chunk, id)
+		if #chunk >= 100 then flush() end
+	end
+	flush()
+	return map
+end
+
+-- ====================== TARJETA MODAL (mini-perfil animado) ======================
+-- Tarjeta vertical moderna que se abre con animación (escala + fade) al pulsar
+-- "Analizar →" en un amigo. Muestra avatar, Display Name, @usuario (con copiar),
+-- descripción, amigos y edad de cuenta. Carga los datos en segundo plano.
+local function showMiniProfileCard(userId, fallback)
+	fallback = fallback or {}
+	local prev = gui:FindFirstChild("MiniCard")
+	if prev then prev:Destroy() end
+
+	local overlay = Instance.new("Frame", gui)
+	overlay.Name = "MiniCard"
+	overlay.Size = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 1
+	overlay.BorderSizePixel = 0
+	overlay.ZIndex = 70
+	TweenService:Create(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.45 }):Play()
+
+	local card = Instance.new("Frame", overlay)
+	card.Size = UDim2.new(0, 320, 0, 486)
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.new(0.5, 0, 0.5, 0)
+	card.BackgroundColor3 = C.modalBg
+	card.BorderSizePixel = 0
+	card.ClipsDescendants = true
+	card.ZIndex = 71
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
+	local cstroke = Instance.new("UIStroke", card)
+	cstroke.Color = C.accent; cstroke.Transparency = 0.4; cstroke.Thickness = 1.5
+	local scale = Instance.new("UIScale", card)
+	scale.Scale = 0.85
+	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 }):Play()
+
+	local function closeCard()
+		TweenService:Create(scale, TweenInfo.new(0.14), { Scale = 0.85 }):Play()
+		TweenService:Create(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 }):Play()
+		task.delay(0.16, function() if overlay and overlay.Parent then overlay:Destroy() end end)
+	end
+
+	-- contenido (UIListLayout vertical). La X va fuera del layout.
+	local body = Instance.new("Frame", card)
+	body.Size = UDim2.new(1, 0, 1, 0)
+	body.BackgroundTransparency = 1
+	body.ZIndex = 72
+	local pad = Instance.new("UIPadding", body)
+	pad.PaddingTop = UDim.new(0, 16); pad.PaddingBottom = UDim.new(0, 14)
+	pad.PaddingLeft = UDim.new(0, 14); pad.PaddingRight = UDim.new(0, 14)
+	local lay = Instance.new("UIListLayout", body)
+	lay.Padding = UDim.new(0, 7); lay.SortOrder = Enum.SortOrder.LayoutOrder
+	lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	local xBtn = Instance.new("TextButton", card)
+	xBtn.Size = UDim2.new(0, 26, 0, 26)
+	xBtn.Position = UDim2.new(1, -32, 0, 6)
+	xBtn.BackgroundColor3 = C.neutral
+	xBtn.Text = "X"
+	xBtn.Font = Enum.Font.GothamBold
+	xBtn.TextSize = 14
+	xBtn.TextColor3 = C.text
+	xBtn.BorderSizePixel = 0
+	xBtn.ZIndex = 74
+	Instance.new("UICorner", xBtn).CornerRadius = UDim.new(0, 6)
+	xBtn.MouseButton1Click:Connect(closeCard)
+
+	-- avatar (cuerpo completo)
+	local avatar = Instance.new("ImageLabel", body)
+	avatar.LayoutOrder = 0
+	avatar.Size = UDim2.new(0, 150, 0, 150)
+	avatar.BackgroundColor3 = C.card
+	avatar.BorderSizePixel = 0
+	avatar.Image = ("rbxthumb://type=Avatar&id=%d&w=420&h=420"):format(userId)
+	avatar.ZIndex = 72
+	Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 12)
+
+	local dispLbl = Instance.new("TextLabel", body)
+	dispLbl.LayoutOrder = 1
+	dispLbl.Size = UDim2.new(1, 0, 0, 24)
+	dispLbl.BackgroundTransparency = 1
+	dispLbl.Font = Enum.Font.GothamBold
+	dispLbl.TextSize = 18
+	dispLbl.TextColor3 = C.text
+	dispLbl.Text = fallback.displayName or fallback.name or "Cargando..."
+	dispLbl.TextXAlignment = Enum.TextXAlignment.Center
+	dispLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	dispLbl.ZIndex = 72
+
+	local userLbl = Instance.new("TextLabel", body)
+	userLbl.LayoutOrder = 2
+	userLbl.Size = UDim2.new(1, 0, 0, 16)
+	userLbl.BackgroundTransparency = 1
+	userLbl.Font = Enum.Font.Gotham
+	userLbl.TextSize = 13
+	userLbl.TextColor3 = C.subtext
+	userLbl.Text = "@" .. (fallback.name or "...")
+	userLbl.TextXAlignment = Enum.TextXAlignment.Center
+	userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	userLbl.ZIndex = 72
+
+	local resolvedUser = fallback.name or tostring(userId)
+	local copyBtn = Instance.new("TextButton", body)
+	copyBtn.LayoutOrder = 3
+	copyBtn.Size = UDim2.new(0, 170, 0, 28)
+	copyBtn.BackgroundColor3 = C.accent
+	copyBtn.Text = "Copiar usuario"
+	copyBtn.Font = Enum.Font.GothamBold
+	copyBtn.TextSize = 13
+	copyBtn.TextColor3 = C.onAccent
+	copyBtn.BorderSizePixel = 0
+	copyBtn.ZIndex = 72
+	Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 6)
+	copyBtn.MouseButton1Click:Connect(function()
+		clipboard(resolvedUser)
+		copyBtn.Text = "✓ Copiado"
+		task.delay(1.1, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "Copiar usuario" end end)
+	end)
+
+	local divider = Instance.new("Frame", body)
+	divider.LayoutOrder = 4
+	divider.Size = UDim2.new(1, 0, 0, 1)
+	divider.BackgroundColor3 = C.border
+	divider.BorderSizePixel = 0
+	divider.ZIndex = 72
+
+	-- descripción (altura fija, con scroll si es larga)
+	local descBox = Instance.new("ScrollingFrame", body)
+	descBox.LayoutOrder = 5
+	descBox.Size = UDim2.new(1, 0, 0, 70)
+	descBox.BackgroundColor3 = C.card
+	descBox.BackgroundTransparency = 0.4
+	descBox.BorderSizePixel = 0
+	descBox.ScrollBarThickness = 3
+	descBox.ScrollBarImageColor3 = C.accent
+	descBox.CanvasSize = UDim2.new(0, 0, 0, 0)
+	descBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	descBox.ZIndex = 72
+	Instance.new("UICorner", descBox).CornerRadius = UDim.new(0, 6)
+	local descPad = Instance.new("UIPadding", descBox)
+	descPad.PaddingTop = UDim.new(0, 6); descPad.PaddingBottom = UDim.new(0, 6)
+	descPad.PaddingLeft = UDim.new(0, 8); descPad.PaddingRight = UDim.new(0, 8)
+	local descLbl = Instance.new("TextLabel", descBox)
+	descLbl.Size = UDim2.new(1, 0, 0, 0)
+	descLbl.AutomaticSize = Enum.AutomaticSize.Y
+	descLbl.BackgroundTransparency = 1
+	descLbl.Font = Enum.Font.Gotham
+	descLbl.TextSize = 12
+	descLbl.TextColor3 = C.text
+	descLbl.TextWrapped = true
+	descLbl.TextXAlignment = Enum.TextXAlignment.Left
+	descLbl.TextYAlignment = Enum.TextYAlignment.Top
+	descLbl.Text = "Cargando descripción..."
+	descLbl.ZIndex = 72
+
+	-- filas de info (Amigos, Edad de cuenta, Verificado)
+	local function infoRow(orderN, label)
+		local row = Instance.new("Frame", body)
+		row.LayoutOrder = orderN
+		row.Size = UDim2.new(1, 0, 0, 22)
+		row.BackgroundTransparency = 1
+		row.ZIndex = 72
+		local l = Instance.new("TextLabel", row)
+		l.Size = UDim2.new(0.5, 0, 1, 0)
+		l.BackgroundTransparency = 1
+		l.Font = Enum.Font.Gotham; l.TextSize = 12; l.TextColor3 = C.subtext
+		l.Text = label; l.TextXAlignment = Enum.TextXAlignment.Left; l.ZIndex = 72
+		local v = Instance.new("TextLabel", row)
+		v.Size = UDim2.new(0.5, 0, 1, 0); v.Position = UDim2.new(0.5, 0, 0, 0)
+		v.BackgroundTransparency = 1
+		v.Font = Enum.Font.GothamBold; v.TextSize = 12; v.TextColor3 = C.text
+		v.Text = "..."; v.TextXAlignment = Enum.TextXAlignment.Right
+		v.TextTruncate = Enum.TextTruncate.AtEnd; v.ZIndex = 72
+		return v
+	end
+	local friendsVal = infoRow(6, "Amigos")
+	local ageVal = infoRow(7, "Edad de cuenta")
+	local verVal = infoRow(8, "Verificado")
+
+	-- botón análisis completo (reusa el flujo existente)
+	local fullBtn = Instance.new("TextButton", body)
+	fullBtn.LayoutOrder = 9
+	fullBtn.Size = UDim2.new(1, 0, 0, 30)
+	fullBtn.BackgroundColor3 = C.neutral
+	fullBtn.Text = "Análisis completo →"
+	fullBtn.Font = Enum.Font.GothamBold
+	fullBtn.TextSize = 13
+	fullBtn.TextColor3 = C.text
+	fullBtn.BorderSizePixel = 0
+	fullBtn.ZIndex = 72
+	Instance.new("UICorner", fullBtn).CornerRadius = UDim.new(0, 6)
+	fullBtn.MouseButton1Click:Connect(function()
+		closeCard()
+		searchBox.Text = resolvedUser
+		showPage(profilePage)
+		if analyze then analyze(tostring(userId)) end
+	end)
+
+	-- clic fuera de la tarjeta = cerrar
+	overlay.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			local p = input.Position
+			local bp = card.AbsolutePosition
+			local bs = card.AbsoluteSize
+			if p.X < bp.X or p.X > bp.X + bs.X or p.Y < bp.Y or p.Y > bp.Y + bs.Y then
+				closeCard()
+			end
+		end
+	end)
+
+	-- cargar datos en segundo plano
+	task.spawn(function()
+		local prof = apiGet("https://users.roblox.com/v1/users/" .. userId)
+		local fc = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends/count")
+		if not overlay.Parent then return end
+		if prof then
+			resolvedUser = prof.name or resolvedUser
+			dispLbl.Text = prof.displayName or prof.name or ("ID " .. userId)
+			userLbl.Text = "@" .. (prof.name or "?")
+			descLbl.Text = (prof.description and prof.description ~= "" and prof.description) or "Sin descripción"
+			verVal.Text = prof.hasVerifiedBadge and "Sí" or "No"
+			local _, ageLabel = formatAge(prof.created)
+			ageVal.Text = ageLabel or "No disponible"
+		else
+			descLbl.Text = "No se pudo cargar la info."
+		end
+		friendsVal.Text = (fc and fc.count ~= nil) and tostring(fc.count) or "?"
+	end)
+end
+
+-- ====================== DESPLEGABLE DE AMIGOS (en Estadísticas) ======================
+-- La fila "Amigos" es un botón: al pulsarlo se despliega hacia abajo la lista
+-- de amigos con animación suave (y se cierra al volver a pulsar). Carga perezosa
+-- + nombres resueltos en lote. Cada amigo abre la tarjeta modal al pulsarlo.
+local function addFriendsDropdown(parent, data, order)
+	local MAXH = 300
+	local userId = data.UserId
+
+	local container = Instance.new("Frame", parent)
+	container.LayoutOrder = order
+	container.Size = UDim2.new(1, -4, 0, 0)
+	container.AutomaticSize = Enum.AutomaticSize.Y
+	container.BackgroundTransparency = 1
+	local clay = Instance.new("UIListLayout", container)
+	clay.Padding = UDim.new(0, 4); clay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local header = Instance.new("TextButton", container)
+	header.LayoutOrder = 0
+	header.Size = UDim2.new(1, 0, 0, 28)
+	header.BackgroundColor3 = C.card
+	header.AutoButtonColor = false
+	header.Text = ""
+	header.BorderSizePixel = 0
+	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
+
+	local hName = Instance.new("TextLabel", header)
+	hName.Size = UDim2.new(0.5, -10, 1, 0); hName.Position = UDim2.new(0, 10, 0, 0)
+	hName.BackgroundTransparency = 1; hName.Font = Enum.Font.Gotham; hName.TextSize = 13
+	hName.TextColor3 = C.subtext; hName.Text = "Amigos"; hName.TextXAlignment = Enum.TextXAlignment.Left
+
+	local hVal = Instance.new("TextLabel", header)
+	hVal.Size = UDim2.new(0.5, -38, 1, 0); hVal.Position = UDim2.new(0.5, 0, 0, 0)
+	hVal.BackgroundTransparency = 1; hVal.Font = Enum.Font.GothamBold; hVal.TextSize = 13
+	hVal.TextColor3 = C.text
+	hVal.Text = tostring(data.Friends == nil and "No disponible" or data.Friends)
+	hVal.TextXAlignment = Enum.TextXAlignment.Right; hVal.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local chevron = Instance.new("TextLabel", header)
+	chevron.Size = UDim2.new(0, 26, 1, 0); chevron.Position = UDim2.new(1, -28, 0, 0)
+	chevron.BackgroundTransparency = 1; chevron.Font = Enum.Font.GothamBold; chevron.TextSize = 12
+	chevron.TextColor3 = C.accent; chevron.Text = "▼"; chevron.TextXAlignment = Enum.TextXAlignment.Center
+
+	-- zona desplegable: clip animado + scroll interno
+	local clip = Instance.new("Frame", container)
+	clip.LayoutOrder = 1
+	clip.Size = UDim2.new(1, 0, 0, 0)
+	clip.BackgroundTransparency = 1
+	clip.ClipsDescendants = true
+
+	local inner = Instance.new("ScrollingFrame", clip)
+	inner.Size = UDim2.new(1, 0, 1, 0)
+	inner.BackgroundTransparency = 1
+	inner.BorderSizePixel = 0
+	inner.ScrollBarThickness = 4
+	inner.ScrollBarImageColor3 = C.accent
+	inner.CanvasSize = UDim2.new(0, 0, 0, 0)
+	inner.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	inner.ClipsDescendants = true
+	local ilay = Instance.new("UIListLayout", inner)
+	ilay.Padding = UDim.new(0, 4); ilay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local open, loaded, targetH, shown = false, false, 0, 0
+
+	local function animateTo(h)
+		TweenService:Create(clip, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(1, 0, 0, h) }):Play()
+	end
+
+	local function addCard(info)
+		local id = info.id
+		local cardBtn = Instance.new("TextButton", inner)
+		cardBtn.Size = UDim2.new(1, -6, 0, 44)
+		cardBtn.BackgroundColor3 = C.neutral
+		cardBtn.AutoButtonColor = false
+		cardBtn.Text = ""
+		cardBtn.BorderSizePixel = 0
+		cardBtn.LayoutOrder = shown + 1
+		Instance.new("UICorner", cardBtn).CornerRadius = UDim.new(0, 6)
+
+		local av = Instance.new("ImageLabel", cardBtn)
+		av.Size = UDim2.new(0, 34, 0, 34); av.Position = UDim2.new(0, 5, 0.5, -17)
+		av.BackgroundColor3 = C.card; av.BorderSizePixel = 0
+		av.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(id)
+		Instance.new("UICorner", av).CornerRadius = UDim.new(0, 17)
+
+		local dn = Instance.new("TextLabel", cardBtn)
+		dn.Size = UDim2.new(1, -135, 0, 17); dn.Position = UDim2.new(0, 46, 0, 4)
+		dn.BackgroundTransparency = 1; dn.Font = Enum.Font.GothamBold; dn.TextSize = 13
+		dn.TextColor3 = C.text; dn.Text = info.displayName or info.name or ("ID " .. id)
+		dn.TextXAlignment = Enum.TextXAlignment.Left; dn.TextTruncate = Enum.TextTruncate.AtEnd
+
+		local un = Instance.new("TextLabel", cardBtn)
+		un.Size = UDim2.new(1, -135, 0, 15); un.Position = UDim2.new(0, 46, 0, 23)
+		un.BackgroundTransparency = 1; un.Font = Enum.Font.Gotham; un.TextSize = 12
+		un.TextColor3 = C.subtext; un.Text = "@" .. (info.name or "?")
+		un.TextXAlignment = Enum.TextXAlignment.Left; un.TextTruncate = Enum.TextTruncate.AtEnd
+
+		local go = Instance.new("TextLabel", cardBtn)
+		go.Size = UDim2.new(0, 76, 1, 0); go.Position = UDim2.new(1, -80, 0, 0)
+		go.BackgroundTransparency = 1; go.Font = Enum.Font.GothamBold; go.TextSize = 12
+		go.TextColor3 = C.accent; go.Text = "Analizar →"; go.TextXAlignment = Enum.TextXAlignment.Right
+
+		cardBtn.MouseButton1Click:Connect(function()
+			showMiniProfileCard(id, info)   -- abre la tarjeta modal animada
+		end)
+		shown = shown + 1
+	end
+
+	local function loadFriends()
+		loaded = true
+		local loadingLbl = Instance.new("TextLabel", inner)
+		loadingLbl.LayoutOrder = 0
+		loadingLbl.Size = UDim2.new(1, -6, 0, 24); loadingLbl.BackgroundTransparency = 1
+		loadingLbl.Font = Enum.Font.Gotham; loadingLbl.TextSize = 12; loadingLbl.TextColor3 = C.subtext
+		loadingLbl.Text = "Cargando amigos..."; loadingLbl.TextXAlignment = Enum.TextXAlignment.Left
+		task.spawn(function()
+			local res = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends")
+			if not container.Parent then return end
+			if loadingLbl and loadingLbl.Parent then loadingLbl:Destroy() end
+			if not res or not res.data then
+				local err = Instance.new("TextLabel", inner)
+				err.Size = UDim2.new(1, -6, 0, 24); err.BackgroundTransparency = 1
+				err.Font = Enum.Font.Gotham; err.TextSize = 12; err.TextColor3 = C.bad
+				err.Text = "No disponible (lista privada o falló la API)."
+				err.TextXAlignment = Enum.TextXAlignment.Left
+				task.wait()
+				targetH = math.min(ilay.AbsoluteContentSize.Y, MAXH)
+				if open then animateTo(targetH) end
+				return
+			end
+			-- resolver nombres en lote (la lista a veces no los trae)
+			local ids = {}
+			for _, f in ipairs(res.data) do if f.id then table.insert(ids, f.id) end end
+			local nameMap = resolveNames(ids)
+			if not container.Parent then return end
+			for i, f in ipairs(res.data) do
+				if not container.Parent then return end
+				local m = nameMap[f.id]
+				addCard({
+					id = f.id,
+					name = (m and m.name) or f.name,
+					displayName = (m and m.displayName) or f.displayName or (m and m.name) or f.name,
+				})
+				if i % 25 == 0 then task.wait() end
+			end
+			if shown == 0 then
+				local none = Instance.new("TextLabel", inner)
+				none.Size = UDim2.new(1, -6, 0, 24); none.BackgroundTransparency = 1
+				none.Font = Enum.Font.Gotham; none.TextSize = 12; none.TextColor3 = C.subtext
+				none.Text = "Sin amigos públicos."; none.TextXAlignment = Enum.TextXAlignment.Left
+			else
+				hVal.Text = tostring(shown)
+			end
+			task.wait()  -- deja medir el layout
+			targetH = math.min(ilay.AbsoluteContentSize.Y, MAXH)
+			if open then animateTo(targetH) end
+		end)
+	end
+
+	header.MouseButton1Click:Connect(function()
+		open = not open
+		chevron.Text = open and "▲" or "▼"
+		if open then
+			if not loaded then
+				animateTo(34)        -- muestra "Cargando..."
+				loadFriends()
+			else
+				animateTo(targetH)
+			end
+		else
+			animateTo(0)
+		end
+	end)
+
+	return container
+end
+
+-- ====================== AMISTAD: ESTADO + BOTÓN ROBUSTO ======================
+-- Estado de amistad ENTRE tú y el objetivo: NotFriends / Friends /
+-- RequestSent / RequestReceived. Devuelve el string o nil si falla.
+local function getFriendStatus(targetId)
+	local d = apiGet("https://friends.roblox.com/v1/users/" .. player.UserId
+		.. "/friends/statuses?userIds=" .. targetId)
+	if d and d.data and d.data[1] and d.data[1].status then
+		return d.data[1].status
+	end
+	return nil
+end
+
+-- Botón de solicitud de amistad con: verificación previa del estado (ya amigo /
+-- pendiente / recibida), UN SOLO USO (anti-spam, no repite peticiones), estados
+-- de color (tema/amarillo/verde/rojo) y mensajes de error claros.
+local function buildFriendButton(parent, targetId, order)
+	local frame = Instance.new("Frame", parent)
+	frame.LayoutOrder = order
+	frame.Size = UDim2.new(1, -4, 0, 32)
+	frame.BackgroundTransparency = 1
+
+	local btn = Instance.new("TextButton", frame)
+	btn.Size = UDim2.new(1, 0, 1, 0)
+	btn.BackgroundColor3 = C.neutral
+	btn.Text = "Comprobando estado..."
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.TextColor3 = C.text
+	btn.AutoButtonColor = false
+	btn.BorderSizePixel = 0
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+	local locked = true   -- bloqueado hasta conocer el estado (evita spam)
+	local function setState(text, bg, fg, clickable)
+		btn.Text = text
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = bg }):Play()
+		btn.TextColor3 = fg or C.onAccent
+		btn.AutoButtonColor = clickable and true or false
+		locked = not clickable
+	end
+
+	-- verificación previa del estado de amistad
+	task.spawn(function()
+		local status = getFriendStatus(targetId)
+		if not frame.Parent then return end
+		if status == "Friends" then
+			setState("✓ Ya son amigos", C.good, C.onAccent, false)
+		elseif status == "RequestSent" then
+			setState("Pendiente", C.warn, C.onAccent, false)
+		elseif status == "RequestReceived" then
+			setState("➕ Aceptar solicitud", C.accent, C.onAccent, true)
+		else
+			setState("➕ Enviar solicitud de amistad", C.accent, C.onAccent, true)
+		end
+	end)
+
+	btn.MouseButton1Click:Connect(function()
+		if locked then return end                 -- un solo uso / sin clics múltiples
+		setState("Enviando...", C.warn, C.onAccent, false)
+		task.spawn(function()
+			local body, statusCode, errs = postAuth(
+				"https://friends.roblox.com/v1/users/" .. targetId .. "/request-friendship", {})
+			if not frame.Parent then return end
+			local code = tonumber(statusCode)
+			local ok = (code == 200) and (type(body) ~= "table" or body.success ~= false)
+
+			-- fallback en-juego si la vía web falla y el usuario está en tu servidor
+			if not ok then
+				local fb = false
+				pcall(function()
+					local target = Players:GetPlayerByUserId(targetId)
+					if target then player:RequestFriendship(target); fb = true end
+				end)
+				if fb then ok = true end
+			end
+
+			if ok then
+				setState("✓ Solicitud enviada", C.good, C.onAccent, false)
+				statusLabel.Text = "Solicitud de amistad enviada correctamente."
+				return
+			end
+
+			-- ---- manejo de errores claro ----
+			local errMsg = (errs and errs[1] and errs[1].message) or ""
+			local low = errMsg:lower()
+			if statusCode == "no_http_request" then
+				setState("✕ No disponible", C.bad, C.onAccent, false)
+				statusLabel.Text = "Tu executor no permite enviar solicitudes (sin 'request')."
+			elseif statusCode == "connection_failure" then
+				setState("✕ Error de red — reintentar", C.bad, C.onAccent, true)
+				statusLabel.Text = "Error de red al enviar la solicitud. Reintenta."
+			elseif code == 429 then
+				setState("✕ Límite — reintentar", C.bad, C.onAccent, true)
+				statusLabel.Text = "Demasiadas solicitudes (límite de Roblox). Espera un poco."
+			elseif code == 401 then
+				setState("✕ Sin sesión", C.bad, C.onAccent, false)
+				statusLabel.Text = "El executor no envía tu sesión; Roblox rechazó la solicitud."
+			elseif low:find("already") or low:find("friend") then
+				setState("✓ Ya enviada / amigos", C.good, C.onAccent, false)
+				statusLabel.Text = "Ya son amigos o ya existía una solicitud."
+			elseif low:find("privacy") or low:find("not authorized") or low:find("cannot") or low:find("can't") then
+				setState("✕ No acepta solicitudes", C.bad, C.onAccent, false)
+				statusLabel.Text = "Este usuario no acepta solicitudes (configuración de privacidad)."
+			else
+				setState("✕ Error — reintentar", C.bad, C.onAccent, true)
+				statusLabel.Text = "No se pudo enviar" ..
+					((errMsg ~= "") and (": " .. errMsg) or (" (código " .. tostring(statusCode) .. ")."))
+			end
+		end)
+	end)
+
+	return frame
 end
 
 local currentData = nil
@@ -1682,12 +2560,11 @@ local function render(data)
 		showCharacterModal(data.UserId, data.Username)
 	end)
 
-	-- Botón "Ver personaje 3D / 2D"
 	local viewCharBtn = Instance.new("TextButton", avatarFrame)
 	viewCharBtn.Size = UDim2.new(0, 220, 0, 30)
 	viewCharBtn.Position = UDim2.new(0.5, -110, 0, 160)
 	viewCharBtn.BackgroundColor3 = C.accent
-	viewCharBtn.Text = "👤 Ver personaje (3D / 2D)"
+	viewCharBtn.Text = "👤 Ver avatar"
 	viewCharBtn.Font = Enum.Font.GothamBold
 	viewCharBtn.TextSize = 13
 	viewCharBtn.TextColor3 = C.onAccent
@@ -1697,9 +2574,68 @@ local function render(data)
 		showCharacterModal(data.UserId, data.Username)
 	end)
 
+	-- NX Tag: insignia personalizada bajo el avatar. Oculta por defecto; se llena
+	-- (async) solo si el UserId está en el JSON de NX Tags. No rompe el layout
+	-- porque solo agranda el avatarFrame cuando hay tag que mostrar.
+	local nxChip = Instance.new("Frame", avatarFrame)
+	nxChip.Name = "NXTag"
+	nxChip.AnchorPoint = Vector2.new(0.5, 0)
+	nxChip.Position = UDim2.new(0.5, 0, 0, 196)
+	nxChip.Size = UDim2.new(0, 0, 0, 26)
+	nxChip.AutomaticSize = Enum.AutomaticSize.X
+	nxChip.BackgroundColor3 = C.card
+	nxChip.BackgroundTransparency = 1
+	nxChip.BorderSizePixel = 0
+	nxChip.Visible = false
+	Instance.new("UICorner", nxChip).CornerRadius = UDim.new(0, 13)
+	local nxStroke = Instance.new("UIStroke", nxChip)
+	nxStroke.Thickness = 1.5
+	nxStroke.Transparency = 1
+	local nxPad = Instance.new("UIPadding", nxChip)
+	nxPad.PaddingLeft = UDim.new(0, 12); nxPad.PaddingRight = UDim.new(0, 12)
+	local nxLabel = Instance.new("TextLabel", nxChip)
+	nxLabel.AutomaticSize = Enum.AutomaticSize.X
+	nxLabel.Size = UDim2.new(0, 0, 1, 0)
+	nxLabel.BackgroundTransparency = 1
+	nxLabel.Font = Enum.Font.GothamBold
+	nxLabel.TextSize = 14
+	nxLabel.TextColor3 = C.text
+	nxLabel.Text = ""
+
+	do
+		local renderedFor = data.UserId
+		local function applyTag(t)
+			if not t or not nxChip.Parent then return end
+			if currentData == nil or currentData.UserId ~= renderedFor then return end
+			nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+			nxLabel.TextColor3 = t.color
+			nxStroke.Color = t.color
+			nxStroke.Transparency = 0.25
+			nxChip.BackgroundTransparency = 0.15
+			nxChip.Visible = true
+			avatarFrame.Size = UDim2.new(1, -4, 0, 232)   -- hueco para el chip
+		end
+		local now = getNXTag(data.UserId)
+		if now then
+			applyTag(now)
+		elseif nxTags == nil then
+			-- el JSON aún se está descargando: aplica cuando esté listo
+			task.spawn(function()
+				local tries = 0
+				while nxTags == nil and tries < 40 do task.wait(0.1); tries = tries + 1 end
+				applyTag(getNXTag(renderedFor))
+			end)
+		end
+	end
+
+	-- Botón "Enviar solicitud de amistad" (solo si NO es tu propia cuenta)
+	if data.UserId ~= player.UserId then
+		buildFriendButton(profileScroll, data.UserId, 1)
+	end
+
 	-- Link
 	local linkFrame = Instance.new("Frame", profileScroll)
-	linkFrame.LayoutOrder = 1
+	linkFrame.LayoutOrder = 2
 	linkFrame.Size = UDim2.new(1, -4, 0, 30)
 	linkFrame.BackgroundColor3 = C.card
 	linkFrame.BorderSizePixel = 0
@@ -1759,14 +2695,15 @@ local function render(data)
 		end
 	end)
 
-	-- Estado (presencia en tiempo real)
-	local estadoRow = addRow(profileScroll, "Estado", data.Presence, false, data.PresenceColor)
-	estadoRow.LayoutOrder = 2
+	-- Estado (presencia en tiempo real). Color re-derivado del TIPO (v3.1.0)
+	-- para que respete el tema actual en cada render.
+	local estadoRow = addRow(profileScroll, "Estado", data.Presence, false, presenceColorFor(data.PresenceType))
+	estadoRow.LayoutOrder = 3
 
 	-- Botón "Unirse a su servidor" (solo si está jugando y hay datos públicos)
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
 		local joinFrame = Instance.new("Frame", profileScroll)
-		joinFrame.LayoutOrder = 3
+		joinFrame.LayoutOrder = 4
 		joinFrame.Size = UDim2.new(1, -4, 0, 32)
 		joinFrame.BackgroundTransparency = 1
 		local joinBtn = Instance.new("TextButton", joinFrame)
@@ -1790,28 +2727,32 @@ local function render(data)
 		end)
 	end
 
-	addRow(profileScroll, "Username", data.Username, false).LayoutOrder = 4
-	addRow(profileScroll, "Display Name", data.DisplayName, false).LayoutOrder = 5
-	addRow(profileScroll, "UserId", data.UserId, true).LayoutOrder = 6            -- botón Copiar ID
-	addRow(profileScroll, "Suscripción", data.Subscription, false).LayoutOrder = 7
-	addRow(profileScroll, "Verificado", data.Verified, false).LayoutOrder = 8
+	addRow(profileScroll, "Username", data.Username, false).LayoutOrder = 5
+	addRow(profileScroll, "Display Name", data.DisplayName, false).LayoutOrder = 6
+	addRow(profileScroll, "UserId", data.UserId, true).LayoutOrder = 7            -- botón Copiar ID
+	addRow(profileScroll, "Suscripción", data.Subscription, false).LayoutOrder = 8
+	addRow(profileScroll, "Verificado", data.Verified, false).LayoutOrder = 9
 	addRow(profileScroll, "Baneado", data.Banned, false,
-		(data.Banned == "Sí") and C.bad or C.text).LayoutOrder = 9
-	addRow(profileScroll, "Creación", data.Created, false).LayoutOrder = 10
-	addRow(profileScroll, "Edad de cuenta", data.AccountAge, false).LayoutOrder = 11
-	addDescription(profileScroll, data.Description).LayoutOrder = 12
+		(data.Banned == "Sí") and C.bad or C.text).LayoutOrder = 10
+	addRow(profileScroll, "Creación", data.Created, false).LayoutOrder = 11
+	addRow(profileScroll, "Edad de cuenta", data.AccountAge, false).LayoutOrder = 12
+	addDescription(profileScroll, data.Description).LayoutOrder = 13
 
-	-- Historial de nombres
+	-- ---------- HISTORIAL DE NOMBRES (reincorporado en v3.1.0) ----------
+	-- Tarjeta con el nombre actual + nombres anteriores (API username-history).
+	-- Caché por-sección (data._namesCached) para no re-pedir al cambiar tema.
 	local historyFrame = Instance.new("Frame", profileScroll)
 	historyFrame.Name = "NameHistory"
-	historyFrame.LayoutOrder = 13
+	historyFrame.LayoutOrder = 14
 	historyFrame.Size = UDim2.new(1, -4, 0, 0)
 	historyFrame.BackgroundTransparency = 1
 	historyFrame.AutomaticSize = Enum.AutomaticSize.Y
 	local historyLayout = Instance.new("UIListLayout", historyFrame)
 	historyLayout.Padding = UDim.new(0, 4)
+	historyLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local histTitle = Instance.new("TextLabel", historyFrame)
+	histTitle.LayoutOrder = 0
 	histTitle.Size = UDim2.new(1, 0, 0, 24)
 	histTitle.BackgroundTransparency = 1
 	histTitle.Font = Enum.Font.GothamBold
@@ -1820,92 +2761,119 @@ local function render(data)
 	histTitle.Text = "Historial de nombres"
 	histTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-	local renderedForUserId = data.UserId
+	local loadingHist = Instance.new("TextLabel", historyFrame)
+	loadingHist.LayoutOrder = 1
+	loadingHist.Size = UDim2.new(1, 0, 0, 20)
+	loadingHist.BackgroundTransparency = 1
+	loadingHist.Font = Enum.Font.Gotham
+	loadingHist.TextSize = 12
+	loadingHist.TextColor3 = C.subtext
+	loadingHist.Text = "Cargando..."
+	loadingHist.TextXAlignment = Enum.TextXAlignment.Left
+
+	local historyFor = data.UserId
 	task.spawn(function()
-		local names, hasMore = getNameHistory(data.UserId)
-		if currentData == nil or currentData.UserId ~= renderedForUserId then return end
+		local names, hasMore
+		if data._namesCached ~= nil then
+			names = data._namesCached or nil
+			hasMore = data._namesHasMore or false
+		else
+			names, hasMore = getNameHistory(data.UserId)
+			data._namesCached = names or false
+			data._namesHasMore = hasMore or false
+		end
+		if currentData == nil or currentData.UserId ~= historyFor then return end
 		if not historyFrame.Parent then return end
+		if loadingHist and loadingHist.Parent then loadingHist:Destroy() end
 
 		if not names then
 			local err = Instance.new("TextLabel", historyFrame)
+			err.LayoutOrder = 1
 			err.Size = UDim2.new(1, 0, 0, 20)
 			err.BackgroundTransparency = 1
 			err.Font = Enum.Font.Gotham
 			err.TextSize = 12
 			err.TextColor3 = C.bad
-			err.Text = "No se pudo obtener historial."
+			err.Text = "No se pudo obtener el historial."
 			err.TextXAlignment = Enum.TextXAlignment.Left
-		else
-			local current = Instance.new("Frame", historyFrame)
-			current.Size = UDim2.new(1, 0, 0, 24)
-			current.BackgroundColor3 = C.accent
-			current.BackgroundTransparency = 0.8
-			current.BorderSizePixel = 0
-			current.ClipsDescendants = true
-			Instance.new("UICorner", current).CornerRadius = UDim.new(0, 4)
-			local curLabel = Instance.new("TextLabel", current)
-			curLabel.Size = UDim2.new(1, -10, 1, 0)
-			curLabel.Position = UDim2.new(0, 5, 0, 0)
-			curLabel.BackgroundTransparency = 1
-			curLabel.Font = Enum.Font.GothamBold
-			curLabel.TextSize = 13
-			curLabel.TextColor3 = C.text
-			curLabel.Text = "Actual: " .. data.Username
-			curLabel.TextXAlignment = Enum.TextXAlignment.Left
-			curLabel.TextTruncate = Enum.TextTruncate.AtEnd
+			return
+		end
 
-			if #names > 0 then
-				local prevHeader = Instance.new("TextLabel", historyFrame)
-				prevHeader.Size = UDim2.new(1, 0, 0, 20)
-				prevHeader.BackgroundTransparency = 1
-				prevHeader.Font = Enum.Font.Gotham
-				prevHeader.TextSize = 12
-				prevHeader.TextColor3 = C.subtext
-				prevHeader.Text = "Nombres anteriores:"
-				prevHeader.TextXAlignment = Enum.TextXAlignment.Left
+		-- nombre actual (destacado)
+		local current = Instance.new("Frame", historyFrame)
+		current.LayoutOrder = 1
+		current.Size = UDim2.new(1, 0, 0, 24)
+		current.BackgroundColor3 = C.accent
+		current.BackgroundTransparency = 0.8
+		current.BorderSizePixel = 0
+		current.ClipsDescendants = true
+		Instance.new("UICorner", current).CornerRadius = UDim.new(0, 4)
+		local curLabel = Instance.new("TextLabel", current)
+		curLabel.Size = UDim2.new(1, -10, 1, 0)
+		curLabel.Position = UDim2.new(0, 5, 0, 0)
+		curLabel.BackgroundTransparency = 1
+		curLabel.Font = Enum.Font.GothamBold
+		curLabel.TextSize = 13
+		curLabel.TextColor3 = C.text
+		curLabel.Text = "Actual: " .. data.Username
+		curLabel.TextXAlignment = Enum.TextXAlignment.Left
+		curLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-				for _, name in ipairs(names) do
-					local entry = Instance.new("Frame", historyFrame)
-					entry.Size = UDim2.new(1, 0, 0, 20)
-					entry.BackgroundTransparency = 1
-					entry.ClipsDescendants = true
-					local entryLabel = Instance.new("TextLabel", entry)
-					entryLabel.Size = UDim2.new(1, -10, 1, 0)
-					entryLabel.Position = UDim2.new(0, 5, 0, 0)
-					entryLabel.BackgroundTransparency = 1
-					entryLabel.Font = Enum.Font.Gotham
-					entryLabel.TextSize = 12
-					entryLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-					entryLabel.Text = name
-					entryLabel.TextXAlignment = Enum.TextXAlignment.Left
-					entryLabel.TextTruncate = Enum.TextTruncate.AtEnd
-				end
+		if #names > 0 then
+			local prevHeader = Instance.new("TextLabel", historyFrame)
+			prevHeader.LayoutOrder = 2
+			prevHeader.Size = UDim2.new(1, 0, 0, 20)
+			prevHeader.BackgroundTransparency = 1
+			prevHeader.Font = Enum.Font.Gotham
+			prevHeader.TextSize = 12
+			prevHeader.TextColor3 = C.subtext
+			prevHeader.Text = "Nombres anteriores (" .. #names .. "):"
+			prevHeader.TextXAlignment = Enum.TextXAlignment.Left
 
-				if hasMore then
-					local more = Instance.new("TextLabel", historyFrame)
-					more.Size = UDim2.new(1, 0, 0, 20)
-					more.BackgroundTransparency = 1
-					more.Font = Enum.Font.Gotham
-					more.TextSize = 11
-					more.TextColor3 = Color3.fromRGB(150, 150, 150)
-					more.Text = "Hay más nombres (solo se muestran los primeros 1000)"
-					more.TextXAlignment = Enum.TextXAlignment.Left
-				end
-			else
-				local none = Instance.new("TextLabel", historyFrame)
-				none.Size = UDim2.new(1, 0, 0, 20)
-				none.BackgroundTransparency = 1
-				none.Font = Enum.Font.Gotham
-				none.TextSize = 12
-				none.TextColor3 = Color3.fromRGB(200, 200, 200)
-				none.Text = "Sin nombres anteriores."
-				none.TextXAlignment = Enum.TextXAlignment.Left
+			for i, name in ipairs(names) do
+				local entry = Instance.new("Frame", historyFrame)
+				entry.LayoutOrder = 2 + i
+				entry.Size = UDim2.new(1, 0, 0, 20)
+				entry.BackgroundTransparency = 1
+				entry.ClipsDescendants = true
+				local entryLabel = Instance.new("TextLabel", entry)
+				entryLabel.Size = UDim2.new(1, -10, 1, 0)
+				entryLabel.Position = UDim2.new(0, 5, 0, 0)
+				entryLabel.BackgroundTransparency = 1
+				entryLabel.Font = Enum.Font.Gotham
+				entryLabel.TextSize = 12
+				entryLabel.TextColor3 = C.text
+				entryLabel.Text = "• " .. name
+				entryLabel.TextXAlignment = Enum.TextXAlignment.Left
+				entryLabel.TextTruncate = Enum.TextTruncate.AtEnd
 			end
+
+			if hasMore then
+				local more = Instance.new("TextLabel", historyFrame)
+				more.LayoutOrder = 3 + #names
+				more.Size = UDim2.new(1, 0, 0, 20)
+				more.BackgroundTransparency = 1
+				more.Font = Enum.Font.Gotham
+				more.TextSize = 11
+				more.TextColor3 = C.subtext
+				more.Text = "Hay más nombres (solo se muestran los primeros 1000)."
+				more.TextXAlignment = Enum.TextXAlignment.Left
+			end
+		else
+			local none = Instance.new("TextLabel", historyFrame)
+			none.LayoutOrder = 2
+			none.Size = UDim2.new(1, 0, 0, 20)
+			none.BackgroundTransparency = 1
+			none.Font = Enum.Font.Gotham
+			none.TextSize = 12
+			none.TextColor3 = C.text
+			none.Text = "Sin nombres anteriores."
+			none.TextXAlignment = Enum.TextXAlignment.Left
 		end
 	end)
 
 	-- ---------- PESTAÑA ESTADÍSTICAS ----------
-	addRow(statsScroll, "Amigos", data.Friends, false).LayoutOrder = 1
+	addFriendsDropdown(statsScroll, data, 1)   -- "Amigos" desplegable (lista in-situ)
 	addRow(statsScroll, "Seguidores", data.Followers, false).LayoutOrder = 2
 	addRow(statsScroll, "Siguiendo", data.Following, false).LayoutOrder = 3
 	addRow(statsScroll, "Grupos", data.Groups, false).LayoutOrder = 4
@@ -1941,34 +2909,89 @@ local function render(data)
 		{"Experiencias creadas","CreatedGames"},
 	}
 
-	mkBtn("Copiar TXT", 0).MouseButton1Click:Connect(function()
+	-- Construye las líneas de texto del informe (incluye historial de nombres).
+	local function buildTxtLines()
 		local lines = {}
 		for _, pair in ipairs(order) do
 			table.insert(lines, pair[1] .. ": " .. tostring(data[pair[2]] == nil and "No disponible" or data[pair[2]]))
 		end
-		clipboard(table.concat(lines, "\n"))
-		statusLabel.Text = "Copiado a portapapeles (TXT)"
+		-- Nombres anteriores. Si la API falló o no hay, lo decimos explícito
+		-- en vez de omitir la línea (así el TXT siempre lleva el dato).
+		if type(data._namesCached) == "table" and #data._namesCached > 0 then
+			local extra = data._namesHasMore and " (y más)" or ""
+			lines[#lines+1] = "Nombres anteriores: " .. table.concat(data._namesCached, ", ") .. extra
+		elseif data._namesCached == false then
+			lines[#lines+1] = "Nombres anteriores: no disponible"
+		else
+			lines[#lines+1] = "Nombres anteriores: ninguno"
+		end
+		return lines
+	end
+
+	-- Copia "limpia" de data para exportar: sin los campos de caché internos
+	-- (prefijo "_") y con los nombres anteriores ya incluidos.
+	local function buildExportData()
+		local out = {}
+		for k, v in pairs(data) do
+			if type(k) ~= "string" or k:sub(1, 1) ~= "_" then
+				out[k] = v
+			end
+		end
+		out.NombresAnteriores = (type(data._namesCached) == "table") and data._namesCached or {}
+		return out
+	end
+
+	-- Asegura que el historial de nombres esté en caché antes de exportar.
+	-- Si aún no se pidió (p. ej. no abriste la pestaña Perfil), lo pide bajo
+	-- demanda y ejecuta "after" al terminar. Reusa la caché si ya existe.
+	local function withNames(prepMsg, after)
+		if data._namesCached ~= nil then
+			after()
+			return
+		end
+		statusLabel.Text = prepMsg
+		local wantFor = data.UserId
+		task.spawn(function()
+			local names, hasMore = getNameHistory(data.UserId)
+			data._namesCached = names or false
+			data._namesHasMore = hasMore or false
+			-- Si cambiaste de perfil mientras se pedía, no copiamos ni
+			-- pisamos el estado del perfil nuevo.
+			if currentData and currentData.UserId ~= wantFor then return end
+			after()
+		end)
+	end
+
+	mkBtn("Copiar TXT", 0).MouseButton1Click:Connect(function()
+		withNames("Preparando TXT (historial de nombres)...", function()
+			clipboard(table.concat(buildTxtLines(), "\n"))
+			statusLabel.Text = "Copiado a portapapeles (TXT)"
+		end)
 	end)
 
 	mkBtn("Copiar JSON", 140).MouseButton1Click:Connect(function()
-		clipboard(HttpService:JSONEncode(data))
-		statusLabel.Text = "Copiado a portapapeles (JSON)"
+		withNames("Preparando JSON (historial de nombres)...", function()
+			clipboard(HttpService:JSONEncode(buildExportData()))
+			statusLabel.Text = "Copiado a portapapeles (JSON)"
+		end)
 	end)
 
-	-- ---------- PESTAÑA ITEMS (avatar + grupos + badges + RAP) ----------
-	-- Items equipados (grid con miniaturas)
+	-- ---------- PESTAÑA ITEMS (avatar + precio + grupos + badges + RAP) ----------
+	local priceCard = addNoteCard(itemsScroll, "💰 Precio del avatar", "Calculando...", C.good)
+	priceCard.LayoutOrder = 1
+
 	local itemsCard = addNoteCard(itemsScroll, "🎽 Items equipados", "Cargando...", C.accent)
-	itemsCard.LayoutOrder = 1
+	itemsCard.LayoutOrder = 2
 
 	local groupsCard = addNoteCard(itemsScroll, "👥 Grupos", "Cargando...", C.accent)
-	groupsCard.LayoutOrder = 2
+	groupsCard.LayoutOrder = 3
 
 	local badgesCard = addNoteCard(itemsScroll, "🏅 Badges recientes", "Cargando...", C.accent)
-	badgesCard.LayoutOrder = 3
+	badgesCard.LayoutOrder = 4
 
 	local rapCard = addNoteCard(itemsScroll, "💎 RAP (valor limiteds)",
 		"Consultando Rolimon's (web externa)...", C.warn)
-	rapCard.LayoutOrder = 4
+	rapCard.LayoutOrder = 5
 
 	local function bodyOf(card)
 		for _, ch in ipairs(card:GetChildren()) do
@@ -1977,20 +3000,40 @@ local function render(data)
 	end
 
 	local itemsFor = data.UserId
-	-- Items
 	task.spawn(function()
-		local items = getWornItems(data.UserId)
+		local items, total
+		if data._itemsCached ~= nil then
+			items = data._itemsCached or nil
+			total = data._itemsTotalCached or 0
+		else
+			items, total = getWornItems(data.UserId)
+			data._itemsCached = items or false
+			data._itemsTotalCached = total or 0
+		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
-		local b = bodyOf(itemsCard); if not b then return end
-		if not items then b.Text = "No disponible." ; return end
-		if #items == 0 then b.Text = "No lleva items equipados." ; return end
-		-- listar nombres (texto) + un grid de miniaturas debajo
+		local b = bodyOf(itemsCard)
+		local pb = bodyOf(priceCard)
+		if not items then
+			if b then b.Text = "No disponible." end
+			if pb then pb.Text = "No disponible." end
+			return
+		end
+		if #items == 0 then
+			if b then b.Text = "No lleva items equipados." end
+			if pb then pb.Text = "0 R$ (sin items con precio)." end
+			return
+		end
+		if pb then
+			pb.Text = "≈ " .. tostring(total) .. " R$ en total\n"
+				.. "(Suma del precio de catálogo de lo equipado. Aproximado: "
+				.. "los items gratis o sin precio cuentan como 0.)"
+		end
 		local names = {}
 		for _, it in ipairs(items) do
-			table.insert(names, "• " .. (it.name or ("Asset " .. it.id)))
+			local priceTxt = (it.price and it.price > 0) and (" — " .. it.price .. " R$") or ""
+			table.insert(names, "• " .. (it.name or ("Asset " .. it.id)) .. priceTxt)
 		end
-		b.Text = #items .. " item(s):\n" .. table.concat(names, "\n")
-		-- grid de miniaturas
+		if b then b.Text = #items .. " item(s):\n" .. table.concat(names, "\n") end
 		local grid = Instance.new("Frame", itemsCard)
 		grid.LayoutOrder = 2
 		grid.Size = UDim2.new(1, 0, 0, 0)
@@ -2009,9 +3052,14 @@ local function render(data)
 		end
 	end)
 
-	-- Grupos con rango
 	task.spawn(function()
-		local groups = getGroupsDetailed(data.UserId)
+		local groups
+		if data._groupsCached ~= nil then
+			groups = data._groupsCached or nil
+		else
+			groups = getGroupsDetailed(data.UserId)
+			data._groupsCached = groups or false
+		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(groupsCard); if not b then return end
 		if not groups then b.Text = "No disponible." ; return end
@@ -2023,9 +3071,14 @@ local function render(data)
 		b.Text = #groups .. " grupo(s):\n" .. table.concat(lines, "\n")
 	end)
 
-	-- Badges recientes
 	task.spawn(function()
-		local badges = getRecentBadges(data.UserId, 12)
+		local badges
+		if data._badgesCached ~= nil then
+			badges = data._badgesCached or nil
+		else
+			badges = getRecentBadges(data.UserId, 12)
+			data._badgesCached = badges or false
+		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(badgesCard); if not b then return end
 		if not badges then b.Text = "No disponible." ; return end
@@ -2035,110 +3088,143 @@ local function render(data)
 		b.Text = "Últimos " .. #badges .. ":\n" .. table.concat(lines, "\n")
 	end)
 
-	-- RAP (externo)
 	task.spawn(function()
-		local rap = getRAP(data.UserId)
+		local rapVal
+		if data._rapCached ~= nil then
+			rapVal = data._rapCached or nil
+		else
+			local rap = getRAP(data.UserId)
+			rapVal = rap and tonumber(rap.rap) or nil
+			data._rapCached = rapVal or false
+		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(rapCard); if not b then return end
-		if not rap or not rap.rap then
+		if not rapVal or rapVal <= 0 then
 			b.Text = "No disponible (la web externa no respondió o tu executor la bloquea). No es un dato oficial de Roblox."
 			return
 		end
-		b.Text = "RAP estimado: " .. tostring(rap.rap) .. " R$\n(Fuente: Rolimon's, valor aproximado, NO oficial.)"
+		b.Text = "RAP estimado: " .. tostring(rapVal) .. " R$\n(Fuente: Rolimon's, valor aproximado, NO oficial.)"
 	end)
 
 	-- ---------- PESTAÑA ANÁLISIS ----------
-	-- Score de confianza (heurística 0-100) + desglose
-	local trustScore, trustLabel, trustColor, trustReasons, tDays, tFriends, tGroups, tBadges = computeTrust(data)
+	local trustScore, trustLvl, trustColor, trustReasons = computeTrust(data)
+	local altScore,   altLvl,   altColor,   altSignals, altBreakdown = computeAltRisk(data)
+	local actScore,   actLvl,   actColor                 = computeActivity(data)
+	local inflScore,  inflLvl,  inflColor                = computeInfluence(data, nil)
+
+	local advCard = Instance.new("Frame", analysisScroll)
+	advCard.LayoutOrder = 1
+	advCard.Size = UDim2.new(1, -4, 0, 0)
+	advCard.AutomaticSize = Enum.AutomaticSize.Y
+	advCard.BackgroundColor3 = C.card
+	advCard.BorderSizePixel = 0
+	advCard.ClipsDescendants = true
+	Instance.new("UICorner", advCard).CornerRadius = UDim.new(0, 4)
+	local advStroke = Instance.new("UIStroke", advCard)
+	advStroke.Color = C.accent; advStroke.Transparency = 0.4
+	local advPad = Instance.new("UIPadding", advCard)
+	advPad.PaddingTop = UDim.new(0,8); advPad.PaddingBottom = UDim.new(0,8)
+	advPad.PaddingLeft = UDim.new(0,10); advPad.PaddingRight = UDim.new(0,10)
+	local advLay = Instance.new("UIListLayout", advCard)
+	advLay.Padding = UDim.new(0, 6); advLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local advTitle = Instance.new("TextLabel", advCard)
+	advTitle.LayoutOrder = 0; advTitle.Size = UDim2.new(1,0,0,20)
+	advTitle.BackgroundTransparency = 1
+	advTitle.Font = Enum.Font.GothamBold; advTitle.TextSize = 14
+	advTitle.TextColor3 = C.accent
+	advTitle.Text = "🔍 Análisis avanzado"
+	advTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
+	addScoreBar(advCard, "Actividad", actScore, actLvl, actColor, 2)
+	local _, inflFill, inflVal = addScoreBar(advCard, "Influencia", inflScore, inflLvl, inflColor, 3)
+	addScoreBar(advCard, "Riesgo ALT", altScore, altLvl, altColor, 4)
+
+	local summaryLbl = Instance.new("TextLabel", advCard)
+	summaryLbl.LayoutOrder = 5
+	summaryLbl.Size = UDim2.new(1, 0, 0, 0)
+	summaryLbl.AutomaticSize = Enum.AutomaticSize.Y
+	summaryLbl.BackgroundTransparency = 1
+	summaryLbl.Font = Enum.Font.Gotham; summaryLbl.TextSize = 12
+	summaryLbl.TextColor3 = C.text
+	summaryLbl.TextWrapped = true
+	summaryLbl.TextXAlignment = Enum.TextXAlignment.Left
+	summaryLbl.TextYAlignment = Enum.TextYAlignment.Top
+	summaryLbl.Text = buildSummary(data, trustScore, trustLvl, altScore, altLvl, inflScore, inflLvl, actLvl)
+
+	-- RAP llega async → recalcula Influencia (usa el RAP cacheado si ya está)
+	local advFor = data.UserId
+	task.spawn(function()
+		local rapVal
+		if data._rapCached ~= nil then
+			rapVal = data._rapCached or nil
+		else
+			local rap = getRAP(data.UserId)
+			rapVal = rap and tonumber(rap.rap) or nil
+			data._rapCached = rapVal or false
+		end
+		if currentData == nil or currentData.UserId ~= advFor then return end
+		if not advCard.Parent then return end
+		if rapVal and rapVal > 0 then
+			local ns, nl, nc = computeInfluence(data, rapVal)
+			inflFill.Size = UDim2.new(math.clamp(ns/100, 0, 1), 0, 1, 0)
+			inflFill.BackgroundColor3 = nc
+			inflVal.Text = string.format("%d/100 · %s (incl. RAP)", ns, nl)
+			inflVal.TextColor3 = nc
+			summaryLbl.Text = buildSummary(data, trustScore, trustLvl, altScore, altLvl, ns, nl, actLvl)
+		end
+	end)
+
 	addNoteCard(analysisScroll,
-		"🛡️ Confianza: " .. trustScore .. "/100  (" .. trustLabel .. ")",
-		"Puntaje heurístico (NO oficial) combinando antigüedad, amigos, grupos, "
-		.. "badges y verificación.\n\nDesglose:\n• " .. table.concat(trustReasons, "\n• "),
-		trustColor).LayoutOrder = 1
+		"🛡️ Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")",
+		"Puntaje heurístico (NO oficial). Desglose:\n• " .. table.concat(trustReasons, "\n• "),
+		trustColor).LayoutOrder = 2
 
-	-- Gráfico simple antigüedad vs actividad (barras)
-	local graphCard = Instance.new("Frame", analysisScroll)
-	graphCard.LayoutOrder = 2
-	graphCard.Size = UDim2.new(1, -4, 0, 0)
-	graphCard.AutomaticSize = Enum.AutomaticSize.Y
-	graphCard.BackgroundColor3 = C.card
-	graphCard.BorderSizePixel = 0
-	graphCard.ClipsDescendants = true
-	Instance.new("UICorner", graphCard).CornerRadius = UDim.new(0, 4)
-	local gcStroke = Instance.new("UIStroke", graphCard); gcStroke.Color = C.accent; gcStroke.Transparency = 0.5
-	local gpad = Instance.new("UIPadding", graphCard)
-	gpad.PaddingTop = UDim.new(0,8); gpad.PaddingBottom = UDim.new(0,8)
-	gpad.PaddingLeft = UDim.new(0,10); gpad.PaddingRight = UDim.new(0,10)
-	local glay = Instance.new("UIListLayout", graphCard)
-	glay.Padding = UDim.new(0, 6); glay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local gh = Instance.new("TextLabel", graphCard)
-	gh.LayoutOrder = 0; gh.Size = UDim2.new(1,0,0,20); gh.BackgroundTransparency = 1
-	gh.Font = Enum.Font.GothamBold; gh.TextSize = 14; gh.TextColor3 = C.accent
-	gh.Text = "📈 Antigüedad vs Actividad"; gh.TextXAlignment = Enum.TextXAlignment.Left
-
-	local function bar(label, value, maxValue, order)
-		local row = Instance.new("Frame", graphCard)
-		row.LayoutOrder = order; row.Size = UDim2.new(1, 0, 0, 22); row.BackgroundTransparency = 1
-		local lab = Instance.new("TextLabel", row)
-		lab.Size = UDim2.new(0, 90, 1, 0); lab.BackgroundTransparency = 1
-		lab.Font = Enum.Font.Gotham; lab.TextSize = 12; lab.TextColor3 = C.subtext
-		lab.Text = label; lab.TextXAlignment = Enum.TextXAlignment.Left
-		local track_ = Instance.new("Frame", row)
-		track_.Position = UDim2.new(0, 94, 0.5, -7); track_.Size = UDim2.new(1, -130, 0, 14)
-		track_.BackgroundColor3 = C.neutral; track_.BorderSizePixel = 0
-		Instance.new("UICorner", track_).CornerRadius = UDim.new(0, 4)
-		local frac = math.clamp((maxValue > 0) and (value / maxValue) or 0, 0, 1)
-		local fill = Instance.new("Frame", track_)
-		fill.Size = UDim2.new(frac, 0, 1, 0); fill.BackgroundColor3 = C.accent; fill.BorderSizePixel = 0
-		Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
-		local val = Instance.new("TextLabel", row)
-		val.Position = UDim2.new(1, -32, 0, 0); val.Size = UDim2.new(0, 32, 1, 0)
-		val.BackgroundTransparency = 1; val.Font = Enum.Font.GothamBold; val.TextSize = 12
-		val.TextColor3 = C.text; val.Text = tostring(value); val.TextXAlignment = Enum.TextXAlignment.Right
-	end
-	-- escalamos cada métrica a un máximo razonable para verlas comparables
-	bar("Días", tDays, 2000, 1)
-	bar("Amigos", tFriends, 200, 2)
-	bar("Grupos", tGroups, 20, 3)
-	bar("Badges", tBadges, 50, 4)
-
-	local infLevel, infColor = computeInfluence(data)
-	addNoteCard(analysisScroll,
-		"📊 Influencia: " .. infLevel,
-		"Estimación (heurística, NO oficial) calculada con seguidores, grupos, "
-		.. "favoritos y antigüedad de la cuenta. Es solo una referencia.",
-		infColor).LayoutOrder = 3
-
-	local isAlt, reasons = computeAlt(data)
-	if isAlt then
-		addNoteCard(analysisScroll,
-			"⚠️ Posible alt",
-			"Indicios (heurística, NO confirmado): " .. table.concat(reasons, ", ")
-			.. ". Esto NO prueba que sea un alt; solo son señales típicas de cuentas nuevas/secundarias.",
-			C.warn).LayoutOrder = 4
+	-- Riesgo ALT: explicación contextual (según nivel) + factores con ✓ +
+	-- desglose ponderado por área (transparencia del modelo).
+	local altContext
+	if altScore >= 61 then
+		altContext = "Esta cuenta presenta varias características comunes en cuentas "
+			.. "secundarias (alt)."
+	elseif altScore >= 41 then
+		altContext = "Señales mixtas: podría ser un alt o una cuenta nueva/poco activa "
+			.. "pero legítima."
 	else
-		addNoteCard(analysisScroll,
-			"✅ Sin señales de alt",
-			"La cuenta no cumple los criterios típicos de un alt (cuenta nueva con 0 amigos/grupos/favoritos). "
-			.. "Recuerda que esto es solo una heurística.",
-			C.good).LayoutOrder = 4
+		altContext = "La cuenta NO muestra patrones típicos de cuenta secundaria."
 	end
+	local altFactorsTxt = (#altSignals == 0)
+		and "Factores detectados:\n(ninguno relevante)"
+		or  ("Factores detectados:\n✓ " .. table.concat(altSignals, "\n✓ "))
+	local bd = {}
+	for _, b in ipairs(altBreakdown) do
+		bd[#bd + 1] = string.format("• %s: %d/100 (peso %d%%)", b[1], b[2], b[3])
+	end
+	addNoteCard(analysisScroll,
+		"🧪 Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")",
+		altContext .. "\n\n" .. altFactorsTxt
+			.. "\n\nDesglose ponderado (riesgo por área):\n" .. table.concat(bd, "\n")
+			.. "\n\nHeurística sobre datos públicos: NO prueba que la cuenta sea un alt.",
+		altColor).LayoutOrder = 3
 
-	-- Amigos en común (asíncrono; solo para otros usuarios)
 	local mutualCard = addNoteCard(analysisScroll,
 		"👥 Amigos en común",
 		(data.UserId == player.UserId) and "Estás viendo tu propia cuenta." or "Calculando...",
 		C.accent)
-	mutualCard.LayoutOrder = 5
+	mutualCard.LayoutOrder = 4
 
 	if data.UserId ~= player.UserId then
 		local renderedFor = data.UserId
 		task.spawn(function()
-			local mutual = getMutualFriends(data.UserId)
+			local mutual
+			if data._mutualCached ~= nil then
+				mutual = data._mutualCached or nil
+			else
+				mutual = getMutualFriends(data.UserId)
+				data._mutualCached = mutual or false
+			end
 			if currentData == nil or currentData.UserId ~= renderedFor then return end
 			if not mutualCard.Parent then return end
-			-- actualizar el cuerpo de la tarjeta (segundo hijo TextLabel)
 			local bodyLabel
 			for _, ch in ipairs(mutualCard:GetChildren()) do
 				if ch:IsA("TextLabel") and ch.LayoutOrder == 1 then bodyLabel = ch end
@@ -2156,405 +3242,128 @@ local function render(data)
 	end
 end
 
--- ====================== PESTAÑA COMPARAR + EXTRAS (historial/favoritos/temas) ======================
--- Forward declaration usada por analyze().
-local refreshExtras
-
--- Contenedor del comparador (input de 2 usuarios + resultado lado a lado)
-local cmpInputCard = Instance.new("Frame", compareScroll)
-cmpInputCard.LayoutOrder = 1
-cmpInputCard.Size = UDim2.new(1, -4, 0, 0)
-cmpInputCard.AutomaticSize = Enum.AutomaticSize.Y
-cmpInputCard.BackgroundColor3 = C.card
-cmpInputCard.BorderSizePixel = 0
-Instance.new("UICorner", cmpInputCard).CornerRadius = UDim.new(0, 4)
-local cmpPad = Instance.new("UIPadding", cmpInputCard)
-cmpPad.PaddingTop = UDim.new(0,8); cmpPad.PaddingBottom = UDim.new(0,8)
-cmpPad.PaddingLeft = UDim.new(0,10); cmpPad.PaddingRight = UDim.new(0,10)
-local cmpLay = Instance.new("UIListLayout", cmpInputCard)
-cmpLay.Padding = UDim.new(0,6); cmpLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-local cmpTitle = Instance.new("TextLabel", cmpInputCard)
-cmpTitle.LayoutOrder = 0; cmpTitle.Size = UDim2.new(1,0,0,20); cmpTitle.BackgroundTransparency = 1
-cmpTitle.Font = Enum.Font.GothamBold; cmpTitle.TextSize = 14; cmpTitle.TextColor3 = C.accent
-cmpTitle.Text = "⚖️ Comparar dos cuentas"; cmpTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local function cmpBox(order, ph)
-	local tb = Instance.new("TextBox", cmpInputCard)
-	tb.LayoutOrder = order; tb.Size = UDim2.new(1, 0, 0, 28)
-	tb.BackgroundColor3 = C.input; tb.PlaceholderText = ph; tb.Text = ""
-	tb.Font = Enum.Font.Gotham; tb.TextSize = 13; tb.TextColor3 = C.text
-	tb.ClearTextOnFocus = false; tb.BorderSizePixel = 0
-	Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
-	return tb
-end
-local cmpA = cmpBox(1, "Usuario o ID  (A)")
-local cmpB = cmpBox(2, "Usuario o ID  (B)")
-
-local cmpBtn = Instance.new("TextButton", cmpInputCard)
-cmpBtn.LayoutOrder = 3; cmpBtn.Size = UDim2.new(1, 0, 0, 30)
-cmpBtn.BackgroundColor3 = C.accent; cmpBtn.Text = "Comparar"
-cmpBtn.Font = Enum.Font.GothamBold; cmpBtn.TextSize = 14; cmpBtn.TextColor3 = C.onAccent
-cmpBtn.BorderSizePixel = 0
-Instance.new("UICorner", cmpBtn).CornerRadius = UDim.new(0, 6)
-
--- Tarjeta de resultados del comparador
-local cmpResult = Instance.new("Frame", compareScroll)
-cmpResult.LayoutOrder = 2
-cmpResult.Size = UDim2.new(1, -4, 0, 0)
-cmpResult.AutomaticSize = Enum.AutomaticSize.Y
-cmpResult.BackgroundColor3 = C.card
-cmpResult.BorderSizePixel = 0
-cmpResult.Visible = false
-Instance.new("UICorner", cmpResult).CornerRadius = UDim.new(0, 4)
-local crPad = Instance.new("UIPadding", cmpResult)
-crPad.PaddingTop = UDim.new(0,8); crPad.PaddingBottom = UDim.new(0,8)
-crPad.PaddingLeft = UDim.new(0,10); crPad.PaddingRight = UDim.new(0,10)
-local crLay = Instance.new("UIListLayout", cmpResult)
-crLay.Padding = UDim.new(0,3); crLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-local function cmpResolve(input)
-	input = (input or ""):gsub("%s", "")
-	if input == "" then return nil end
-	local id = tonumber(input)
-	if not id then id = (getUserIdByName(input)) end
-	if not id then return nil end
-	return gatherData(id)
-end
-
-local cmpRunning = false
-cmpBtn.MouseButton1Click:Connect(function()
-	if cmpRunning then return end
-	cmpRunning = true
-	cmpBtn.Text = "Comparando..."
-	task.spawn(function()
-		local a = cmpResolve(cmpA.Text)
-		local b = cmpResolve(cmpB.Text)
-		cmpBtn.Text = "Comparar"
-		cmpRunning = false
-		for _, ch in ipairs(cmpResult:GetChildren()) do
-			if ch:IsA("Frame") or ch:IsA("TextLabel") then ch:Destroy() end
-		end
-		if not a or not b then
-			cmpResult.Visible = true
-			local e = Instance.new("TextLabel", cmpResult)
-			e.Size = UDim2.new(1,0,0,20); e.BackgroundTransparency = 1
-			e.Font = Enum.Font.Gotham; e.TextSize = 12; e.TextColor3 = C.bad
-			e.Text = "No se pudo cargar una o ambas cuentas."
-			e.TextXAlignment = Enum.TextXAlignment.Left
-			return
-		end
-		cmpResult.Visible = true
-
-		-- Encabezado: columna fija + dos columnas de nombres
-		local headRow = Instance.new("Frame", cmpResult)
-		headRow.LayoutOrder = 0; headRow.Size = UDim2.new(1, 0, 0, 24); headRow.BackgroundTransparency = 1
-		local hSpacer = Instance.new("TextLabel", headRow)
-		hSpacer.Size = UDim2.new(0.30, -4, 1, 0); hSpacer.BackgroundTransparency = 1
-		hSpacer.Font = Enum.Font.GothamBold; hSpacer.TextSize = 12; hSpacer.TextColor3 = C.subtext
-		hSpacer.Text = "Campo"; hSpacer.TextXAlignment = Enum.TextXAlignment.Left
-		local hA = Instance.new("TextLabel", headRow)
-		hA.Position = UDim2.new(0.30, 0, 0, 0); hA.Size = UDim2.new(0.35, -4, 1, 0); hA.BackgroundTransparency = 1
-		hA.Font = Enum.Font.GothamBold; hA.TextSize = 12; hA.TextColor3 = C.accent
-		hA.Text = "A: " .. a.Username; hA.TextXAlignment = Enum.TextXAlignment.Left
-		hA.TextTruncate = Enum.TextTruncate.AtEnd
-		local hB = Instance.new("TextLabel", headRow)
-		hB.Position = UDim2.new(0.65, 0, 0, 0); hB.Size = UDim2.new(0.35, -4, 1, 0); hB.BackgroundTransparency = 1
-		hB.Font = Enum.Font.GothamBold; hB.TextSize = 12; hB.TextColor3 = C.accent
-		hB.Text = "B: " .. b.Username; hB.TextXAlignment = Enum.TextXAlignment.Left
-		hB.TextTruncate = Enum.TextTruncate.AtEnd
-
-		local fields = {
-			{"Edad", "AccountAge"}, {"Amigos","Friends"}, {"Seguidores","Followers"},
-			{"Siguiendo","Following"}, {"Grupos","Groups"}, {"Badges","Badges"},
-			{"Favoritos","Favorites"}, {"Verificado","Verified"},
-			{"Baneado","Banned"}, {"Suscripción","Subscription"}, {"Estado","Presence"},
-		}
-		-- para comparar numéricamente y resaltar el mayor
-		local function numOf(v)
-			if v == nil then return nil end
-			local n = tostring(v):match("(%d+)")
-			return n and tonumber(n) or nil
-		end
-
-		for i, f in ipairs(fields) do
-			local row = Instance.new("Frame", cmpResult)
-			row.LayoutOrder = i
-			row.Size = UDim2.new(1, 0, 0, 0)
-			row.AutomaticSize = Enum.AutomaticSize.Y
-			row.BackgroundColor3 = (i % 2 == 0) and C.neutral or C.card
-			row.BackgroundTransparency = 0.4
-			row.BorderSizePixel = 0
-			Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-			local rpad = Instance.new("UIPadding", row)
-			rpad.PaddingTop = UDim.new(0,3); rpad.PaddingBottom = UDim.new(0,3)
-			rpad.PaddingLeft = UDim.new(0,4); rpad.PaddingRight = UDim.new(0,4)
-
-			local lab = Instance.new("TextLabel", row)
-			lab.Size = UDim2.new(0.30, -4, 1, 0); lab.BackgroundTransparency = 1
-			lab.Font = Enum.Font.Gotham; lab.TextSize = 11; lab.TextColor3 = C.subtext
-			lab.Text = f[1]; lab.TextXAlignment = Enum.TextXAlignment.Left
-			lab.TextYAlignment = Enum.TextYAlignment.Top
-			lab.TextWrapped = true
-
-			local av = (a[f[2]] == nil) and "-" or tostring(a[f[2]])
-			local bv = (b[f[2]] == nil) and "-" or tostring(b[f[2]])
-			local na, nb = numOf(av), numOf(bv)
-			local colA, colB = C.text, C.text
-			if na and nb and na ~= nb then
-				if na > nb then colA = C.good else colB = C.good end
-			end
-
-			local va = Instance.new("TextLabel", row)
-			va.Position = UDim2.new(0.30, 0, 0, 0); va.Size = UDim2.new(0.35, -4, 1, 0)
-			va.BackgroundTransparency = 1
-			va.Font = Enum.Font.GothamBold; va.TextSize = 11; va.TextColor3 = colA
-			va.Text = av; va.TextXAlignment = Enum.TextXAlignment.Left
-			va.TextYAlignment = Enum.TextYAlignment.Top
-			va.TextWrapped = true
-
-			local vb = Instance.new("TextLabel", row)
-			vb.Position = UDim2.new(0.65, 0, 0, 0); vb.Size = UDim2.new(0.35, -4, 1, 0)
-			vb.BackgroundTransparency = 1
-			vb.Font = Enum.Font.GothamBold; vb.TextSize = 11; vb.TextColor3 = colB
-			vb.Text = bv; vb.TextXAlignment = Enum.TextXAlignment.Left
-			vb.TextYAlignment = Enum.TextYAlignment.Top
-			vb.TextWrapped = true
-		end
-	end)
-end)
-
--- Tarjeta de AUTO-EXECUTE (en Ajustes)
-local aeCard = Instance.new("Frame", settingsScroll)
-aeCard.LayoutOrder = 1
-aeCard.Size = UDim2.new(1, -4, 0, 0)
-aeCard.AutomaticSize = Enum.AutomaticSize.Y
-aeCard.BackgroundColor3 = C.card
-aeCard.BorderSizePixel = 0
-Instance.new("UICorner", aeCard).CornerRadius = UDim.new(0, 4)
-local aeStroke = Instance.new("UIStroke", aeCard); aeStroke.Color = C.accent; aeStroke.Transparency = 0.5
-local aePad = Instance.new("UIPadding", aeCard)
-aePad.PaddingTop = UDim.new(0,8); aePad.PaddingBottom = UDim.new(0,8)
-aePad.PaddingLeft = UDim.new(0,10); aePad.PaddingRight = UDim.new(0,10)
-local aeLay = Instance.new("UIListLayout", aeCard)
-aeLay.Padding = UDim.new(0,6); aeLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-local aeTitle = Instance.new("TextLabel", aeCard)
-aeTitle.LayoutOrder = 0; aeTitle.Size = UDim2.new(1,0,0,20); aeTitle.BackgroundTransparency = 1
-aeTitle.Font = Enum.Font.GothamBold; aeTitle.TextSize = 14; aeTitle.TextColor3 = C.accent
-aeTitle.Text = "⚙️ Auto-Execute"; aeTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local aeDesc = Instance.new("TextLabel", aeCard)
-aeDesc.LayoutOrder = 1; aeDesc.Size = UDim2.new(1,0,0,0); aeDesc.AutomaticSize = Enum.AutomaticSize.Y
-aeDesc.BackgroundTransparency = 1; aeDesc.Font = Enum.Font.Gotham; aeDesc.TextSize = 11
-aeDesc.TextColor3 = C.subtext; aeDesc.TextWrapped = true; aeDesc.TextXAlignment = Enum.TextXAlignment.Left
-aeDesc.Text = "Ejecuta el script solo al entrar al juego. Necesita que tu executor "
-	.. "tenga carpeta autoexec y la URL de tu script (loadstring)."
-
-local aeUrl = Instance.new("TextBox", aeCard)
-aeUrl.LayoutOrder = 2; aeUrl.Size = UDim2.new(1, 0, 0, 28)
-aeUrl.BackgroundColor3 = C.input; aeUrl.PlaceholderText = "URL del script (https://...)"
-aeUrl.Text = store.autoexecUrl or ""
-aeUrl.Font = Enum.Font.Code; aeUrl.TextSize = 12; aeUrl.TextColor3 = C.text
-aeUrl.ClearTextOnFocus = false; aeUrl.BorderSizePixel = 0; aeUrl.TextXAlignment = Enum.TextXAlignment.Left
-Instance.new("UICorner", aeUrl).CornerRadius = UDim.new(0, 6)
-local aeUrlPad = Instance.new("UIPadding", aeUrl); aeUrlPad.PaddingLeft = UDim.new(0,8); aeUrlPad.PaddingRight = UDim.new(0,8)
-aeUrl.FocusLost:Connect(function()
-	store.autoexecUrl = aeUrl.Text:gsub("%s", "")
-	saveStore()
-end)
-
-local aeToggle = Instance.new("TextButton", aeCard)
-aeToggle.LayoutOrder = 3; aeToggle.Size = UDim2.new(1, 0, 0, 30)
-aeToggle.Font = Enum.Font.GothamBold; aeToggle.TextSize = 14; aeToggle.BorderSizePixel = 0
-Instance.new("UICorner", aeToggle).CornerRadius = UDim.new(0, 6)
-
-local aeStatus = Instance.new("TextLabel", aeCard)
-aeStatus.LayoutOrder = 4; aeStatus.Size = UDim2.new(1,0,0,0); aeStatus.AutomaticSize = Enum.AutomaticSize.Y
-aeStatus.BackgroundTransparency = 1; aeStatus.Font = Enum.Font.Gotham; aeStatus.TextSize = 11
-aeStatus.TextColor3 = C.subtext; aeStatus.TextWrapped = true; aeStatus.TextXAlignment = Enum.TextXAlignment.Left
-aeStatus.Text = ""
-
-local function refreshAeToggle()
-	if store.autoexec then
-		aeToggle.Text = "✓ Auto-Execute ACTIVADO (click para desactivar)"
-		aeToggle.BackgroundColor3 = C.good; aeToggle.TextColor3 = C.onAccent
-	else
-		aeToggle.Text = "Activar Auto-Execute"
-		aeToggle.BackgroundColor3 = C.neutral; aeToggle.TextColor3 = C.text
+-- Hook del tema en vivo: al cambiar color, repaint() pinta el chrome y
+-- rerenderCurrent reconstruye las pestañas de contenido con el tema nuevo.
+rerenderCurrent = function()
+	if currentData then
+		pcall(render, currentData)
 	end
 end
-refreshAeToggle()
 
-aeToggle.MouseButton1Click:Connect(function()
-	if store.autoexec then
-		autoexecDisable()
-		store.autoexec = false
+-- ====================== PESTAÑA AJUSTES (solo Tema, en vivo) ======================
+do
+	local themeCard = Instance.new("Frame", settingsScroll)
+	themeCard.LayoutOrder = 1
+	themeCard.Size = UDim2.new(1, -4, 0, 0)
+	themeCard.AutomaticSize = Enum.AutomaticSize.Y
+	themeCard.BackgroundColor3 = C.card
+	themeCard.BorderSizePixel = 0
+	Instance.new("UICorner", themeCard).CornerRadius = UDim.new(0, 4)
+	themed(themeCard, "BackgroundColor3", "card")
+	local thPad = Instance.new("UIPadding", themeCard)
+	thPad.PaddingTop = UDim.new(0,8); thPad.PaddingBottom = UDim.new(0,8)
+	thPad.PaddingLeft = UDim.new(0,10); thPad.PaddingRight = UDim.new(0,10)
+	local thLay = Instance.new("UIListLayout", themeCard)
+	thLay.Padding = UDim.new(0,6); thLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local thTitle = Instance.new("TextLabel", themeCard)
+	thTitle.LayoutOrder = 0; thTitle.Size = UDim2.new(1,0,0,20); thTitle.BackgroundTransparency = 1
+	thTitle.Font = Enum.Font.GothamBold; thTitle.TextSize = 14; thTitle.TextColor3 = C.accent
+	thTitle.Text = "🎨 Tema (se aplica al instante)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(thTitle, "TextColor3", "accent")
+
+	local thBtnRow = Instance.new("Frame", themeCard)
+	thBtnRow.LayoutOrder = 1; thBtnRow.Size = UDim2.new(1, 0, 0, 28); thBtnRow.BackgroundTransparency = 1
+	local thBtnLay = Instance.new("UIListLayout", thBtnRow)
+	thBtnLay.FillDirection = Enum.FillDirection.Horizontal; thBtnLay.Padding = UDim.new(0, 6)
+
+	local thInfo = Instance.new("TextLabel", themeCard)
+	thInfo.LayoutOrder = 2; thInfo.Size = UDim2.new(1,0,0,16); thInfo.BackgroundTransparency = 1
+	thInfo.Font = Enum.Font.Gotham; thInfo.TextSize = 11; thInfo.TextColor3 = C.subtext
+	thInfo.Text = "Tema actual: " .. store.theme; thInfo.TextXAlignment = Enum.TextXAlignment.Left
+	themed(thInfo, "TextColor3", "subtext")
+
+	local themeButtons = {}
+	local function paintThemeButtons()
+		for _, b in ipairs(themeButtons) do
+			local sel = (store.theme == b.Text)
+			b.BackgroundColor3 = sel and C.accent or C.neutral
+			b.TextColor3 = sel and C.onAccent or C.text
+		end
+	end
+	onRepaint(paintThemeButtons)
+
+	local themeOrder = { "negro", "azul", "verde", "tor" }
+	for _, tn in ipairs(themeOrder) do
+		local tb = Instance.new("TextButton", thBtnRow)
+		tb.Size = UDim2.new(1/#themeOrder, -5, 1, 0)
+		tb.BackgroundColor3 = (store.theme == tn) and C.accent or C.neutral
+		tb.TextColor3 = (store.theme == tn) and C.onAccent or C.text
+		tb.Text = tn; tb.Font = Enum.Font.GothamBold; tb.TextSize = 12; tb.BorderSizePixel = 0
+		Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 5)
+		table.insert(themeButtons, tb)
+		tb.MouseButton1Click:Connect(function()
+			setTheme(tn)                 -- cambia el tema EN VIVO (sin reabrir)
+			thInfo.Text = "Tema actual: " .. tn
+			paintThemeButtons()
+		end)
+	end
+	paintThemeButtons()
+
+	-- ====== NX Head Tags (toggle · Fase 1 de integración) ======
+	-- Solo enciende/apaga el módulo NX V2 vía su API pública. NO cambia su
+	-- comportamiento ni toca sus internos. Si el módulo no está cargado, el
+	-- toggle igual guarda la preferencia (se aplicará cuando exista).
+	local nxCard = Instance.new("Frame", settingsScroll)
+	nxCard.LayoutOrder = 2
+	nxCard.Size = UDim2.new(1, -4, 0, 0)
+	nxCard.AutomaticSize = Enum.AutomaticSize.Y
+	nxCard.BackgroundColor3 = C.card
+	nxCard.BorderSizePixel = 0
+	Instance.new("UICorner", nxCard).CornerRadius = UDim.new(0, 4)
+	themed(nxCard, "BackgroundColor3", "card")
+	local nxPad = Instance.new("UIPadding", nxCard)
+	nxPad.PaddingTop = UDim.new(0, 8); nxPad.PaddingBottom = UDim.new(0, 8)
+	nxPad.PaddingLeft = UDim.new(0, 10); nxPad.PaddingRight = UDim.new(0, 10)
+	local nxLay = Instance.new("UIListLayout", nxCard)
+	nxLay.Padding = UDim.new(0, 6); nxLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local nxTitle = Instance.new("TextLabel", nxCard)
+	nxTitle.LayoutOrder = 0; nxTitle.Size = UDim2.new(1, 0, 0, 20); nxTitle.BackgroundTransparency = 1
+	nxTitle.Font = Enum.Font.GothamBold; nxTitle.TextSize = 14; nxTitle.TextColor3 = C.accent
+	nxTitle.Text = "🏷️ NX Head Tags"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(nxTitle, "TextColor3", "accent")
+
+	local nxDesc = Instance.new("TextLabel", nxCard)
+	nxDesc.LayoutOrder = 1; nxDesc.Size = UDim2.new(1, 0, 0, 16); nxDesc.BackgroundTransparency = 1
+	nxDesc.Font = Enum.Font.Gotham; nxDesc.TextSize = 11; nxDesc.TextColor3 = C.subtext
+	nxDesc.Text = "Etiquetas sobre la cabeza de usuarios NX (solo las ves tú)."
+	nxDesc.TextXAlignment = Enum.TextXAlignment.Left
+	themed(nxDesc, "TextColor3", "subtext")
+
+	local nxToggle = Instance.new("TextButton", nxCard)
+	nxToggle.LayoutOrder = 2; nxToggle.Size = UDim2.new(0, 130, 0, 28)
+	nxToggle.Font = Enum.Font.GothamBold; nxToggle.TextSize = 13; nxToggle.BorderSizePixel = 0
+	Instance.new("UICorner", nxToggle).CornerRadius = UDim.new(0, 5)
+
+	local function paintNxToggle()
+		local on = store.headTags
+		nxToggle.Text = on and "Activado ✓" or "Desactivado"
+		nxToggle.BackgroundColor3 = on and C.good or C.neutral
+		nxToggle.TextColor3 = on and C.onAccent or C.text
+	end
+	paintNxToggle()
+	onRepaint(paintNxToggle)
+
+	nxToggle.MouseButton1Click:Connect(function()
+		store.headTags = not store.headTags
 		saveStore()
-		aeStatus.Text = "Auto-execute desactivado."
-		refreshAeToggle()
-	else
-		local ok, msg = autoexecEnable(aeUrl.Text:gsub("%s", ""))
-		aeStatus.Text = msg
-		aeStatus.TextColor3 = ok and C.good or C.bad
-		if ok then
-			store.autoexec = true
-			store.autoexecUrl = aeUrl.Text:gsub("%s", "")
-			saveStore()
-			refreshAeToggle()
-		end
-	end
-end)
-
--- Tarjeta de TEMAS (en Ajustes)
-local themeCard = Instance.new("Frame", settingsScroll)
-themeCard.LayoutOrder = 3
-themeCard.Size = UDim2.new(1, -4, 0, 0)
-themeCard.AutomaticSize = Enum.AutomaticSize.Y
-themeCard.BackgroundColor3 = C.card
-themeCard.BorderSizePixel = 0
-Instance.new("UICorner", themeCard).CornerRadius = UDim.new(0, 4)
-local thPad = Instance.new("UIPadding", themeCard)
-thPad.PaddingTop = UDim.new(0,8); thPad.PaddingBottom = UDim.new(0,8)
-thPad.PaddingLeft = UDim.new(0,10); thPad.PaddingRight = UDim.new(0,10)
-local thLay = Instance.new("UIListLayout", themeCard)
-thLay.Padding = UDim.new(0,6); thLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-local thTitle = Instance.new("TextLabel", themeCard)
-thTitle.LayoutOrder = 0; thTitle.Size = UDim2.new(1,0,0,20); thTitle.BackgroundTransparency = 1
-thTitle.Font = Enum.Font.GothamBold; thTitle.TextSize = 14; thTitle.TextColor3 = C.accent
-thTitle.Text = "🎨 Tema (se aplica al reabrir)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local thBtnRow = Instance.new("Frame", themeCard)
-thBtnRow.LayoutOrder = 1; thBtnRow.Size = UDim2.new(1, 0, 0, 28); thBtnRow.BackgroundTransparency = 1
-local thBtnLay = Instance.new("UIListLayout", thBtnRow)
-thBtnLay.FillDirection = Enum.FillDirection.Horizontal; thBtnLay.Padding = UDim.new(0, 6)
-
-local thInfo = Instance.new("TextLabel", themeCard)
-thInfo.LayoutOrder = 2; thInfo.Size = UDim2.new(1,0,0,16); thInfo.BackgroundTransparency = 1
-thInfo.Font = Enum.Font.Gotham; thInfo.TextSize = 11; thInfo.TextColor3 = C.subtext
-thInfo.Text = "Tema actual: " .. store.theme; thInfo.TextXAlignment = Enum.TextXAlignment.Left
-
-for _, tn in ipairs({ "negro", "azul", "verde" }) do
-	local tb = Instance.new("TextButton", thBtnRow)
-	tb.Size = UDim2.new(0, 80, 1, 0)
-	tb.BackgroundColor3 = (store.theme == tn) and C.accent or C.neutral
-	tb.TextColor3 = (store.theme == tn) and C.onAccent or C.text
-	tb.Text = tn; tb.Font = Enum.Font.GothamBold; tb.TextSize = 12; tb.BorderSizePixel = 0
-	Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 5)
-	tb.MouseButton1Click:Connect(function()
-		store.theme = tn
-		saveStore()
-		thInfo.Text = "Guardado: " .. tn .. ". Cierra y reabre el script para verlo."
-		for _, b in ipairs(thBtnRow:GetChildren()) do
-			if b:IsA("TextButton") then
-				b.BackgroundColor3 = (b.Text == tn) and C.accent or C.neutral
-				b.TextColor3 = (b.Text == tn) and C.onAccent or C.text
-			end
+		paintNxToggle()
+		if _G.NXHeadTags then
+			_G.NXHeadTags.SetEnabled(store.headTags)
 		end
 	end)
 end
-
--- Tarjeta de HISTORIAL (en Ajustes)
-local histCard = Instance.new("Frame", settingsScroll)
-histCard.LayoutOrder = 4
-histCard.Size = UDim2.new(1, -4, 0, 0)
-histCard.AutomaticSize = Enum.AutomaticSize.Y
-histCard.BackgroundColor3 = C.card
-histCard.BorderSizePixel = 0
-Instance.new("UICorner", histCard).CornerRadius = UDim.new(0, 4)
-local hcPad = Instance.new("UIPadding", histCard)
-hcPad.PaddingTop = UDim.new(0,8); hcPad.PaddingBottom = UDim.new(0,8)
-hcPad.PaddingLeft = UDim.new(0,10); hcPad.PaddingRight = UDim.new(0,10)
-local hcLay = Instance.new("UIListLayout", histCard)
-hcLay.Padding = UDim.new(0,4); hcLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-local hcTitle = Instance.new("TextLabel", histCard)
-hcTitle.LayoutOrder = 0; hcTitle.Size = UDim2.new(1,0,0,20); hcTitle.BackgroundTransparency = 1
-hcTitle.Font = Enum.Font.GothamBold; hcTitle.TextSize = 14; hcTitle.TextColor3 = C.accent
-hcTitle.Text = "🕘 Historial / Favoritos"; hcTitle.TextXAlignment = Enum.TextXAlignment.Left
-
--- fila reutilizable: nombre + botón ★ favorito + botón "ver"
-local function makeListRow(parent, order, entry, isFav)
-	local row = Instance.new("Frame", parent)
-	row.LayoutOrder = order; row.Size = UDim2.new(1, 0, 0, 26); row.BackgroundColor3 = C.neutral
-	row.BorderSizePixel = 0
-	Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-	local nm = Instance.new("TextButton", row)
-	nm.Size = UDim2.new(1, -90, 1, 0); nm.Position = UDim2.new(0, 8, 0, 0)
-	nm.BackgroundTransparency = 1; nm.Font = Enum.Font.Gotham; nm.TextSize = 12
-	nm.TextColor3 = C.text; nm.TextXAlignment = Enum.TextXAlignment.Left
-	nm.Text = (entry.display or entry.name or ("ID " .. entry.id)) .. "  (@" .. (entry.name or entry.id) .. ")"
-	nm.TextTruncate = Enum.TextTruncate.AtEnd
-	nm.MouseButton1Click:Connect(function()
-		searchBox.Text = entry.name or tostring(entry.id)
-		-- saltar a la pestaña Perfil
-		if tabs[1] then
-			for _, t in pairs(tabs) do t.BackgroundColor3 = C.neutral; t.TextColor3 = C.text end
-			for _, p in pairs(pages) do p.Visible = false end
-			tabs[1].BackgroundColor3 = C.accent; tabs[1].TextColor3 = C.onAccent
-			pages[1].Visible = true
-		end
-		if analyze then analyze(entry.name or tostring(entry.id)) end
-	end)
-	-- estrella favorito
-	local star = Instance.new("TextButton", row)
-	star.Size = UDim2.new(0, 26, 0, 20); star.Position = UDim2.new(1, -32, 0.5, -10)
-	star.BackgroundTransparency = 1; star.Font = Enum.Font.GothamBold; star.TextSize = 16
-	star.Text = isFav and "★" or "☆"
-	star.TextColor3 = isFav and C.warn or C.subtext
-	star.MouseButton1Click:Connect(function()
-		-- toggle en favoritos
-		local found = false
-		for i = #store.favorites, 1, -1 do
-			if store.favorites[i].id == entry.id then table.remove(store.favorites, i); found = true end
-		end
-		if not found then table.insert(store.favorites, 1, entry) end
-		saveStore()
-		if refreshExtras then refreshExtras() end
-	end)
-	return row
-end
-
-refreshExtras = function()
-	-- limpiar filas previas (todo menos el título y layout/padding)
-	for _, c in ipairs(histCard:GetChildren()) do
-		if (c:IsA("Frame") or c:IsA("TextLabel")) and c ~= hcTitle then c:Destroy() end
-	end
-	local order = 1
-	-- favoritos primero
-	if #store.favorites > 0 then
-		local favHdr = Instance.new("TextLabel", histCard)
-		favHdr.LayoutOrder = order; order = order + 1
-		favHdr.Size = UDim2.new(1,0,0,16); favHdr.BackgroundTransparency = 1
-		favHdr.Font = Enum.Font.Gotham; favHdr.TextSize = 11; favHdr.TextColor3 = C.warn
-		favHdr.Text = "Favoritos:"; favHdr.TextXAlignment = Enum.TextXAlignment.Left
-		for _, e in ipairs(store.favorites) do
-			makeListRow(histCard, order, e, true); order = order + 1
-		end
-	end
-	-- historial
-	local hsHdr = Instance.new("TextLabel", histCard)
-	hsHdr.LayoutOrder = order; order = order + 1
-	hsHdr.Size = UDim2.new(1,0,0,16); hsHdr.BackgroundTransparency = 1
-	hsHdr.Font = Enum.Font.Gotham; hsHdr.TextSize = 11; hsHdr.TextColor3 = C.subtext
-	hsHdr.Text = "Recientes:"; hsHdr.TextXAlignment = Enum.TextXAlignment.Left
-	if #store.history == 0 then
-		local none = Instance.new("TextLabel", histCard)
-		none.LayoutOrder = order; order = order + 1
-		none.Size = UDim2.new(1,0,0,18); none.BackgroundTransparency = 1
-		none.Font = Enum.Font.Gotham; none.TextSize = 11; none.TextColor3 = C.subtext
-		none.Text = (hasFS and "Aún no has buscado a nadie." or "Tu executor no guarda archivos (sesión temporal).")
-		none.TextXAlignment = Enum.TextXAlignment.Left
-	else
-		for _, e in ipairs(store.history) do
-			local isFav = false
-			for _, f in ipairs(store.favorites) do if f.id == e.id then isFav = true break end end
-			makeListRow(histCard, order, e, isFav); order = order + 1
-		end
-	end
-end
-refreshExtras()
 
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
@@ -2602,15 +3411,6 @@ analyze = function(input)
 			profileCache[userId] = data
 			render(data)
 			statusLabel.Text = "Listo."
-			-- Guardar en historial (sin duplicados, máx 15, lo más reciente arriba)
-			local entry = { id = data.UserId, name = data.Username, display = data.DisplayName }
-			for i = #store.history, 1, -1 do
-				if store.history[i].id == data.UserId then table.remove(store.history, i) end
-			end
-			table.insert(store.history, 1, entry)
-			while #store.history > 15 do table.remove(store.history) end
-			saveStore()
-			if refreshExtras then refreshExtras() end
 		end
 		analyzing = false
 	end)
@@ -2625,7 +3425,6 @@ createTab("Perfil", profilePage)
 createTab("Estadísticas", statsPage)
 createTab("Items", itemsPage)
 createTab("Análisis", analysisPage)
-createTab("Comparar", comparePage)
 createTab("Ajustes", settingsPage)
 
 -- ====================== ARRASTRE (sin conexión global permanente) ======================
@@ -2658,8 +3457,6 @@ track(header.InputBegan:Connect(function(input)
 end))
 
 -- ====================== REDIMENSIONAR (agarre esquina inferior derecha) ======================
--- Mismo patrón que el arrastre: solo conecta InputChanged mientras
--- redimensionas activamente, para no tirar FPS.
 local resizeGrip = Instance.new("TextButton", main)
 resizeGrip.Name = "ResizeGrip"
 resizeGrip.Size = UDim2.new(0, 18, 0, 18)
@@ -2674,6 +3471,8 @@ resizeGrip.AutoButtonColor = false
 resizeGrip.BorderSizePixel = 0
 resizeGrip.ZIndex = 5
 Instance.new("UICorner", resizeGrip).CornerRadius = UDim.new(0, 4)
+themed(resizeGrip, "BackgroundColor3", "accent")
+themed(resizeGrip, "TextColor3", "onAccent")
 
 local resInputConn, resEndedConn
 local function stopResize()
@@ -2706,74 +3505,956 @@ if not httpRequest then
 	statusLabel.Text = "Aviso: " .. EXECUTOR_NAME .. " no expone 'request'; se usará game:HttpGet."
 end
 
--- ====================== NOTIFICACIÓN: AUTO-EXECUTE ======================
--- Solo aparece una vez (hasta que el usuario responda), y solo si el
--- executor tiene sistema de archivos.
-local function showAutoExecNotif()
-	if not hasFS or store.autoexecAsked then return end
 
-	local notif = Instance.new("Frame", gui)
-	notif.Name = "AutoExecNotif"
-	notif.Size = UDim2.new(0, 300, 0, 0)
-	notif.AutomaticSize = Enum.AutomaticSize.Y
-	notif.Position = UDim2.new(1, -312, 0, 12)
-	notif.BackgroundColor3 = C.modalBg
-	notif.BorderSizePixel = 0
-	notif.ZIndex = 80
-	Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 10)
-	local ns = Instance.new("UIStroke", notif); ns.Color = C.accent; ns.Transparency = 0.4
-	local np = Instance.new("UIPadding", notif)
-	np.PaddingTop = UDim.new(0,10); np.PaddingBottom = UDim.new(0,10)
-	np.PaddingLeft = UDim.new(0,12); np.PaddingRight = UDim.new(0,12)
-	local nl = Instance.new("UIListLayout", notif)
-	nl.Padding = UDim.new(0,8); nl.SortOrder = Enum.SortOrder.LayoutOrder
+print(("[Profile Analyzer v3.3.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
 
-	local nTitle = Instance.new("TextLabel", notif)
-	nTitle.LayoutOrder = 0; nTitle.Size = UDim2.new(1,0,0,20); nTitle.BackgroundTransparency = 1
-	nTitle.Font = Enum.Font.GothamBold; nTitle.TextSize = 14; nTitle.TextColor3 = C.accent
-	nTitle.Text = "⚙️ Auto-Execute"; nTitle.TextXAlignment = Enum.TextXAlignment.Left
-	nTitle.ZIndex = 81
 
-	local nBody = Instance.new("TextLabel", notif)
-	nBody.LayoutOrder = 1; nBody.Size = UDim2.new(1,0,0,0); nBody.AutomaticSize = Enum.AutomaticSize.Y
-	nBody.BackgroundTransparency = 1; nBody.Font = Enum.Font.Gotham; nBody.TextSize = 12
-	nBody.TextColor3 = C.text; nBody.TextWrapped = true; nBody.TextXAlignment = Enum.TextXAlignment.Left
-	nBody.Text = "¿Quieres ejecutar el script automáticamente al entrar al juego? "
-		.. "Puedes configurarlo en la pestaña Ajustes."
-	nBody.ZIndex = 81
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  NX HEAD TAG SYSTEM V2  —  PEGA TU MÓDULO COMPLETO AQUÍ ABAJO          ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  INSTRUCCIONES (Fase 1 de integración):                               ║
+-- ║                                                                        ║
+-- ║  1) Pega TODO tu bloque "do ... end" del NX Head Tag System V2         ║
+-- ║     TAL CUAL, sin modificar nada, JUSTO debajo de esta caja.           ║
+-- ║     Debe quedar a nivel raíz (NO dentro de ninguna función).           ║
+-- ║                                                                        ║
+-- ║  2) Tu módulo expone el global _G.NXHeadTags y se auto-inicia.         ║
+-- ║     El Analyzer NO toca sus internos: solo lo enciende/apaga desde     ║
+-- ║     el toggle de la pestaña Ajustes (vía _G.NXHeadTags.SetEnabled).    ║
+-- ║                                                                        ║
+-- ║  3) La línea de abajo (después de donde pegues el módulo) respeta tu   ║
+-- ║     preferencia guardada: si dejaste los tags apagados, los para al    ║
+-- ║     cargar SIN tocar el código del módulo.                            ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
 
-	local btnRow = Instance.new("Frame", notif)
-	btnRow.LayoutOrder = 2; btnRow.Size = UDim2.new(1, 0, 0, 30); btnRow.BackgroundTransparency = 1
-	btnRow.ZIndex = 81
-	local rowLay = Instance.new("UIListLayout", btnRow)
-	rowLay.FillDirection = Enum.FillDirection.Horizontal; rowLay.Padding = UDim.new(0, 8)
+-- <<< PEGA AQUÍ EL BLOQUE do...end DE NX HEAD TAG SYSTEM V2 >>>
+--[[
+================================================================================
+  NX HEAD TAG SYSTEM  V2
+  Client-side, local-only head tags (BillboardGui) above player characters.
 
-	local yesBtn = Instance.new("TextButton", btnRow)
-	yesBtn.Size = UDim2.new(0.5, -4, 1, 0); yesBtn.BackgroundColor3 = C.accent
-	yesBtn.Text = "Ir a Ajustes"; yesBtn.Font = Enum.Font.GothamBold; yesBtn.TextSize = 12
-	yesBtn.TextColor3 = C.onAccent; yesBtn.BorderSizePixel = 0; yesBtn.ZIndex = 82
-	Instance.new("UICorner", yesBtn).CornerRadius = UDim.new(0, 6)
+  • COMPLETELY SEPARATE from your Profile Tag System.
+  • Only shared resource is the GitHub JSON (read-only) -> nothing to break.
+  • Local only: created on the client, never replicated to the server or
+    to other players. Only the user running this sees the tags.
+  • Reuses BillboardGui objects across respawns (no leaks).
+  • Single RenderStepped loop drives all animations (cheap, scales well).
 
-	local noBtn = Instance.new("TextButton", btnRow)
-	noBtn.Size = UDim2.new(0.5, -4, 1, 0); noBtn.BackgroundColor3 = C.neutral
-	noBtn.Text = "Ahora no"; noBtn.Font = Enum.Font.GothamBold; noBtn.TextSize = 12
-	noBtn.TextColor3 = C.text; noBtn.BorderSizePixel = 0; noBtn.ZIndex = 82
-	Instance.new("UICorner", noBtn).CornerRadius = UDim.new(0, 6)
+  USAGE
+  -----
+  This block auto-starts when it runs. It exposes a control handle on
+  _G.NXHeadTags so you can drive it from anywhere:
 
-	local function dismiss(goSettings)
-		store.autoexecAsked = true
-		saveStore()
-		notif:Destroy()
-		if goSettings and tabs[6] then
-			for _, t in pairs(tabs) do t.BackgroundColor3 = C.neutral; t.TextColor3 = C.text end
-			for _, p in pairs(pages) do p.Visible = false end
-			tabs[6].BackgroundColor3 = C.accent; tabs[6].TextColor3 = C.onAccent
-			pages[6].Visible = true
-		end
-	end
-	yesBtn.MouseButton1Click:Connect(function() dismiss(true) end)
-	noBtn.MouseButton1Click:Connect(function() dismiss(false) end)
+      _G.NXHeadTags.Start()          -- start (auto-called already)
+      _G.NXHeadTags.Stop()           -- stop + full cleanup
+      _G.NXHeadTags.Refresh()        -- force re-download the JSON now
+      _G.NXHeadTags.SetEnabled(bool) -- toggle on/off
+
+      -- quick local test without touching GitHub:
+      _G.NXHeadTags.SetLocalOverride(
+          game.Players.LocalPlayer.UserId,
+          { tag = "NX OWNER", icon = "👑", color = "gold", animation = "rainbow" }
+      )
+
+  Drop this in as its own LocalScript, OR paste the whole `do ... end`
+  block at the END of your existing NX LocalScript. Because it is wrapped
+  in `do ... end` and only uses locals + _G.NXHeadTags, it cannot collide
+  with any variable in your Profile Analyzer.
+================================================================================
+]]
+
+do
+    -- Clean up a previous instance if this block is re-executed (hot reload).
+    if _G.NXHeadTags and _G.NXHeadTags.Stop then
+        pcall(_G.NXHeadTags.Stop)
+    end
+
+    --==========================================================================
+    -- SERVICES
+    --==========================================================================
+    local Players       = game:GetService("Players")
+    local RunService    = game:GetService("RunService")
+    local HttpService   = game:GetService("HttpService")
+
+    local LocalPlayer = Players.LocalPlayer
+    if not LocalPlayer then
+        Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+        LocalPlayer = Players.LocalPlayer
+    end
+
+    local NXHeadTags = {}
+    NXHeadTags._running = false
+
+    --==========================================================================
+    -- CONFIG  (tweak everything here)
+    --==========================================================================
+    local CONFIG = {
+        TAGS_URL          = "https://raw.githubusercontent.com/dreennx/nx-tags/main/tags.json",
+        REFRESH_INTERVAL  = 300,   -- seconds between re-downloads. 0 = download once, never refresh.
+        RETRY_INTERVAL    = 10,    -- seconds between retries if the first download fails.
+        HEAD_WAIT_TIMEOUT = 10,    -- seconds to wait for a character's Head part.
+
+        SHOW_OWN_TAG      = true,  -- show a tag above your own character too.
+        ALWAYS_ON_TOP     = true,  -- render through walls (premium-tool style). false = occluded by geometry.
+        MAX_DISTANCE      = 250,   -- studs before the tag fades out. 0 = unlimited.
+        STUDS_OFFSET_Y    = 2.6,   -- height above the head.
+
+        -- Visuals
+        PILL_BG               = Color3.fromRGB(18, 18, 26),
+        PILL_BG_TRANSPARENCY  = 0.12,
+        PILL_GRADIENT_TOP     = Color3.fromRGB(42, 42, 58),
+        PILL_GRADIENT_BOTTOM  = Color3.fromRGB(12, 12, 18),
+        USERNAME_COLOR        = Color3.fromRGB(255, 255, 255),
+
+        ROLE_FONT       = Enum.Font.GothamBold,
+        ICON_FONT       = Enum.Font.GothamBold,
+        USERNAME_FONT   = Enum.Font.GothamMedium,
+        ICON_TEXT_SIZE      = 20,
+        ROLE_TEXT_SIZE      = 18,
+        USERNAME_TEXT_SIZE  = 14,
+
+        DEFAULT_ANIMATION = "gradient", -- used when a tag has no animation and its role has no preset.
+        SHOW_USERNAME     = true,       -- second line under the role pill. (See single-line note in chat.)
+    }
+
+    --==========================================================================
+    -- NAMED COLORS  (color field accepts: a name below, "#RRGGBB", or {r,g,b})
+    --==========================================================================
+    local NAMED_COLORS = {
+        white   = Color3.fromRGB(255, 255, 255),
+        black   = Color3.fromRGB(0, 0, 0),
+        red     = Color3.fromRGB(255, 60, 60),
+        green   = Color3.fromRGB(80, 220, 120),
+        blue    = Color3.fromRGB(70, 150, 255),
+        cyan    = Color3.fromRGB(0, 255, 255),
+        gold    = Color3.fromRGB(255, 215, 0),
+        yellow  = Color3.fromRGB(255, 225, 60),
+        orange  = Color3.fromRGB(255, 150, 40),
+        purple  = Color3.fromRGB(170, 120, 255),
+        pink    = Color3.fromRGB(255, 110, 200),
+        magenta = Color3.fromRGB(255, 0, 200),
+        teal    = Color3.fromRGB(0, 200, 180),
+        silver  = Color3.fromRGB(200, 200, 210),
+        lime    = Color3.fromRGB(160, 255, 80),
+    }
+
+    --==========================================================================
+    -- ROLE PRESETS  (Discord hierarchy)
+    -- These fill in defaults so the JSON can be minimal. A JSON entry of just
+    -- { "tag": "NX OWNER" } will inherit this icon/color/animation/priority.
+    -- Anything the JSON DOES specify always wins over the preset.
+    --==========================================================================
+    local ROLE_PRESETS = {
+    ["NX OWNER"]           = { color = Color3.fromRGB(255, 220, 130), icon = "👑", priority = 100, animation = "luxe"     },
+    ["OWNER ASSISTANT"]    = { color = Color3.fromRGB(226, 232, 242), icon = "👑", priority = 95,  animation = "luxe"     },
+    ["SUPPORT SPECIALIST"] = { color = Color3.fromRGB(90, 220, 240),  icon = "⌘",  priority = 90,  animation = "luxe"     },
+    ["UI DESIGNER"]        = { color = Color3.fromRGB(235, 150, 245), icon = "🎨", priority = 85,  animation = "gradient" },
+    ["CYBER SECURITY"]     = { color = Color3.fromRGB(110, 160, 255), icon = "🛡", priority = 80,  animation = "luxe"     },
+    ["TESTER"]             = { color = Color3.fromRGB(110, 235, 150), icon = "🧪", priority = 75,  animation = "pulse"    },
+    ["NX MOD"]             = { color = Color3.fromRGB(110, 165, 255), icon = "🔵", priority = 70,  animation = "gradient" },
+    ["SPECIAL ACCESS"]     = { color = Color3.fromRGB(185, 140, 255), icon = "💎", priority = 65,  animation = "luxe"     },
+    ["CONTRIBUTOR"]        = { color = Color3.fromRGB(255, 165, 90),  icon = "🧩", priority = 60,  animation = "gradient" },
+    ["MEMBER"]             = { color = Color3.fromRGB(220, 224, 232), icon = "👥", priority = 55,  animation = "none"     },
+    ["CONTENT CREATOR"]    = { color = Color3.fromRGB(255, 110, 120), icon = "🎥", priority = 50,  animation = "shine"    },
+    ["AUTHORIZED"]         = { color = Color3.fromRGB(120, 210, 140), icon = "🌲", priority = 45,  animation = "none"     },
+}
+
+    --==========================================================================
+    -- SMALL HELPERS
+    --==========================================================================
+    local function lerp(a, b, t)
+        return a + (b - a) * t
+    end
+
+    local function normalizeRole(name)
+        name = tostring(name or "")
+        name = name:gsub("%s+", " ")                 -- collapse internal whitespace
+        name = name:match("^%s*(.-)%s*$") or name    -- trim ends
+        return string.upper(name)
+    end
+
+    local function resolveColor(value, fallback)
+        fallback = fallback or Color3.fromRGB(255, 255, 255)
+        if typeof(value) == "Color3" then
+            return value
+        end
+        if type(value) == "table" then
+            local r = value[1] or value.r or value.R
+            local g = value[2] or value.g or value.G
+            local b = value[3] or value.b or value.B
+            if r and g and b then
+                if r <= 1 and g <= 1 and b <= 1 then
+                    return Color3.new(r, g, b)
+                end
+                return Color3.fromRGB(r, g, b)
+            end
+            return fallback
+        end
+        if type(value) == "string" then
+            local s = string.lower((value:gsub("%s", "")))
+            if NAMED_COLORS[s] then
+                return NAMED_COLORS[s]
+            end
+            local hex = (s:gsub("#", ""))
+            if #hex == 6 and string.match(hex, "^%x+$") then
+                return Color3.fromRGB(
+                    tonumber(string.sub(hex, 1, 2), 16),
+                    tonumber(string.sub(hex, 3, 4), 16),
+                    tonumber(string.sub(hex, 5, 6), 16)
+                )
+            end
+        end
+        return fallback
+    end
+
+    -- HTTP GET that works in executor environments (game:HttpGet) and falls
+    -- back to standard HttpService. Matches whatever your profile system uses.
+    local function httpGet(url)
+        local attempts = {
+            function() return game:HttpGet(url, true) end,
+            function() return HttpService:GetAsync(url, true) end,
+        }
+        for _, fn in ipairs(attempts) do
+            local ok, res = pcall(fn)
+            if ok and type(res) == "string" and #res > 0 then
+                return res
+            end
+        end
+        return nil
+    end
+
+    --==========================================================================
+    -- TAG DATABASE  (download + cache + resolve)
+    --==========================================================================
+    local TagDatabase = {
+        _resolved = {},     -- [tostring(userId)] = { tag, icon, color(Color3), animation, priority }
+        _loaded   = false,
+        _lastFetch = 0,
+    }
+
+    function TagDatabase:_resolveEntry(raw)
+        local roleName  = raw.tag or raw.role or "MEMBER"
+        local preset    = ROLE_PRESETS[normalizeRole(roleName)] or {}
+
+        local color     = resolveColor(raw.color, preset.color or Color3.fromRGB(255, 255, 255))
+        local icon      = raw.icon or preset.icon or ""
+        local animation = preset.animation or raw.animation or CONFIG.DEFAULT_ANIMATION
+        animation       = string.lower(tostring(animation))
+        local priority  = tonumber(raw.priority) or preset.priority or 0
+
+        return {
+            tag       = tostring(roleName),
+            icon      = tostring(icon),
+            color     = color,
+            animation = animation,
+            priority  = priority,
+        }
+    end
+
+    function TagDatabase:Load(force)
+        if self._loaded and not force then
+            return true
+        end
+        local body = httpGet(CONFIG.TAGS_URL)
+        if not body then
+            warn("[NX Head Tags] Could not download the tag database.")
+            return false
+        end
+        local ok, decoded = pcall(function()
+            return HttpService:JSONDecode(body)
+        end)
+        if not ok or type(decoded) ~= "table" then
+            warn("[NX Head Tags] Could not parse the tag JSON.")
+            return false
+        end
+
+        local resolved = {}
+        for userId, data in pairs(decoded) do
+            if type(data) == "table" then
+                resolved[tostring(userId)] = self:_resolveEntry(data)
+            end
+        end
+        self._resolved  = resolved
+        self._loaded    = true
+        self._lastFetch = os.clock()
+        return true
+    end
+
+    function TagDatabase:Get(userId)
+        return self._resolved[tostring(userId)]
+    end
+
+    --==========================================================================
+    -- ANIMATION SYSTEM  (modular)
+    -- Each entry may define:
+    --   init(ctx, tag)   -> one-time setup (e.g. create a UIGradient)
+    --   update(ctx, t)   -> called every frame, t = seconds the tag has existed
+    -- ctx exposes: billboard, container, scale, pill, stroke, icon, role,
+    --              roleStroke, username  (+ any instances an init() stores)
+    -- Add a new animation simply by adding a key here, then reference it in JSON.
+    --==========================================================================
+    local Animations = {}
+
+    Animations.none = {
+        update = function() end,
+    }
+
+    -- Gentle size breathing via UIScale.
+    Animations.pulse = {
+        update = function(ctx, t)
+            ctx.scale.Scale = 1 + 0.07 * math.sin(t * 4)
+        end,
+    }
+
+    -- Vertical bob via the billboard's StudsOffset.
+    Animations.bounce = {
+        update = function(ctx, t)
+            local y = math.abs(math.sin(t * 3)) * 0.35
+            ctx.billboard.StudsOffset = Vector3.new(0, CONFIG.STUDS_OFFSET_Y + y, 0)
+        end,
+    }
+
+    -- Pulsing border + text outline glow.
+    Animations.glow = {
+        update = function(ctx, t)
+            local a = 0.5 + 0.5 * math.sin(t * 3)
+            ctx.stroke.Transparency  = lerp(0.05, 0.7, a)
+            ctx.stroke.Thickness     = lerp(1.5, 3.2, a)
+            ctx.roleStroke.Transparency = lerp(0.0, 0.55, a)
+        end,
+    }
+
+    -- Full hue cycle on the text, icon and border.
+    Animations.rainbow = {
+        update = function(ctx, t)
+            local hue = (t * 0.18) % 1
+            local c = Color3.fromHSV(hue, 0.85, 1)
+            ctx.role.TextColor3 = c
+            ctx.icon.TextColor3 = c
+            ctx.stroke.Color    = c
+        end,
+    }
+
+    -- Flowing multi-color gradient derived from the tag color.
+    Animations.gradient = {
+        init = function(ctx)
+            local g = Instance.new("UIGradient")
+            g.Name = "FlowGradient"
+            local h, s = Color3.toHSV(ctx.role.TextColor3)
+            local c1 = Color3.fromHSV((h + 0.08) % 1, math.min(s + 0.1, 1), 1)
+            local c2 = ctx.role.TextColor3
+            local c3 = Color3.fromHSV((h + 0.92) % 1, math.min(s + 0.1, 1), 1)
+            g.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,   c1),
+                ColorSequenceKeypoint.new(0.5, c2),
+                ColorSequenceKeypoint.new(1,   c3),
+            })
+            g.Parent = ctx.role
+            ctx.gradient = g
+        end,
+        update = function(ctx, t)
+            ctx.gradient.Rotation = math.sin(t * 0.8) * 25
+            ctx.gradient.Offset   = Vector2.new(math.sin(t * 0.6) * 0.4, 0)
+        end,
+    }
+
+    -- A bright band that sweeps across the text.
+    Animations.shine = {
+        init = function(ctx)
+            local g = Instance.new("UIGradient")
+            g.Name = "ShineGradient"
+            local base  = ctx.role.TextColor3
+            local white = Color3.fromRGB(255, 255, 255)
+            g.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.0,  base),
+                ColorSequenceKeypoint.new(0.42, base),
+                ColorSequenceKeypoint.new(0.50, white),
+                ColorSequenceKeypoint.new(0.58, base),
+                ColorSequenceKeypoint.new(1.0,  base),
+            })
+            g.Parent = ctx.role
+            ctx.shine = g
+        end,
+        update = function(ctx, t)
+            ctx.shine.Offset = Vector2.new(((t * 0.6) % 1.6) - 0.8, 0)
+        end,
+    }
+Animations.luxe = {
+    init = function(ctx)
+        local g = Instance.new("UIGradient")
+        g.Name = "LuxeBorder"
+        local h, s, v = Color3.toHSV(ctx.role.TextColor3)
+        local light = Color3.fromHSV(h, math.max(s - 0.30, 0), math.min(v + 0.18, 1))
+        local deep  = Color3.fromHSV(h, math.min(s + 0.15, 1), math.max(v - 0.28, 0.15))
+
+        g.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.0, light),
+            ColorSequenceKeypoint.new(0.5, ctx.role.TextColor3),
+            ColorSequenceKeypoint.new(1.0, deep),
+        })
+
+        g.Parent = ctx.stroke
+        ctx.luxeBorder = g
+    end,
+
+    update = function(ctx, t)
+        ctx.luxeBorder.Rotation = (t * 55) % 360
+
+        local a = 0.5 + 0.5 * math.sin(t * 2.2)
+
+        ctx.stroke.Thickness =
+            lerp(2.0, 3.0, a)
+
+        ctx.stroke.Transparency =
+            lerp(0.0, 0.22, a)
+    end,
+}
+
+-- ELITE animations (next-gen tier). All share these properties:
+    --   • One UIGradient on the existing pill stroke (no new frames, no second loop).
+    --   • One UIGradient on the role text for animated text shading.
+    --   • Driven entirely by the existing shared RenderStepped loop.
+    --   • init() builds; update() advances time — no per-frame allocations.
+
+    -- Helper shared by elite animations. Local to the Animations table.
+    local function buildEliteGradients(ctx, lightShift, deepShift)
+        local base = ctx.role.TextColor3
+        local h, s, v = Color3.toHSV(base)
+        local light = Color3.fromHSV(h, math.max(s - lightShift, 0), math.min(v + 0.22, 1))
+        local deep  = Color3.fromHSV(h, math.min(s + deepShift, 1), math.max(v - 0.32, 0.12))
+
+        local border = Instance.new("UIGradient")
+        border.Name = "EliteBorder"
+        border.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, deep),
+            ColorSequenceKeypoint.new(0.30, base),
+            ColorSequenceKeypoint.new(0.50, light),
+            ColorSequenceKeypoint.new(0.70, base),
+            ColorSequenceKeypoint.new(1.00, deep),
+        })
+        border.Parent = ctx.stroke
+
+        local text = Instance.new("UIGradient")
+        text.Name = "EliteText"
+        text.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.0, base),
+            ColorSequenceKeypoint.new(0.5, light),
+            ColorSequenceKeypoint.new(1.0, base),
+        })
+        text.Rotation = 90
+        text.Parent = ctx.role
+
+        return border, text, base, light, deep
+    end
+
+    -- NX OWNER — gold elite. Counter-rotating border + text shimmer + breathing pill.
+    Animations.elite_gold = {
+        init = function(ctx)
+            local border, text = buildEliteGradients(ctx, 0.35, 0.10)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+            ctx.pillBaseTransparency = ctx.pill.BackgroundTransparency
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 70) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.55) % 2) - 1, 0)
+            local a = 0.5 + 0.5 * math.sin(t * 2.0)
+            ctx.stroke.Thickness     = lerp(2.4, 3.6, a)
+            ctx.stroke.Transparency  = lerp(0.00, 0.18, a)
+            ctx.roleStroke.Transparency = lerp(0.05, 0.45, a)
+            ctx.pill.BackgroundTransparency = lerp(
+                math.max(ctx.pillBaseTransparency - 0.04, 0),
+                ctx.pillBaseTransparency + 0.04, a)
+        end,
+    }
+
+    -- OWNER ASSISTANT — platinum/silver elite. Cooler shimmer, slightly slower.
+    Animations.elite_platinum = {
+        init = function(ctx)
+            local border, text = buildEliteGradients(ctx, 0.55, 0.05)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 55) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.45) % 2) - 1, 0)
+            local a = 0.5 + 0.5 * math.sin(t * 1.8)
+            ctx.stroke.Thickness    = lerp(2.2, 3.2, a)
+            ctx.stroke.Transparency = lerp(0.00, 0.20, a)
+        end,
+    }
+
+    -- SUPPORT SPECIALIST — cyan premium. Clean tech feel, faster sweep.
+    Animations.elite_cyan = {
+        init = function(ctx)
+            local border, text = buildEliteGradients(ctx, 0.40, 0.10)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 90) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.7) % 2) - 1, 0)
+            local a = 0.5 + 0.5 * math.sin(t * 2.4)
+            ctx.stroke.Thickness    = lerp(2.0, 3.0, a)
+            ctx.stroke.Transparency = lerp(0.05, 0.25, a)
+        end,
+    }
+
+    -- CYBER SECURITY — electric blue. Sharper pulse + occasional flicker accent.
+    Animations.elite_cyber = {
+        init = function(ctx)
+            local border, text, base, light = buildEliteGradients(ctx, 0.30, 0.15)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+            ctx.eliteAccent = light
+            ctx.eliteBase   = base
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 100) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.8) % 2) - 1, 0)
+            local pulse   = 0.5 + 0.5 * math.sin(t * 3.0)
+            local flicker = (math.sin(t * 17) > 0.985) and 1 or 0       -- rare electric blip
+            ctx.stroke.Thickness    = lerp(2.2, 3.4, pulse) + flicker * 0.6
+            ctx.stroke.Transparency = lerp(0.00, 0.22, pulse) - flicker * 0.15
+            ctx.roleStroke.Transparency = lerp(0.10, 0.45, pulse)
+        end,
+    }
+
+    -- SPECIAL ACCESS — crystal purple. Slow prismatic hue drift around the base color.
+    Animations.elite_crystal = {
+        init = function(ctx)
+            local border, text, base = buildEliteGradients(ctx, 0.35, 0.12)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+            ctx.eliteBase   = base
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 60) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.5) % 2) - 1, 0)
+            local a = 0.5 + 0.5 * math.sin(t * 2.0)
+            ctx.stroke.Thickness    = lerp(2.2, 3.3, a)
+            ctx.stroke.Transparency = lerp(0.00, 0.20, a)
+            -- subtle hue drift on the role text for the prismatic crystal feel
+            local h, s, v = Color3.toHSV(ctx.eliteBase)
+            local drift  = math.sin(t * 0.9) * 0.04
+            ctx.role.TextColor3 = Color3.fromHSV((h + drift) % 1, s, v)
+        end,
+    }
+    --==========================================================================
+    -- BILLBOARD BUILDER  (premium look: stroke, padding, corners, gradient)
+    --==========================================================================
+    local function buildBillboard(player, tag)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name          = "NXHeadTag_" .. player.UserId
+        billboard.Size          = UDim2.fromOffset(360, 90)
+        billboard.StudsOffset   = Vector3.new(0, CONFIG.STUDS_OFFSET_Y, 0)
+        billboard.AlwaysOnTop   = CONFIG.ALWAYS_ON_TOP
+        billboard.LightInfluence = 0
+        billboard.MaxDistance   = (CONFIG.MAX_DISTANCE > 0) and CONFIG.MAX_DISTANCE or 1e4
+        billboard.ClipsDescendants = false
+
+        -- Centered transparent container that holds the vertical stack.
+        local container = Instance.new("Frame")
+        container.Name                 = "Container"
+        container.BackgroundTransparency = 1
+        container.Size                 = UDim2.fromScale(1, 1)
+        container.AnchorPoint          = Vector2.new(0.5, 0.5)
+        container.Position             = UDim2.fromScale(0.5, 0.5)
+        container.Parent               = billboard
+
+        local scale = Instance.new("UIScale")  -- used by pulse / scaling anims
+        scale.Scale = 1
+        scale.Parent = container
+
+        local vlist = Instance.new("UIListLayout")
+        vlist.FillDirection       = Enum.FillDirection.Vertical
+        vlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        vlist.VerticalAlignment   = Enum.VerticalAlignment.Center
+        vlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        vlist.Padding             = UDim.new(0, 2)
+        vlist.Parent              = container
+
+        ----------------------------------------------------------------------
+        -- The role "pill"
+        ----------------------------------------------------------------------
+        local pill = Instance.new("Frame")
+        pill.Name                 = "RolePill"
+        pill.BackgroundColor3     = CONFIG.PILL_BG
+        pill.BackgroundTransparency = CONFIG.PILL_BG_TRANSPARENCY
+        pill.AutomaticSize        = Enum.AutomaticSize.XY
+        pill.Size                 = UDim2.fromOffset(0, 0)
+        pill.LayoutOrder          = 1
+        pill.Parent               = container
+
+        local pillCorner = Instance.new("UICorner")
+        pillCorner.CornerRadius = UDim.new(1, 0)   -- full stadium / pill shape
+        pillCorner.Parent = pill
+
+        local pillStroke = Instance.new("UIStroke")
+        pillStroke.Thickness       = 2
+        pillStroke.Color           = tag.color
+        pillStroke.Transparency    = 0.1
+        pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        pillStroke.Parent          = pill
+
+        local pillGradient = Instance.new("UIGradient")
+        pillGradient.Rotation = 90
+        pillGradient.Color = ColorSequence.new(CONFIG.PILL_GRADIENT_TOP, CONFIG.PILL_GRADIENT_BOTTOM)
+        pillGradient.Parent = pill
+
+        local pillPad = Instance.new("UIPadding")
+        pillPad.PaddingLeft   = UDim.new(0, 12)
+        pillPad.PaddingRight  = UDim.new(0, 12)
+        pillPad.PaddingTop    = UDim.new(0, 5)
+        pillPad.PaddingBottom = UDim.new(0, 5)
+        pillPad.Parent        = pill
+
+        local hlist = Instance.new("UIListLayout")
+        hlist.FillDirection       = Enum.FillDirection.Horizontal
+        hlist.VerticalAlignment   = Enum.VerticalAlignment.Center
+        hlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        hlist.SortOrder           = Enum.SortOrder.LayoutOrder
+        hlist.Padding             = UDim.new(0, 6)
+        hlist.Parent              = pill
+
+        local icon = Instance.new("TextLabel")
+        icon.Name                 = "Icon"
+        icon.BackgroundTransparency = 1
+        icon.AutomaticSize        = Enum.AutomaticSize.XY
+        icon.Font                 = CONFIG.ICON_FONT
+        icon.Text                 = tag.icon
+        icon.TextSize             = CONFIG.ICON_TEXT_SIZE
+        icon.TextColor3           = Color3.fromRGB(255, 255, 255)
+        icon.LayoutOrder          = 1
+        icon.Visible              = (tag.icon ~= "")
+        icon.Parent               = pill
+
+        local role = Instance.new("TextLabel")
+        role.Name                 = "Role"
+        role.BackgroundTransparency = 1
+        role.AutomaticSize        = Enum.AutomaticSize.XY
+        role.Font                 = CONFIG.ROLE_FONT
+        role.Text                 = tag.tag
+        role.TextSize             = CONFIG.ROLE_TEXT_SIZE
+        role.TextColor3           = tag.color
+        role.LayoutOrder          = 2
+        role.Parent               = pill
+
+        local roleStroke = Instance.new("UIStroke")
+        roleStroke.Thickness    = 1.4
+        roleStroke.Color        = Color3.fromRGB(0, 0, 0)
+        roleStroke.Transparency = 0.25
+        roleStroke.Parent       = role
+
+        ----------------------------------------------------------------------
+        -- Username (second line). To make it SINGLE-LINE instead, set
+        -- CONFIG.SHOW_USERNAME = false and add the name into the pill's
+        -- horizontal layout (see the note in chat).
+        ----------------------------------------------------------------------
+        local username
+        if CONFIG.SHOW_USERNAME then
+            username = Instance.new("TextLabel")
+            username.Name                 = "Username"
+            username.BackgroundTransparency = 1
+            username.AutomaticSize        = Enum.AutomaticSize.XY
+            username.Font                 = CONFIG.USERNAME_FONT
+            username.Text                 = player.DisplayName   -- swap for player.Name if you prefer @usernames
+            username.TextSize             = CONFIG.USERNAME_TEXT_SIZE
+            username.TextColor3           = CONFIG.USERNAME_COLOR
+            username.LayoutOrder          = 2
+            username.Parent               = container
+
+            local nameStroke = Instance.new("UIStroke")
+            nameStroke.Thickness    = 1.2
+            nameStroke.Color        = Color3.fromRGB(0, 0, 0)
+            nameStroke.Transparency = 0.3
+            nameStroke.Parent       = username
+        end
+
+        local ctx = {
+            player     = player,
+            billboard  = billboard,
+            container  = container,
+            scale      = scale,
+            pill       = pill,
+            stroke     = pillStroke,
+            icon       = icon,
+            role       = role,
+            roleStroke = roleStroke,
+            username   = username,
+            tag        = tag,
+            elapsed    = 0,
+        }
+
+        -- Wire up the chosen animation (modular).
+        local anim = Animations[tag.animation] or Animations.none
+        if anim.init then
+            pcall(anim.init, ctx, tag)
+        end
+        ctx.anim = anim
+
+        return ctx
+    end
+
+    -- Cheap fingerprint so we know when a tag actually changed (vs a respawn).
+    local function tagSignature(t)
+        if not t then return "nil" end
+        local c = t.color
+        return string.format("%s|%s|%s|%d|%d,%d,%d",
+            t.tag, t.icon, t.animation, t.priority or 0,
+            math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+    end
+
+    --==========================================================================
+    -- TAG MANAGER  (lifecycle + object reuse)
+    --==========================================================================
+    local TagManager = {
+        active    = {},   -- [player] = ctx
+        container = nil,  -- Folder under PlayerGui that holds all billboards
+    }
+
+    function TagManager:_getContainer()
+        if self.container and self.container.Parent then
+            return self.container
+        end
+        local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui")
+        local folder = pg:FindFirstChild("NXHeadTags")
+        if not folder then
+            folder = Instance.new("Folder")
+            folder.Name = "NXHeadTags"
+            folder.Parent = pg
+        end
+        self.container = folder
+        return folder
+    end
+
+    function TagManager:remove(player)
+        local ctx = self.active[player]
+        if ctx then
+            if ctx.billboard then
+                ctx.billboard:Destroy()
+            end
+            self.active[player] = nil
+        end
+    end
+
+    function TagManager:apply(player)
+        if (not CONFIG.SHOW_OWN_TAG) and player == LocalPlayer then
+            self:remove(player)
+            return
+        end
+
+        local tag = TagDatabase:Get(player.UserId)
+        if not tag then
+            self:remove(player)    -- player has no (longer a) tag
+            return
+        end
+
+        local character = player.Character
+        if not character then
+            return  -- CharacterAdded will re-call this once the body exists
+        end
+        local head = character:FindFirstChild("Head")
+        if not head then
+            return
+        end
+
+        local ctx = self.active[player]
+
+        -- REUSE: same tag, just point the existing billboard at the new head.
+        if ctx and tagSignature(ctx.tag) == tagSignature(tag) then
+            ctx.billboard.Adornee = head
+            ctx.billboard.Enabled = true
+            ctx.adornee = head
+            if ctx.username then
+                ctx.username.Text = player.DisplayName
+            end
+            return
+        end
+
+        -- REBUILD: brand new, or the tag changed after a refresh.
+        if ctx then
+            self:remove(player)
+        end
+        local newCtx = buildBillboard(player, tag)
+        newCtx.adornee = head
+        newCtx.billboard.Adornee = head
+        newCtx.billboard.Parent  = self:_getContainer()
+        self.active[player] = newCtx
+    end
+
+    function TagManager:refreshAll()
+        for _, player in ipairs(Players:GetPlayers()) do
+            self:apply(player)
+        end
+    end
+
+    function TagManager:clearAll()
+        for _, ctx in pairs(self.active) do
+            if ctx.billboard then
+                ctx.billboard:Destroy()
+            end
+        end
+        table.clear(self.active)
+    end
+
+    --==========================================================================
+    -- PLAYER / CHARACTER WIRING
+    --==========================================================================
+    local connections = {}   -- [player] = { connection, ... }
+
+    local function hookCharacter(player, character)
+        task.spawn(function()
+            local head = character:FindFirstChild("Head")
+                or character:WaitForChild("Head", CONFIG.HEAD_WAIT_TIMEOUT)
+            if head and player.Character == character then
+                TagManager:apply(player)
+            end
+        end)
+    end
+
+    local function hookPlayer(player)
+        connections[player] = connections[player] or {}
+
+        if player.Character then
+            hookCharacter(player, player.Character)
+        end
+
+        table.insert(connections[player], player.CharacterAdded:Connect(function(character)
+            hookCharacter(player, character)
+        end))
+
+        -- On death/despawn: keep the billboard object (reuse), just hide it.
+        table.insert(connections[player], player.CharacterRemoving:Connect(function()
+            local ctx = TagManager.active[player]
+            if ctx and ctx.billboard then
+                ctx.billboard.Enabled = false
+                ctx.billboard.Adornee = nil
+                ctx.adornee = nil
+            end
+        end))
+    end
+
+    local function unhookPlayer(player)
+        if connections[player] then
+            for _, c in ipairs(connections[player]) do
+                pcall(function() c:Disconnect() end)
+            end
+            connections[player] = nil
+        end
+        TagManager:remove(player)
+    end
+
+    --==========================================================================
+    -- MASTER ANIMATION LOOP  (one connection drives every tag)
+    --==========================================================================
+    local renderConn
+    local function startLoop()
+        if renderConn then return end
+        renderConn = RunService.RenderStepped:Connect(function(dt)
+            for _, ctx in pairs(TagManager.active) do
+                if not ctx.adornee or not ctx.adornee.Parent then
+                    ctx.billboard.Enabled = false           -- adornee gone; self-heal
+                elseif ctx.billboard.Enabled and ctx.anim and ctx.anim.update then
+                    ctx.elapsed += dt
+                    pcall(ctx.anim.update, ctx, ctx.elapsed)
+                end
+            end
+        end)
+    end
+
+    --==========================================================================
+    -- DATABASE REFRESH LOOP  (download once, retry on failure, refresh on timer)
+    --==========================================================================
+    local function startRefreshLoop()
+        task.spawn(function()
+            while NXHeadTags._running do
+                if not TagDatabase._loaded then
+                    if TagDatabase:Load(false) then
+                        TagManager:refreshAll()
+                    end
+                    task.wait(CONFIG.RETRY_INTERVAL)
+                elseif CONFIG.REFRESH_INTERVAL > 0 then
+                    task.wait(CONFIG.REFRESH_INTERVAL)
+                    if NXHeadTags._running and TagDatabase:Load(true) then
+                        TagManager:refreshAll()
+                    end
+                else
+                    task.wait(5)
+                end
+            end
+        end)
+    end
+
+    --==========================================================================
+    -- PUBLIC API
+    --==========================================================================
+    function NXHeadTags.Start()
+        if NXHeadTags._running then return end
+        NXHeadTags._running = true
+
+        -- Immediate load for snappiness (the refresh loop also retries/refreshes).
+        task.spawn(function()
+            if TagDatabase:Load(false) then
+                TagManager:refreshAll()
+            end
+        end)
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            hookPlayer(player)
+        end
+        NXHeadTags._playerAdded    = Players.PlayerAdded:Connect(hookPlayer)
+        NXHeadTags._playerRemoving = Players.PlayerRemoving:Connect(unhookPlayer)
+
+        startLoop()
+        startRefreshLoop()
+    end
+
+    function NXHeadTags.Stop()
+        NXHeadTags._running = false
+        if NXHeadTags._playerAdded then NXHeadTags._playerAdded:Disconnect() end
+        if NXHeadTags._playerRemoving then NXHeadTags._playerRemoving:Disconnect() end
+        NXHeadTags._playerAdded, NXHeadTags._playerRemoving = nil, nil
+
+        if renderConn then renderConn:Disconnect() renderConn = nil end
+
+        for player in pairs(connections) do
+            unhookPlayer(player)
+        end
+        TagManager:clearAll()
+    end
+
+    function NXHeadTags.Refresh()
+        task.spawn(function()
+            if TagDatabase:Load(true) then
+                TagManager:refreshAll()
+            end
+        end)
+    end
+
+    function NXHeadTags.SetEnabled(on)
+        if on then NXHeadTags.Start() else NXHeadTags.Stop() end
+    end
+
+    -- Add/override a tag locally without editing GitHub (great for testing).
+    function NXHeadTags.SetLocalOverride(userId, data)
+        TagDatabase._resolved[tostring(userId)] = TagDatabase:_resolveEntry(data or {})
+        local p = Players:GetPlayerByUserId(tonumber(userId))
+        if p then
+            TagManager:apply(p)
+        end
+    end
+
+    --==========================================================================
+    -- GO
+    --==========================================================================
+    _G.NXHeadTags = NXHeadTags
+    NXHeadTags.Start()
 end
-task.spawn(showAutoExecNotif)
 
-print(("[Profile Analyzer v2.7.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
+
+-- Aplica la preferencia guardada del toggle (Fase 1). Seguro aunque el
+-- módulo no exista: si _G.NXHeadTags es nil, no hace nada.
+if _G.NXHeadTags and not store.headTags then
+	_G.NXHeadTags.SetEnabled(false)
+end
