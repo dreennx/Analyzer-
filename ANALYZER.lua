@@ -3575,6 +3575,7 @@ do
     local Players       = game:GetService("Players")
     local RunService    = game:GetService("RunService")
     local HttpService   = game:GetService("HttpService")
+    local TweenService  = game:GetService("TweenService")
 
     local LocalPlayer = Players.LocalPlayer
     if not LocalPlayer then
@@ -3596,8 +3597,15 @@ do
 
         SHOW_OWN_TAG      = true,  -- show a tag above your own character too.
         ALWAYS_ON_TOP     = true,  -- render through walls (premium-tool style). false = occluded by geometry.
-        MAX_DISTANCE      = 250,   -- studs before the tag fades out. 0 = unlimited.
+        MAX_DISTANCE      = 0,     -- 0 = visible a CUALQUIER distancia (gran alcance).
         STUDS_OFFSET_Y    = 2.6,   -- height above the head.
+
+        -- LOD (nivel de detalle): cerca = pill completa; lejos = círculo compacto.
+        CIRCLE_DISTANCE   = 65,    -- a partir de esta distancia (studs) el tag se vuelve un círculo.
+        CIRCLE_SIZE       = 46,    -- diámetro (px) del círculo lejano.
+        CIRCLE_LOGO       = "NX",  -- texto del logo dentro del círculo (si no hay imagen).
+        CIRCLE_LOGO_IMAGE = "",    -- rbxassetid de tu logo NX (opcional). "" = usa el texto "NX".
+        GLOW_ALL          = true,  -- halo de glow que late para TODOS los tags.
 
         -- Visuals
         PILL_BG               = Color3.fromRGB(18, 18, 26),
@@ -3615,7 +3623,7 @@ do
         USERNAME_TEXT_SIZE  = 14,
 
         DEFAULT_ANIMATION = "gradient", -- used when a tag has no animation and its role has no preset.
-        SHOW_USERNAME     = true,       -- second line under the role pill. (See single-line note in chat.)
+        SHOW_USERNAME     = false,      -- nombre debajo del rol. false = SIN nombre (más limpio/pro).
     }
 
     --==========================================================================
@@ -3646,19 +3654,37 @@ do
     -- Anything the JSON DOES specify always wins over the preset.
     --==========================================================================
     local ROLE_PRESETS = {
-    ["NX OWNER"]           = { color = Color3.fromRGB(255, 220, 130), icon = "👑", priority = 100, animation = "luxe"     },
-    ["OWNER ASSISTANT"]    = { color = Color3.fromRGB(226, 232, 242), icon = "👑", priority = 95,  animation = "luxe"     },
-    ["SUPPORT SPECIALIST"] = { color = Color3.fromRGB(90, 220, 240),  icon = "⌘",  priority = 90,  animation = "luxe"     },
-    ["UI DESIGNER"]        = { color = Color3.fromRGB(235, 150, 245), icon = "🎨", priority = 85,  animation = "gradient" },
-    ["CYBER SECURITY"]     = { color = Color3.fromRGB(110, 160, 255), icon = "🛡", priority = 80,  animation = "luxe"     },
-    ["TESTER"]             = { color = Color3.fromRGB(110, 235, 150), icon = "🧪", priority = 75,  animation = "pulse"    },
-    ["NX MOD"]             = { color = Color3.fromRGB(110, 165, 255), icon = "🔵", priority = 70,  animation = "gradient" },
-    ["SPECIAL ACCESS"]     = { color = Color3.fromRGB(185, 140, 255), icon = "💎", priority = 65,  animation = "luxe"     },
-    ["CONTRIBUTOR"]        = { color = Color3.fromRGB(255, 165, 90),  icon = "🧩", priority = 60,  animation = "gradient" },
-    ["MEMBER"]             = { color = Color3.fromRGB(220, 224, 232), icon = "👥", priority = 55,  animation = "none"     },
-    ["CONTENT CREATOR"]    = { color = Color3.fromRGB(255, 110, 120), icon = "🎥", priority = 50,  animation = "shine"    },
-    ["AUTHORIZED"]         = { color = Color3.fromRGB(120, 210, 140), icon = "🌲", priority = 45,  animation = "none"     },
+    ["OWNER"]                = { color = Color3.fromRGB(255, 215, 90),  icon = "👑", priority = 100, animation = "elite_gold"     },
+    ["OWNER'S ASSISTANT"]    = { color = Color3.fromRGB(200, 160, 255), icon = "👑", priority = 95,  animation = "elite_platinum" },
+    ["SUPPORT SPECIALIST"]   = { color = Color3.fromRGB(90, 230, 150),  icon = "⌘",  priority = 90,  animation = "luxe"           },
+    ["UI DESIGNER"]          = { color = Color3.fromRGB(120, 230, 160), icon = "🎨", priority = 85,  animation = "gradient"       },
+    ["CYBER SECURITY"]       = { color = Color3.fromRGB(90, 160, 255),  icon = "🛡️", priority = 80,  animation = "elite_cyber"    },
+    ["DEVELOPER UPDATES"]    = { color = Color3.fromRGB(255, 80, 80),   icon = "🛠️", priority = 78,  animation = "luxe"           },
+    ["TESTER"]               = { color = Color3.fromRGB(110, 235, 150), icon = "🧪", priority = 75,  animation = "pulse"          },
+    ["MODS"]                 = { color = Color3.fromRGB(90, 150, 255),  icon = "⚒️", priority = 70,  animation = "elite_cyan"     },
+    ["SERVER BOOSTER"]       = { color = Color3.fromRGB(235, 130, 245), icon = "🚀", priority = 65,  animation = "gradient"       },
+    ["SPECIAL ACCESS"]       = { color = Color3.fromRGB(80, 180, 255),  icon = "💎", priority = 60,  animation = "elite_crystal"  },
+    ["NX CONTRIBUTOR"]       = { color = Color3.fromRGB(120, 230, 140), icon = "🧩", priority = 55,  animation = "gradient"       },
+    ["INTEGRANTES"]          = { color = Color3.fromRGB(140, 235, 160), icon = "👥", priority = 50,  animation = "glow"           },
+    ["AMIGO/A"]              = { color = Color3.fromRGB(255, 90, 220),  icon = "🦊", priority = 45,  animation = "shine"          },
+    ["NX HELPER BOT"]        = { color = Color3.fromRGB(120, 230, 150), icon = "🤖", priority = 40,  animation = "glow"           },
+    ["CREADOR DE CONTENIDO"] = { color = Color3.fromRGB(220, 90, 90),   icon = "🎥", priority = 38,  animation = "shine"          },
+    ["PENDING"]              = { color = Color3.fromRGB(235, 235, 235), icon = "⏳", priority = 35,  animation = "glow"           },
+    ["TICKETS SUPPORT"]      = { color = Color3.fromRGB(180, 185, 195), icon = "🎫", priority = 30,  animation = "glow"           },
+    ["TICKETS ADMIN"]        = { color = Color3.fromRGB(170, 175, 185), icon = "🎟️", priority = 28,  animation = "glow"           },
+    ["APPS"]                 = { color = Color3.fromRGB(235, 235, 235), icon = "📱", priority = 25,  animation = "glow"           },
+    ["ROBLOX UPDATE"]        = { color = Color3.fromRGB(180, 185, 195), icon = "🔔", priority = 22,  animation = "glow"           },
+    ["AUTHORIZED"]           = { color = Color3.fromRGB(90, 200, 120),  icon = "✅", priority = 20,  animation = "glow"           },
+    ["TRIAL SUPPORT"]        = { color = Color3.fromRGB(120, 220, 150), icon = "🎫", priority = 18,  animation = "glow"           },
 }
+
+    -- Alias: nombres antiguos siguen funcionando con el mismo estilo (compatibilidad).
+    ROLE_PRESETS["NX OWNER"]        = ROLE_PRESETS["OWNER"]
+    ROLE_PRESETS["OWNER ASSISTANT"] = ROLE_PRESETS["OWNER'S ASSISTANT"]
+    ROLE_PRESETS["NX MOD"]          = ROLE_PRESETS["MODS"]
+    ROLE_PRESETS["MEMBER"]          = ROLE_PRESETS["INTEGRANTES"]
+    ROLE_PRESETS["CONTRIBUTOR"]     = ROLE_PRESETS["NX CONTRIBUTOR"]
+    ROLE_PRESETS["CONTENT CREATOR"] = ROLE_PRESETS["CREADOR DE CONTENIDO"]
 
     --==========================================================================
     -- SMALL HELPERS
@@ -4117,6 +4143,14 @@ Animations.luxe = {
         pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         pillStroke.Parent          = pill
 
+        -- Halo de GLOW para todos (late en el loop, independiente de la animación del rol).
+        local glowStroke = Instance.new("UIStroke")
+        glowStroke.Thickness       = 4
+        glowStroke.Color           = tag.color
+        glowStroke.Transparency    = 0.55
+        glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        glowStroke.Parent          = pill
+
         local pillGradient = Instance.new("UIGradient")
         pillGradient.Rotation = 90
         pillGradient.Color = ColorSequence.new(CONFIG.PILL_GRADIENT_TOP, CONFIG.PILL_GRADIENT_BOTTOM)
@@ -4149,6 +4183,21 @@ Animations.luxe = {
             icon.LayoutOrder            = 1
             icon.Visible                = true
             icon.Parent                 = pill
+            -- Si la imagen NO carga (asset no listo/inválido), ocultar el icono para
+            -- que NO deje espacio sobrante en la pill (UIListLayout ignora lo invisible).
+            do
+                local thisIcon = icon
+                task.spawn(function()
+                    local deadline = os.clock() + 4
+                    while os.clock() < deadline do
+                        local loaded = true
+                        pcall(function() loaded = thisIcon.IsLoaded end)
+                        if loaded then return end       -- cargó bien: se queda visible
+                        task.wait(0.25)
+                    end
+                    if thisIcon and thisIcon.Parent then thisIcon.Visible = false end
+                end)
+            end
         else
             icon = Instance.new("TextLabel")
             icon.Name                   = "Icon"
@@ -4205,6 +4254,68 @@ Animations.luxe = {
             nameStroke.Parent       = username
         end
 
+        ----------------------------------------------------------------------
+        -- Círculo compacto (LOD): se muestra cuando estás LEJOS. Es un disco
+        -- con el color del rol, glow, y el icono (o iniciales) dentro.
+        ----------------------------------------------------------------------
+        local circle = Instance.new("Frame")
+        circle.Name                 = "Circle"
+        circle.AnchorPoint          = Vector2.new(0.5, 0.5)
+        circle.Position             = UDim2.fromScale(0.5, 0.5)
+        circle.Size                 = UDim2.fromOffset(CONFIG.CIRCLE_SIZE, CONFIG.CIRCLE_SIZE)
+        circle.BackgroundColor3     = CONFIG.PILL_BG
+        circle.BackgroundTransparency = 0.05
+        circle.Visible              = false
+        circle.Parent               = billboard
+
+        local circleCorner = Instance.new("UICorner")
+        circleCorner.CornerRadius = UDim.new(1, 0)
+        circleCorner.Parent = circle
+
+        local circleGlow = Instance.new("UIStroke")
+        circleGlow.Thickness    = 3
+        circleGlow.Color        = tag.color
+        circleGlow.Transparency = 0.25
+        circleGlow.Parent       = circle
+
+        -- Logo NX dentro del círculo (nunca queda vacío). Si defines CIRCLE_LOGO_IMAGE
+        -- usa esa imagen; si no, dibuja el monograma "NX" con el color del rol.
+        local circleIcon
+        if CONFIG.CIRCLE_LOGO_IMAGE and CONFIG.CIRCLE_LOGO_IMAGE ~= "" then
+            circleIcon = Instance.new("ImageLabel")
+            circleIcon.BackgroundTransparency = 1
+            circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
+            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
+            circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
+            circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
+            circleIcon.ScaleType              = Enum.ScaleType.Fit
+            circleIcon.ImageColor3            = tag.color
+            circleIcon.Parent                 = circle
+        else
+            circleIcon = Instance.new("TextLabel")
+            circleIcon.BackgroundTransparency = 1
+            circleIcon.Size                   = UDim2.fromScale(0.82, 0.82)
+            circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
+            circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
+            circleIcon.Font                   = Enum.Font.GothamBlack
+            circleIcon.TextScaled             = true
+            circleIcon.TextColor3             = tag.color
+            circleIcon.Text                   = CONFIG.CIRCLE_LOGO
+            local ciStroke = Instance.new("UIStroke")
+            ciStroke.Thickness = 1.5; ciStroke.Color = Color3.fromRGB(0, 0, 0); ciStroke.Transparency = 0.3
+            ciStroke.Parent = circleIcon
+            circleIcon.Parent = circle
+        end
+
+        -- Escalas (UIScale) para la animación de transición pill <-> círculo.
+        local circleScale = Instance.new("UIScale")
+        circleScale.Scale = 1
+        circleScale.Parent = circle
+
+        local pillScale = Instance.new("UIScale")
+        pillScale.Scale = 1
+        pillScale.Parent = pill
+
         local ctx = {
             player     = player,
             billboard  = billboard,
@@ -4212,6 +4323,12 @@ Animations.luxe = {
             scale      = scale,
             pill       = pill,
             stroke     = pillStroke,
+            glow        = glowStroke,
+            circle      = circle,
+            circleGlow  = circleGlow,
+            circleScale = circleScale,
+            pillScale   = pillScale,
+            isFar       = false,
             icon       = icon,
             role       = role,
             roleStroke = roleStroke,
@@ -4380,18 +4497,82 @@ Animations.luxe = {
     end
 
     --==========================================================================
+    -- LOD TRANSITION  (animación pop al pasar de pill a círculo y viceversa)
+    --==========================================================================
+    local LOD_POP    = TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local LOD_SHRINK = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+    local function setLOD(ctx, far)
+        if far then
+            -- pill -> círculo: el círculo "explota" hacia adentro y la pill se encoge.
+            ctx.circle.Visible = true
+            ctx.circleScale.Scale = 0.2
+            TweenService:Create(ctx.circleScale, LOD_POP, { Scale = 1 }):Play()
+            local t = TweenService:Create(ctx.pillScale, LOD_SHRINK, { Scale = 0.2 })
+            t:Play()
+            t.Completed:Once(function()
+                if ctx.isFar and ctx.container then ctx.container.Visible = false end
+            end)
+        else
+            -- círculo -> pill: la pill aparece con pop y el círculo se encoge.
+            ctx.container.Visible = true
+            ctx.pillScale.Scale = 0.2
+            TweenService:Create(ctx.pillScale, LOD_POP, { Scale = 1 }):Play()
+            local t = TweenService:Create(ctx.circleScale, LOD_SHRINK, { Scale = 0.2 })
+            t:Play()
+            t.Completed:Once(function()
+                if not ctx.isFar and ctx.circle then ctx.circle.Visible = false end
+            end)
+        end
+    end
+
+    --==========================================================================
     -- MASTER ANIMATION LOOP  (one connection drives every tag)
     --==========================================================================
     local renderConn
     local function startLoop()
         if renderConn then return end
         renderConn = RunService.RenderStepped:Connect(function(dt)
+            local cam = workspace.CurrentCamera
+            local camPos = cam and cam.CFrame.Position
             for _, ctx in pairs(TagManager.active) do
                 if not ctx.adornee or not ctx.adornee.Parent then
                     ctx.billboard.Enabled = false           -- adornee gone; self-heal
-                elseif ctx.billboard.Enabled and ctx.anim and ctx.anim.update then
+                elseif ctx.billboard.Enabled then
                     ctx.elapsed += dt
-                    pcall(ctx.anim.update, ctx, ctx.elapsed)
+
+                    -- LOD: lejos => círculo; cerca => pill (con histéresis para no parpadear).
+                    if camPos and ctx.circle and ctx.container then
+                        local dist = (camPos - ctx.adornee.Position).Magnitude
+                        local far = ctx.isFar
+                        if ctx.isFar and dist < (CONFIG.CIRCLE_DISTANCE - 8) then
+                            far = false
+                        elseif (not ctx.isFar) and dist > (CONFIG.CIRCLE_DISTANCE + 8) then
+                            far = true
+                        end
+                        if far ~= ctx.isFar then
+                            ctx.isFar = far
+                            setLOD(ctx, far)
+                        end
+                    end
+
+                    -- GLOW para todos: halo que late (independiente de la animación del rol).
+                    if CONFIG.GLOW_ALL then
+                        local g = 0.5 + 0.5 * math.sin(ctx.elapsed * 2.5)
+                        if ctx.glow then
+                            ctx.glow.Transparency = lerp(0.35, 0.78, g)
+                            ctx.glow.Thickness    = lerp(3, 6.5, g)
+                        end
+                        if ctx.circleGlow then
+                            ctx.circleGlow.Transparency = lerp(0.15, 0.6, g)
+                            ctx.circleGlow.Thickness    = lerp(2.5, 5.5, g)
+                        end
+                    end
+
+                    -- Animación premium por-rol (solo cuando se ve la pill, no el círculo).
+                    if (not ctx.isFar) and ctx.anim and ctx.anim.update then
+                        pcall(ctx.anim.update, ctx, ctx.elapsed)
+                    end
                 end
             end
         end)
