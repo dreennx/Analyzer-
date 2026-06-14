@@ -3610,6 +3610,7 @@ do
         ICON_FONT       = Enum.Font.GothamBold,
         USERNAME_FONT   = Enum.Font.GothamMedium,
         ICON_TEXT_SIZE      = 20,
+        ICON_IMAGE_SIZE     = 22,   -- tamaño en px del icono cuando es imagen (rbxassetid)
         ROLE_TEXT_SIZE      = 18,
         USERNAME_TEXT_SIZE  = 14,
 
@@ -3732,12 +3733,26 @@ do
         _lastFetch = 0,
     }
 
+    -- Normaliza el campo de imagen: acepta número, "123" o "rbxassetid://123".
+    -- Devuelve nil si no hay imagen (entonces se usa el emoji/texto de 'icon').
+    local function normalizeImage(v)
+        if v == nil then return nil end
+        if type(v) == "number" then return "rbxassetid://" .. v end
+        v = tostring(v)
+        if v == "" or v == "rbxassetid://0" then return nil end
+        if v:match("^rbxassetid://%d+") or v:match("^rbxthumb") or v:match("^http") then return v end
+        local digits = v:match("^(%d+)$")
+        if digits then return "rbxassetid://" .. digits end
+        return v
+    end
+
     function TagDatabase:_resolveEntry(raw)
         local roleName  = raw.tag or raw.role or "MEMBER"
         local preset    = ROLE_PRESETS[normalizeRole(roleName)] or {}
 
         local color     = resolveColor(raw.color, preset.color or Color3.fromRGB(255, 255, 255))
         local icon      = raw.icon or preset.icon or ""
+        local iconImage = normalizeImage(raw.iconImage or raw.image or preset.iconImage)  -- NUEVO
         local animation = preset.animation or raw.animation or CONFIG.DEFAULT_ANIMATION
         animation       = string.lower(tostring(animation))
         local priority  = tonumber(raw.priority) or preset.priority or 0
@@ -3745,6 +3760,7 @@ do
         return {
             tag       = tostring(roleName),
             icon      = tostring(icon),
+            iconImage = iconImage,           -- NUEVO (nil si no hay imagen)
             color     = color,
             animation = animation,
             priority  = priority,
@@ -3770,7 +3786,7 @@ do
 
         local resolved = {}
         for userId, data in pairs(decoded) do
-            if type(data) == "table" then
+            if type(data) == "table" and not tostring(userId):match("^_") then  -- ignora _comment, _roles…
                 resolved[tostring(userId)] = self:_resolveEntry(data)
             end
         end
@@ -3830,7 +3846,11 @@ do
             local hue = (t * 0.18) % 1
             local c = Color3.fromHSV(hue, 0.85, 1)
             ctx.role.TextColor3 = c
-            ctx.icon.TextColor3 = c
+            if ctx.icon:IsA("ImageLabel") then
+                ctx.icon.ImageColor3 = c      -- tiñe la imagen (no tiene TextColor3)
+            else
+                ctx.icon.TextColor3 = c
+            end
             ctx.stroke.Color    = c
         end,
     }
@@ -4117,17 +4137,31 @@ Animations.luxe = {
         hlist.Padding             = UDim.new(0, 6)
         hlist.Parent              = pill
 
-        local icon = Instance.new("TextLabel")
-        icon.Name                 = "Icon"
-        icon.BackgroundTransparency = 1
-        icon.AutomaticSize        = Enum.AutomaticSize.XY
-        icon.Font                 = CONFIG.ICON_FONT
-        icon.Text                 = tag.icon
-        icon.TextSize             = CONFIG.ICON_TEXT_SIZE
-        icon.TextColor3           = Color3.fromRGB(255, 255, 255)
-        icon.LayoutOrder          = 1
-        icon.Visible              = (tag.icon ~= "")
-        icon.Parent               = pill
+        -- Icono: imagen personalizada (rbxassetid) si el JSON la trae; si no, emoji/texto.
+        local icon
+        if tag.iconImage and tag.iconImage ~= "" then
+            icon = Instance.new("ImageLabel")
+            icon.Name                   = "Icon"
+            icon.BackgroundTransparency = 1
+            icon.Image                  = tag.iconImage
+            icon.Size                   = UDim2.fromOffset(CONFIG.ICON_IMAGE_SIZE, CONFIG.ICON_IMAGE_SIZE)
+            icon.ScaleType              = Enum.ScaleType.Fit
+            icon.LayoutOrder            = 1
+            icon.Visible                = true
+            icon.Parent                 = pill
+        else
+            icon = Instance.new("TextLabel")
+            icon.Name                   = "Icon"
+            icon.BackgroundTransparency = 1
+            icon.AutomaticSize          = Enum.AutomaticSize.XY
+            icon.Font                   = CONFIG.ICON_FONT
+            icon.Text                   = tag.icon
+            icon.TextSize               = CONFIG.ICON_TEXT_SIZE
+            icon.TextColor3             = Color3.fromRGB(255, 255, 255)
+            icon.LayoutOrder            = 1
+            icon.Visible                = (tag.icon ~= "")
+            icon.Parent                 = pill
+        end
 
         local role = Instance.new("TextLabel")
         role.Name                 = "Role"
@@ -4200,8 +4234,8 @@ Animations.luxe = {
     local function tagSignature(t)
         if not t then return "nil" end
         local c = t.color
-        return string.format("%s|%s|%s|%d|%d,%d,%d",
-            t.tag, t.icon, t.animation, t.priority or 0,
+        return string.format("%s|%s|%s|%s|%d|%d,%d,%d",
+            t.tag, t.icon, tostring(t.iconImage), t.animation, t.priority or 0,
             math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
     end
 
