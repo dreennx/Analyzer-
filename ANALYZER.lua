@@ -144,7 +144,7 @@ local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
 
-local store = { theme = "negro", headTags = true }
+local store = { theme = "negro", headTags = true, animations = true }
 
 local function saveStore()
 	if not hasFS then return end
@@ -159,6 +159,7 @@ local function loadStore()
 			if ok and type(decoded) == "table" then
 				store.theme = decoded.theme or "negro"
 				if type(decoded.headTags) == "boolean" then store.headTags = decoded.headTags end
+				if type(decoded.animations) == "boolean" then store.animations = decoded.animations end
 			end
 		end
 	end)
@@ -202,6 +203,60 @@ local THEMES = {
 		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
 		text=Color3.fromRGB(235,230,242), subtext=Color3.fromRGB(150,135,168),
 		modalBg=Color3.fromRGB(26,20,38), modalStep=Color3.fromRGB(18,14,26),
+	},
+	-- Carmesí: negro con tinte rojo y acento rojo intenso.
+	rojo = {
+		bg=Color3.fromRGB(20,11,13), card=Color3.fromRGB(34,18,21), input=Color3.fromRGB(28,15,18),
+		link=Color3.fromRGB(20,11,13), neutral=Color3.fromRGB(46,24,28), border=Color3.fromRGB(70,36,42),
+		accent=Color3.fromRGB(240,72,82), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(255,90,90),
+		text=Color3.fromRGB(240,228,230), subtext=Color3.fromRGB(165,135,140),
+		modalBg=Color3.fromRGB(28,16,19), modalStep=Color3.fromRGB(18,10,12),
+	},
+	-- Amatista: violeta brillante sobre fondo morado oscuro.
+	morado = {
+		bg=Color3.fromRGB(16,12,26), card=Color3.fromRGB(26,20,44), input=Color3.fromRGB(22,16,38),
+		link=Color3.fromRGB(16,12,26), neutral=Color3.fromRGB(38,28,62), border=Color3.fromRGB(58,44,92),
+		accent=Color3.fromRGB(170,110,255), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		text=Color3.fromRGB(232,226,245), subtext=Color3.fromRGB(150,138,175),
+		modalBg=Color3.fromRGB(22,16,40), modalStep=Color3.fromRGB(14,10,24),
+	},
+	-- Aqua: cian/teal eléctrico sobre negro verdoso.
+	cyan = {
+		bg=Color3.fromRGB(8,18,20), card=Color3.fromRGB(14,30,33), input=Color3.fromRGB(12,26,29),
+		link=Color3.fromRGB(8,18,20), neutral=Color3.fromRGB(22,42,46), border=Color3.fromRGB(34,62,68),
+		accent=Color3.fromRGB(0,220,210), onAccent=Color3.fromRGB(6,18,18),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		text=Color3.fromRGB(224,238,238), subtext=Color3.fromRGB(120,150,150),
+		modalBg=Color3.fromRGB(12,26,28), modalStep=Color3.fromRGB(8,18,20),
+	},
+	-- Rosa: rosa neón sobre fondo oscuro.
+	rosa = {
+		bg=Color3.fromRGB(22,12,18), card=Color3.fromRGB(36,20,30), input=Color3.fromRGB(30,16,25),
+		link=Color3.fromRGB(22,12,18), neutral=Color3.fromRGB(48,26,40), border=Color3.fromRGB(72,40,60),
+		accent=Color3.fromRGB(255,110,190), onAccent=Color3.fromRGB(28,10,20),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		text=Color3.fromRGB(245,228,238), subtext=Color3.fromRGB(170,135,155),
+		modalBg=Color3.fromRGB(30,16,26), modalStep=Color3.fromRGB(20,10,16),
+	},
+	-- Ámbar: naranja cálido sobre fondo marrón oscuro.
+	naranja = {
+		bg=Color3.fromRGB(22,15,8), card=Color3.fromRGB(36,25,14), input=Color3.fromRGB(30,20,11),
+		link=Color3.fromRGB(22,15,8), neutral=Color3.fromRGB(48,33,18), border=Color3.fromRGB(72,50,28),
+		accent=Color3.fromRGB(255,150,50), onAccent=Color3.fromRGB(28,16,6),
+		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		text=Color3.fromRGB(244,234,222), subtext=Color3.fromRGB(168,148,124),
+		modalBg=Color3.fromRGB(30,21,11), modalStep=Color3.fromRGB(20,14,8),
+	},
+	-- Claro: modo claro limpio (acento azul). Contraste alto para texto.
+	claro = {
+		bg=Color3.fromRGB(238,240,244), card=Color3.fromRGB(255,255,255), input=Color3.fromRGB(248,249,251),
+		link=Color3.fromRGB(238,240,244), neutral=Color3.fromRGB(228,231,237), border=Color3.fromRGB(205,210,220),
+		accent=Color3.fromRGB(35,110,240), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(40,160,90), warn=Color3.fromRGB(205,135,30), bad=Color3.fromRGB(220,70,70),
+		text=Color3.fromRGB(22,26,34), subtext=Color3.fromRGB(95,105,120),
+		modalBg=Color3.fromRGB(255,255,255), modalStep=Color3.fromRGB(238,240,244),
 	},
 }
 
@@ -1074,6 +1129,73 @@ track(UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end))
 
+-- ====================== MOTION (animaciones + toggle global) ======================
+-- Toda animación de la UI pasa por aquí. Si el usuario desactiva las animaciones
+-- (Ajustes), motionTween salta directo a los valores finales (estilo
+-- "prefers-reduced-motion"): la UI sigue funcionando, pero sin movimiento.
+local ANIM = { enabled = (store.animations ~= false) }
+
+local function motionTween(inst, info, props, onDone)
+	if ANIM.enabled then
+		local tw = TweenService:Create(inst, info, props)
+		tw:Play()
+		if onDone then tw.Completed:Once(onDone) end
+		return tw
+	end
+	for k, v in pairs(props) do pcall(function() inst[k] = v end) end
+	if onDone then task.defer(onDone) end
+	return nil
+end
+
+-- Cambia el estado global de animaciones (y avisa al módulo de head tags si existe).
+local function setAnimationsEnabled(on)
+	ANIM.enabled = on and true or false
+	if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled then
+		pcall(_G.NXHeadTags.SetAnimationsEnabled, ANIM.enabled)
+	end
+end
+
+-- ====================== HELPERS DE UI (profundidad, sombra) ======================
+-- Sin efecto hover a propósito: dejamos AutoButtonColor en false para que NO pase
+-- NADA al poner el cursor encima (ni borde de acento ni oscurecido). Se conserva
+-- el nombre de la función para no tocar los sitios donde ya se llamaba.
+local function addHoverStroke(btn)
+	btn.AutoButtonColor = false
+end
+
+-- Profundidad sutil para tarjetas: gradiente vertical (arriba algo más claro,
+-- abajo más oscuro = "iluminado desde arriba") + borde fino temable.
+local function addDepth(frame)
+	local grad = Instance.new("UIGradient", frame)
+	grad.Rotation = 90
+	grad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(214, 214, 220))
+	local st = Instance.new("UIStroke", frame)
+	st.Color = C.border; st.Transparency = 0.15; st.Thickness = 1
+	themed(st, "Color", "border")
+	return grad, st
+end
+
+-- Sombra suave (drop shadow) detrás de un elemento, usando el asset 9-slice
+-- estándar de Roblox. 'parent' debe NO recortar (ClipsDescendants = false).
+local function addDropShadow(target, parent, zIndex, pad, transparency)
+	pad = pad or 26
+	local sh = Instance.new("ImageLabel")
+	sh.Name = "DropShadow"
+	sh.Active = false
+	sh.BackgroundTransparency = 1
+	sh.Image = "rbxassetid://1316045217"
+	sh.ImageColor3 = Color3.fromRGB(0, 0, 0)
+	sh.ImageTransparency = transparency or 0.4
+	sh.ScaleType = Enum.ScaleType.Slice
+	sh.SliceCenter = Rect.new(10, 10, 118, 118)
+	sh.AnchorPoint = target.AnchorPoint
+	sh.Position = target.Position
+	sh.Size = target.Size + UDim2.fromOffset(pad * 2, pad * 2)
+	sh.ZIndex = zIndex or 0
+	sh.Parent = parent
+	return sh
+end
+
 -- ====================== VENTANA ======================
 local MIN_W, MIN_H = 420, 360   -- tamaño mínimo al redimensionar
 local main = Instance.new("Frame")
@@ -1092,6 +1214,28 @@ stroke.Color = C.accent
 stroke.Transparency = 0.55
 stroke.Thickness = 1.5
 themed(stroke, "Color", "accent")
+
+-- Sombra suave de la ventana (profundidad). Va detrás de 'main' (ZIndex 0) y la
+-- sigue al arrastrar/redimensionar escuchando los cambios de Position/Size.
+local SHADOW_PAD = 11   -- pegada al UI (antes 22): la sombra abraza el borde.
+local windowShadow = Instance.new("ImageLabel")
+windowShadow.Name = "WindowShadow"
+windowShadow.Active = false
+windowShadow.BackgroundTransparency = 1
+windowShadow.Image = "rbxassetid://1316045217"
+windowShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+windowShadow.ImageTransparency = 0.62   -- más sutil (antes 0.42).
+windowShadow.ScaleType = Enum.ScaleType.Slice
+windowShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+windowShadow.ZIndex = 0
+windowShadow.Parent = gui
+local function syncWindowShadow()
+	windowShadow.Size = main.Size + UDim2.fromOffset(SHADOW_PAD * 2, SHADOW_PAD * 2)
+	windowShadow.Position = main.Position - UDim2.fromOffset(SHADOW_PAD, SHADOW_PAD)
+end
+syncWindowShadow()
+track(main:GetPropertyChangedSignal("Size"):Connect(syncWindowShadow))
+track(main:GetPropertyChangedSignal("Position"):Connect(syncWindowShadow))
 
 -- Header
 local header = Instance.new("Frame", main)
@@ -1312,6 +1456,7 @@ analyzeBtn.BorderSizePixel = 0
 Instance.new("UICorner", analyzeBtn).CornerRadius = UDim.new(0, 6)
 themed(analyzeBtn, "BackgroundColor3", "accent")
 themed(analyzeBtn, "TextColor3", "onAccent")
+addHoverStroke(analyzeBtn)
 
 local statusLabel = Instance.new("TextLabel", searchFrame)
 statusLabel.Size = UDim2.new(1, -320, 0, 28)
@@ -1367,6 +1512,14 @@ onRepaint(paintTabs)
 local function showPage(page)
 	for _, p in pairs(pages) do p.Visible = false end
 	page.Visible = true
+	-- transición chill: la pestaña entra deslizándose un pelín hacia arriba.
+	if ANIM.enabled then
+		page.Position = UDim2.new(0, 0, 0, 10)
+		motionTween(page, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = UDim2.new(0, 0, 0, 0) })
+	else
+		page.Position = UDim2.new(0, 0, 0, 0)
+	end
 	activeTab = tabByPage[page]
 	paintTabs()
 	local cb = onShowByPage[page]
@@ -1384,6 +1537,7 @@ local function createTab(name, page, onShow)
 	btn.TextColor3 = C.text
 	btn.BorderSizePixel = 0
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+	addHoverStroke(btn)
 	tabByPage[page] = btn
 	if onShow then onShowByPage[page] = onShow end
 	track(btn.MouseButton1Click:Connect(function() showPage(page) end))
@@ -1649,7 +1803,7 @@ local function showCharacterModal(userId, username)
 	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 60
-	TweenService:Create(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.35 }):Play()
+	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.35 })
 
 	local box = Instance.new("Frame", overlay)
 	box.Size = UDim2.new(0, 380, 0, 460)
@@ -1662,14 +1816,15 @@ local function showCharacterModal(userId, username)
 	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
 	local bs = Instance.new("UIStroke", box)
 	bs.Color = C.accent; bs.Transparency = 0.4; bs.Thickness = 1.5
+	addDropShadow(box, overlay, 60, 30, 0.4)
 	local scale = Instance.new("UIScale", box)
 	scale.Scale = 0.85
-	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{ Scale = 1 }):Play()
+	motionTween(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 })
 
 	local function closeModal()
-		TweenService:Create(scale, TweenInfo.new(0.13), { Scale = 0.85 }):Play()
-		TweenService:Create(overlay, TweenInfo.new(0.13), { BackgroundTransparency = 1 }):Play()
+		motionTween(scale, TweenInfo.new(0.13), { Scale = 0.85 })
+		motionTween(overlay, TweenInfo.new(0.13), { BackgroundTransparency = 1 })
 		task.delay(0.15, function() if overlay and overlay.Parent then overlay:Destroy() end end)
 	end
 
@@ -1965,8 +2120,8 @@ local function addScoreBar(parent, label, score, levelTxt, color, order)
 	fill.BorderSizePixel = 0
 	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
 	-- barra de progreso animada
-	TweenService:Create(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-		{ Size = UDim2.new(math.clamp(score / 100, 0, 1), 0, 1, 0) }):Play()
+	motionTween(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+		{ Size = UDim2.new(math.clamp(score / 100, 0, 1), 0, 1, 0) })
 
 	local val = Instance.new("TextLabel", row)
 	val.Position = UDim2.new(1, -112, 0, 0)
@@ -2029,7 +2184,7 @@ local function showMiniProfileCard(userId, fallback)
 	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 70
-	TweenService:Create(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.45 }):Play()
+	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.45 })
 
 	local card = Instance.new("Frame", overlay)
 	card.Size = UDim2.new(0, 320, 0, 486)
@@ -2042,14 +2197,15 @@ local function showMiniProfileCard(userId, fallback)
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
 	local cstroke = Instance.new("UIStroke", card)
 	cstroke.Color = C.accent; cstroke.Transparency = 0.4; cstroke.Thickness = 1.5
+	addDropShadow(card, overlay, 70, 30, 0.4)
 	local scale = Instance.new("UIScale", card)
 	scale.Scale = 0.85
-	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{ Scale = 1 }):Play()
+	motionTween(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Scale = 1 })
 
 	local function closeCard()
-		TweenService:Create(scale, TweenInfo.new(0.14), { Scale = 0.85 }):Play()
-		TweenService:Create(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 }):Play()
+		motionTween(scale, TweenInfo.new(0.14), { Scale = 0.85 })
+		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
 		task.delay(0.16, function() if overlay and overlay.Parent then overlay:Destroy() end end)
 	end
 
@@ -2306,8 +2462,8 @@ local function addFriendsDropdown(parent, data, order)
 	local open, loaded, targetH, shown = false, false, 0, 0
 
 	local function animateTo(h)
-		TweenService:Create(clip, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Size = UDim2.new(1, 0, 0, h) }):Play()
+		motionTween(clip, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(1, 0, 0, h) })
 	end
 
 	local function addCard(info)
@@ -2454,7 +2610,7 @@ local function buildFriendButton(parent, targetId, order)
 	local locked = true   -- bloqueado hasta conocer el estado (evita spam)
 	local function setState(text, bg, fg, clickable)
 		btn.Text = text
-		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = bg }):Play()
+		motionTween(btn, TweenInfo.new(0.15), { BackgroundColor3 = bg })
 		btn.TextColor3 = fg or C.onAccent
 		btn.AutoButtonColor = clickable and true or false
 		locked = not clickable
@@ -2535,13 +2691,25 @@ end
 
 local currentData = nil
 
-local function render(data)
+local function render(data, skipEntrance)
 	clearScroll(profileScroll)
 	clearScroll(statsScroll)
 	clearScroll(itemsScroll)
 	clearScroll(analysisScroll)
 	currentData = data
 	if not data then return end
+
+	-- Animación de entrada: la pestaña visible entra deslizándose suave al cargar
+	-- un perfil nuevo (chill). No se reproduce al re-pintar por cambio de tema.
+	if ANIM.enabled and not skipEntrance then
+		for _, pg in ipairs({ profilePage, statsPage, itemsPage, analysisPage }) do
+			if pg.Visible then
+				pg.Position = UDim2.new(0, 0, 0, 12)
+				motionTween(pg, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+					{ Position = UDim2.new(0, 0, 0, 0) })
+			end
+		end
+	end
 
 	-- ---------- PESTAÑA PERFIL ----------
 	local avatarFrame = Instance.new("Frame", profileScroll)
@@ -2559,6 +2727,12 @@ local function render(data)
 	avatar.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
+	-- detalle: el avatar aparece con un fade suave al cargar el perfil.
+	if ANIM.enabled and not skipEntrance then
+		avatar.ImageTransparency = 1
+		motionTween(avatar, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ ImageTransparency = 0 })
+	end
 
 	local viewCharBtn = Instance.new("TextButton", avatarFrame)
 	viewCharBtn.Size = UDim2.new(0, 220, 0, 30)
@@ -3246,20 +3420,28 @@ end
 -- rerenderCurrent reconstruye las pestañas de contenido con el tema nuevo.
 rerenderCurrent = function()
 	if currentData then
-		pcall(render, currentData)
+		pcall(render, currentData, true)   -- true = sin animación de entrada (solo re-pinta el tema)
 	end
 end
 
 -- ====================== PESTAÑA AJUSTES (solo Tema, en vivo) ======================
 do
+	-- Muestra los nombres de tema con mayúscula inicial (Negro, Azul, Rojo…)
+	-- sin cambiar la clave interna en minúscula (no rompe el guardado ni THEMES).
+	local function titleCase(s)
+		s = tostring(s)
+		return s:sub(1, 1):upper() .. s:sub(2)
+	end
+
 	local themeCard = Instance.new("Frame", settingsScroll)
 	themeCard.LayoutOrder = 1
 	themeCard.Size = UDim2.new(1, -4, 0, 0)
 	themeCard.AutomaticSize = Enum.AutomaticSize.Y
 	themeCard.BackgroundColor3 = C.card
 	themeCard.BorderSizePixel = 0
-	Instance.new("UICorner", themeCard).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", themeCard).CornerRadius = UDim.new(0, 8)
 	themed(themeCard, "BackgroundColor3", "card")
+	addDepth(themeCard)
 	local thPad = Instance.new("UIPadding", themeCard)
 	thPad.PaddingTop = UDim.new(0,8); thPad.PaddingBottom = UDim.new(0,8)
 	thPad.PaddingLeft = UDim.new(0,10); thPad.PaddingRight = UDim.new(0,10)
@@ -3272,39 +3454,51 @@ do
 	thTitle.Text = "🎨 Tema (se aplica al instante)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(thTitle, "TextColor3", "accent")
 
+	-- Chips de tema que hacen wrap automáticamente (escala a muchos colores).
+	-- El chip sin seleccionar se tiñe con el acento de SU propio tema (preview).
 	local thBtnRow = Instance.new("Frame", themeCard)
-	thBtnRow.LayoutOrder = 1; thBtnRow.Size = UDim2.new(1, 0, 0, 28); thBtnRow.BackgroundTransparency = 1
-	local thBtnLay = Instance.new("UIListLayout", thBtnRow)
-	thBtnLay.FillDirection = Enum.FillDirection.Horizontal; thBtnLay.Padding = UDim.new(0, 6)
+	thBtnRow.LayoutOrder = 1
+	thBtnRow.Size = UDim2.new(1, 0, 0, 0)
+	thBtnRow.AutomaticSize = Enum.AutomaticSize.Y
+	thBtnRow.BackgroundTransparency = 1
+	local thGrid = Instance.new("UIGridLayout", thBtnRow)
+	thGrid.CellSize = UDim2.new(0, 70, 0, 26)
+	thGrid.CellPadding = UDim2.new(0, 6, 0, 6)
+	thGrid.SortOrder = Enum.SortOrder.LayoutOrder
+	thGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 	local thInfo = Instance.new("TextLabel", themeCard)
 	thInfo.LayoutOrder = 2; thInfo.Size = UDim2.new(1,0,0,16); thInfo.BackgroundTransparency = 1
 	thInfo.Font = Enum.Font.Gotham; thInfo.TextSize = 11; thInfo.TextColor3 = C.subtext
-	thInfo.Text = "Tema actual: " .. store.theme; thInfo.TextXAlignment = Enum.TextXAlignment.Left
+	thInfo.Text = "Tema actual: " .. titleCase(store.theme); thInfo.TextXAlignment = Enum.TextXAlignment.Left
 	themed(thInfo, "TextColor3", "subtext")
 
 	local themeButtons = {}
 	local function paintThemeButtons()
 		for _, b in ipairs(themeButtons) do
-			local sel = (store.theme == b.Text)
+			local tn = b:GetAttribute("ThemeKey")
+			local sel = (store.theme == tn)
+			local own = THEMES[tn]
 			b.BackgroundColor3 = sel and C.accent or C.neutral
-			b.TextColor3 = sel and C.onAccent or C.text
+			b.TextColor3 = sel and C.onAccent or ((own and own.accent) or C.text)
 		end
 	end
 	onRepaint(paintThemeButtons)
 
-	local themeOrder = { "negro", "azul", "verde", "tor" }
-	for _, tn in ipairs(themeOrder) do
+	local themeOrder = { "negro", "azul", "verde", "tor", "rojo", "morado", "cyan", "rosa", "naranja", "claro" }
+	for i, tn in ipairs(themeOrder) do
 		local tb = Instance.new("TextButton", thBtnRow)
-		tb.Size = UDim2.new(1/#themeOrder, -5, 1, 0)
-		tb.BackgroundColor3 = (store.theme == tn) and C.accent or C.neutral
-		tb.TextColor3 = (store.theme == tn) and C.onAccent or C.text
-		tb.Text = tn; tb.Font = Enum.Font.GothamBold; tb.TextSize = 12; tb.BorderSizePixel = 0
-		Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 5)
+		tb.LayoutOrder = i
+		tb.BackgroundColor3 = C.neutral
+		tb.Text = titleCase(tn); tb.Font = Enum.Font.GothamBold; tb.TextSize = 11; tb.BorderSizePixel = 0
+		tb.TextTruncate = Enum.TextTruncate.AtEnd
+		tb:SetAttribute("ThemeKey", tn)   -- clave interna (minúscula) separada del texto visible
+		Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+		addHoverStroke(tb)
 		table.insert(themeButtons, tb)
 		tb.MouseButton1Click:Connect(function()
 			setTheme(tn)                 -- cambia el tema EN VIVO (sin reabrir)
-			thInfo.Text = "Tema actual: " .. tn
+			thInfo.Text = "Tema actual: " .. titleCase(tn)
 			paintThemeButtons()
 		end)
 	end
@@ -3320,8 +3514,9 @@ do
 	nxCard.AutomaticSize = Enum.AutomaticSize.Y
 	nxCard.BackgroundColor3 = C.card
 	nxCard.BorderSizePixel = 0
-	Instance.new("UICorner", nxCard).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", nxCard).CornerRadius = UDim.new(0, 8)
 	themed(nxCard, "BackgroundColor3", "card")
+	addDepth(nxCard)
 	local nxPad = Instance.new("UIPadding", nxCard)
 	nxPad.PaddingTop = UDim.new(0, 8); nxPad.PaddingBottom = UDim.new(0, 8)
 	nxPad.PaddingLeft = UDim.new(0, 10); nxPad.PaddingRight = UDim.new(0, 10)
@@ -3345,6 +3540,7 @@ do
 	nxToggle.LayoutOrder = 2; nxToggle.Size = UDim2.new(0, 130, 0, 28)
 	nxToggle.Font = Enum.Font.GothamBold; nxToggle.TextSize = 13; nxToggle.BorderSizePixel = 0
 	Instance.new("UICorner", nxToggle).CornerRadius = UDim.new(0, 5)
+	addHoverStroke(nxToggle)
 
 	local function paintNxToggle()
 		local on = store.headTags
@@ -3362,6 +3558,60 @@ do
 		if _G.NXHeadTags then
 			_G.NXHeadTags.SetEnabled(store.headTags)
 		end
+	end)
+
+	-- ====== Animaciones (toggle global de movimiento) ======
+	-- Apaga TODAS las animaciones de la UI (hover, transiciones, barras, modales)
+	-- y el brillo/shimmer de los head tags. La preferencia se guarda entre sesiones.
+	local animCard = Instance.new("Frame", settingsScroll)
+	animCard.LayoutOrder = 3
+	animCard.Size = UDim2.new(1, -4, 0, 0)
+	animCard.AutomaticSize = Enum.AutomaticSize.Y
+	animCard.BackgroundColor3 = C.card
+	animCard.BorderSizePixel = 0
+	Instance.new("UICorner", animCard).CornerRadius = UDim.new(0, 8)
+	themed(animCard, "BackgroundColor3", "card")
+	addDepth(animCard)
+	local anPad = Instance.new("UIPadding", animCard)
+	anPad.PaddingTop = UDim.new(0, 8); anPad.PaddingBottom = UDim.new(0, 8)
+	anPad.PaddingLeft = UDim.new(0, 10); anPad.PaddingRight = UDim.new(0, 10)
+	local anLay = Instance.new("UIListLayout", animCard)
+	anLay.Padding = UDim.new(0, 6); anLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local anTitle = Instance.new("TextLabel", animCard)
+	anTitle.LayoutOrder = 0; anTitle.Size = UDim2.new(1, 0, 0, 20); anTitle.BackgroundTransparency = 1
+	anTitle.Font = Enum.Font.GothamBold; anTitle.TextSize = 14; anTitle.TextColor3 = C.accent
+	anTitle.Text = "✨ Animaciones"; anTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(anTitle, "TextColor3", "accent")
+
+	local anDesc = Instance.new("TextLabel", animCard)
+	anDesc.LayoutOrder = 1; anDesc.Size = UDim2.new(1, 0, 0, 16); anDesc.BackgroundTransparency = 1
+	anDesc.Font = Enum.Font.Gotham; anDesc.TextSize = 11; anDesc.TextColor3 = C.subtext
+	anDesc.Text = "Transiciones y efectos de la interfaz (y el brillo de los head tags)."
+	anDesc.TextXAlignment = Enum.TextXAlignment.Left
+	themed(anDesc, "TextColor3", "subtext")
+
+	local anToggle = Instance.new("TextButton", animCard)
+	anToggle.LayoutOrder = 2; anToggle.Size = UDim2.new(0, 140, 0, 28)
+	anToggle.Font = Enum.Font.GothamBold; anToggle.TextSize = 13; anToggle.BorderSizePixel = 0
+	Instance.new("UICorner", anToggle).CornerRadius = UDim.new(0, 5)
+	addHoverStroke(anToggle)
+
+	local function paintAnToggle()
+		local on = store.animations ~= false
+		anToggle.Text = on and "Activadas ✓" or "Desactivadas"
+		anToggle.BackgroundColor3 = on and C.good or C.neutral
+		anToggle.TextColor3 = on and C.onAccent or C.text
+	end
+	paintAnToggle()
+	onRepaint(paintAnToggle)
+
+	anToggle.MouseButton1Click:Connect(function()
+		local newOn = not (store.animations ~= false)
+		store.animations = newOn
+		saveStore()
+		setAnimationsEnabled(newOn)
+		paintAnToggle()
 	end)
 end
 
@@ -3545,10 +3795,11 @@ print(("[Profile Analyzer v3.3.0] Cargado correctamente. Executor: %s"):format(E
   This block auto-starts when it runs. It exposes a control handle on
   _G.NXHeadTags so you can drive it from anywhere:
 
-      _G.NXHeadTags.Start()          -- start (auto-called already)
-      _G.NXHeadTags.Stop()           -- stop + full cleanup
-      _G.NXHeadTags.Refresh()        -- force re-download the JSON now
-      _G.NXHeadTags.SetEnabled(bool) -- toggle on/off
+      _G.NXHeadTags.Start()                 -- start (auto-called already)
+      _G.NXHeadTags.Stop()                  -- stop + full cleanup
+      _G.NXHeadTags.Refresh()               -- force re-download the JSON now
+      _G.NXHeadTags.SetEnabled(bool)        -- toggle on/off
+      _G.NXHeadTags.SetTeleportEnabled(bool)-- toggle TP-al-tocar-el-tag on/off
 
       -- quick local test without touching GitHub:
       _G.NXHeadTags.SetLocalOverride(
@@ -3585,6 +3836,7 @@ do
 
     local NXHeadTags = {}
     NXHeadTags._running = false
+    NXHeadTags._anim    = true   -- false = pausa glow/shimmer (toggle de Animaciones)
 
     --==========================================================================
     -- CONFIG  (tweak everything here)
@@ -3603,15 +3855,21 @@ do
         -- LOD (nivel de detalle): cerca = pill completa; lejos = círculo compacto.
         CIRCLE_DISTANCE   = 65,    -- a partir de esta distancia (studs) el tag se vuelve un círculo.
         CIRCLE_SIZE       = 46,    -- diámetro (px) del círculo lejano.
+        CIRCLE_BG_TRANSPARENCY = 0.04,  -- fondo del círculo (más bajo = más oscuro/sólido, tipo tag).
         CIRCLE_LOGO       = "NX",  -- texto del logo dentro del círculo (si no hay imagen).
         CIRCLE_LOGO_IMAGE = "",    -- rbxassetid de tu logo NX (opcional). "" = usa el texto "NX".
         GLOW_ALL          = true,  -- halo de glow que late para TODOS los tags.
 
-        -- Visuals
-        PILL_BG               = Color3.fromRGB(18, 18, 26),
-        PILL_BG_TRANSPARENCY  = 0.12,
-        PILL_GRADIENT_TOP     = Color3.fromRGB(42, 42, 58),
-        PILL_GRADIENT_BOTTOM  = Color3.fromRGB(12, 12, 18),
+        -- TP AL TOCAR EL TAG: click normal sobre la pill/círculo de un jugador y
+        -- te teletransportas a su posición (justo encima). false = desactivado.
+        TP_ON_CLICK       = true,
+        TP_COOLDOWN       = 0.4,   -- segundos mínimos entre TPs (anti-spam / anti doble-click).
+
+        -- Visuals  (fondo oscuro estilo "tag NX": casi negro y sólido)
+        PILL_BG               = Color3.fromRGB(9, 9, 13),
+        PILL_BG_TRANSPARENCY  = 0.04,
+        PILL_GRADIENT_TOP     = Color3.fromRGB(24, 24, 32),
+        PILL_GRADIENT_BOTTOM  = Color3.fromRGB(5, 5, 8),
         USERNAME_COLOR        = Color3.fromRGB(255, 255, 255),
 
         ROLE_FONT       = Enum.Font.GothamBold,
@@ -4087,6 +4345,67 @@ Animations.luxe = {
         end,
     }
     --==========================================================================
+    -- TELEPORT ON CLICK  (tocar el tag de un jugador -> TP a su posición)
+    -- Click normal sobre la pill (cerca) o el círculo (lejos) y te llevas a tu
+    -- personaje justo encima del jugador. Anti-spam con cooldown.
+    --==========================================================================
+    local lastTeleport = 0
+
+    -- Raíz del personaje. R6 y R15 usan HumanoidRootPart; fallback a torsos.
+    local function rootOf(character)
+        if not character then return nil end
+        return character:FindFirstChild("HumanoidRootPart")
+            or character:FindFirstChild("UpperTorso")
+            or character:FindFirstChild("Torso")
+    end
+
+    local function teleportToPlayer(targetPlayer)
+        if not CONFIG.TP_ON_CLICK then return end
+        if not targetPlayer or targetPlayer == LocalPlayer then return end
+        local myRoot = rootOf(LocalPlayer.Character)
+        local tRoot  = rootOf(targetPlayer.Character)
+        if not myRoot or not tRoot then return end
+        -- "Justo encima": misma posición y orientación que el objetivo.
+        myRoot.CFrame = tRoot.CFrame
+    end
+
+    -- Rebote rápido del elemento visible como confirmación visual del click.
+    local function flashTag(ctx)
+        local s = ctx.isFar and ctx.circleScale or ctx.pillScale
+        if not s then return end
+        local up = TweenService:Create(s,
+            TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Scale = 1.28 })
+        up:Play()
+        up.Completed:Once(function()
+            TweenService:Create(s,
+                TweenInfo.new(0.20, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                { Scale = 1 }):Play()
+        end)
+    end
+
+    local function onTagClicked(ctx)
+        if not CONFIG.TP_ON_CLICK then return end
+        local now = os.clock()
+        if now - lastTeleport < (CONFIG.TP_COOLDOWN or 0.4) then return end
+        lastTeleport = now
+        flashTag(ctx)
+        teleportToPlayer(ctx.player)
+    end
+
+    -- Hace un Frame clickeable (Active) y dispara el TP al pulsarlo. La conexión
+    -- se libera sola cuando el billboard se destruye (Destroy desconecta sus eventos).
+    local function makeClickable(guiObject, ctx)
+        guiObject.Active = true
+        guiObject.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                onTagClicked(ctx)
+            end
+        end)
+    end
+
+    --==========================================================================
     -- BILLBOARD BUILDER  (premium look: stroke, padding, corners, gradient)
     --==========================================================================
     local function buildBillboard(player, tag)
@@ -4264,7 +4583,7 @@ Animations.luxe = {
         circle.Position             = UDim2.fromScale(0.5, 0.5)
         circle.Size                 = UDim2.fromOffset(CONFIG.CIRCLE_SIZE, CONFIG.CIRCLE_SIZE)
         circle.BackgroundColor3     = CONFIG.PILL_BG
-        circle.BackgroundTransparency = 0.05
+        circle.BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY
         circle.Visible              = false
         circle.Parent               = billboard
 
@@ -4285,7 +4604,7 @@ Animations.luxe = {
             circleIcon = Instance.new("ImageLabel")
             circleIcon.BackgroundTransparency = 1
             circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
-            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
+            circleIcon.Size                   = UDim2.fromScale(0.50, 0.50)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.ScaleType              = Enum.ScaleType.Fit
@@ -4294,7 +4613,7 @@ Animations.luxe = {
         else
             circleIcon = Instance.new("TextLabel")
             circleIcon.BackgroundTransparency = 1
-            circleIcon.Size                   = UDim2.fromScale(0.82, 0.82)
+            circleIcon.Size                   = UDim2.fromScale(0.62, 0.62)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.Font                   = Enum.Font.GothamBlack
@@ -4326,9 +4645,11 @@ Animations.luxe = {
             glow        = glowStroke,
             circle      = circle,
             circleGlow  = circleGlow,
+            circleIcon  = circleIcon,
             circleScale = circleScale,
             pillScale   = pillScale,
             isFar       = false,
+            transitioning = false,
             icon       = icon,
             role       = role,
             roleStroke = roleStroke,
@@ -4336,6 +4657,10 @@ Animations.luxe = {
             tag        = tag,
             elapsed    = 0,
         }
+
+        -- TP al tocar el tag: tanto la pill (cerca) como el círculo (lejos).
+        makeClickable(pill, ctx)
+        makeClickable(circle, ctx)
 
         -- Wire up the chosen animation (modular).
         local anim = Animations[tag.animation] or Animations.none
@@ -4499,29 +4824,60 @@ Animations.luxe = {
     --==========================================================================
     -- LOD TRANSITION  (animación pop al pasar de pill a círculo y viceversa)
     --==========================================================================
-    local LOD_POP    = TweenInfo.new(0.30, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    local LOD_SHRINK = TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    -- Curvas de la transición pill <-> círculo:
+    --   POP    = entra creciendo desde 0 con un rebote suave (overshoot).
+    --   SHRINK = sale encogiéndose limpio hasta 0.
+    --   FADE   = acompaña con transparencia para que no sea un corte seco.
+    --   SPIN   = giro corto de "asentamiento" del logo del círculo.
+    local LOD_POP    = TweenInfo.new(0.42, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
+    local LOD_SHRINK = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+    local LOD_FADE   = TweenInfo.new(0.26, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
+    local LOD_SPIN   = TweenInfo.new(0.5,  Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
 
     local function setLOD(ctx, far)
+        ctx.transitioning = true   -- pausa el loop de glow para que no pelee con el fade
         if far then
-            -- pill -> círculo: el círculo "explota" hacia adentro y la pill se encoge.
-            ctx.circle.Visible = true
-            ctx.circleScale.Scale = 0.2
+            -- PILL -> CÍRCULO: el círculo crece desde el centro con rebote, aparece
+            -- desde transparente y su logo gira para "asentarse"; la pill se encoge
+            -- y se desvanece a la vez (transición fluida, no un corte).
+            ctx.circle.Visible              = true
+            ctx.circleScale.Scale           = 0.0
+            ctx.circle.BackgroundTransparency = 1
+            if ctx.circleGlow then ctx.circleGlow.Transparency = 1 end
+            if ctx.circleIcon then ctx.circleIcon.Rotation = -90 end
+
             TweenService:Create(ctx.circleScale, LOD_POP, { Scale = 1 }):Play()
-            local t = TweenService:Create(ctx.pillScale, LOD_SHRINK, { Scale = 0.2 })
+            TweenService:Create(ctx.circle, LOD_FADE,
+                { BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY }):Play()
+            if ctx.circleGlow then
+                TweenService:Create(ctx.circleGlow, LOD_FADE, { Transparency = 0.25 }):Play()
+            end
+            if ctx.circleIcon then
+                TweenService:Create(ctx.circleIcon, LOD_SPIN, { Rotation = 0 }):Play()
+            end
+
+            local t = TweenService:Create(ctx.pillScale, LOD_SHRINK, { Scale = 0.0 })
             t:Play()
             t.Completed:Once(function()
                 if ctx.isFar and ctx.container then ctx.container.Visible = false end
+                ctx.transitioning = false
             end)
         else
-            -- círculo -> pill: la pill aparece con pop y el círculo se encoge.
+            -- CÍRCULO -> PILL: la pill reaparece con rebote; el círculo se encoge
+            -- y se desvanece al mismo tiempo.
             ctx.container.Visible = true
-            ctx.pillScale.Scale = 0.2
+            ctx.pillScale.Scale   = 0.0
             TweenService:Create(ctx.pillScale, LOD_POP, { Scale = 1 }):Play()
-            local t = TweenService:Create(ctx.circleScale, LOD_SHRINK, { Scale = 0.2 })
+
+            TweenService:Create(ctx.circle, LOD_FADE, { BackgroundTransparency = 1 }):Play()
+            if ctx.circleGlow then
+                TweenService:Create(ctx.circleGlow, LOD_FADE, { Transparency = 1 }):Play()
+            end
+            local t = TweenService:Create(ctx.circleScale, LOD_SHRINK, { Scale = 0.0 })
             t:Play()
             t.Completed:Once(function()
                 if not ctx.isFar and ctx.circle then ctx.circle.Visible = false end
+                ctx.transitioning = false
             end)
         end
     end
@@ -4557,7 +4913,8 @@ Animations.luxe = {
                     end
 
                     -- GLOW para todos: halo que late (independiente de la animación del rol).
-                    if CONFIG.GLOW_ALL then
+                    -- Se pausa durante la transición de LOD para no pelear con el fade.
+                    if CONFIG.GLOW_ALL and not ctx.transitioning and NXHeadTags._anim then
                         local g = 0.5 + 0.5 * math.sin(ctx.elapsed * 2.5)
                         if ctx.glow then
                             ctx.glow.Transparency = lerp(0.35, 0.78, g)
@@ -4570,7 +4927,7 @@ Animations.luxe = {
                     end
 
                     -- Animación premium por-rol (solo cuando se ve la pill, no el círculo).
-                    if (not ctx.isFar) and ctx.anim and ctx.anim.update then
+                    if (not ctx.isFar) and ctx.anim and ctx.anim.update and NXHeadTags._anim then
                         pcall(ctx.anim.update, ctx, ctx.elapsed)
                     end
                 end
@@ -4651,6 +5008,17 @@ Animations.luxe = {
         if on then NXHeadTags.Start() else NXHeadTags.Stop() end
     end
 
+    -- Activa/desactiva el TP al tocar un tag sin parar el resto del sistema.
+    function NXHeadTags.SetTeleportEnabled(on)
+        CONFIG.TP_ON_CLICK = on and true or false
+    end
+
+    -- Activa/desactiva el glow + shimmer de los tags (lo usa el toggle de
+    -- Animaciones del Analyzer). El LOD (pill<->círculo) sigue funcionando.
+    function NXHeadTags.SetAnimationsEnabled(on)
+        NXHeadTags._anim = on and true or false
+    end
+
     -- Add/override a tag locally without editing GitHub (great for testing).
     function NXHeadTags.SetLocalOverride(userId, data)
         TagDatabase._resolved[tostring(userId)] = TagDatabase:_resolveEntry(data or {})
@@ -4672,4 +5040,10 @@ end
 -- módulo no exista: si _G.NXHeadTags es nil, no hace nada.
 if _G.NXHeadTags and not store.headTags then
 	_G.NXHeadTags.SetEnabled(false)
+end
+
+-- Aplica la preferencia guardada de Animaciones: si las dejaste apagadas,
+-- también se calma el glow/shimmer de los head tags al cargar.
+if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled and store.animations == false then
+	_G.NXHeadTags.SetAnimationsEnabled(false)
 end
