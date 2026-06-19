@@ -3858,7 +3858,7 @@ do
         CIRCLE_BG_TRANSPARENCY = 0.04,  -- fondo del círculo (más bajo = más oscuro/sólido, tipo tag).
         CIRCLE_LOGO       = "NX",  -- texto del logo dentro del círculo (si no hay imagen).
         CIRCLE_LOGO_IMAGE = "",    -- rbxassetid de tu logo NX (opcional). "" = usa el texto "NX".
-        GLOW_ALL          = true,  -- halo de glow que late para TODOS los tags.
+        GLOW_ALL          = false, -- (apagado) sin respiración: el tag se queda con su borde fijo
 
         -- TP AL TOCAR EL TAG: click normal sobre la pill/círculo de un jugador y
         -- te teletransportas a su posición (justo encima). false = desactivado.
@@ -4604,7 +4604,7 @@ Animations.luxe = {
             circleIcon = Instance.new("ImageLabel")
             circleIcon.BackgroundTransparency = 1
             circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
-            circleIcon.Size                   = UDim2.fromScale(0.50, 0.50)
+            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.ScaleType              = Enum.ScaleType.Fit
@@ -4613,7 +4613,7 @@ Animations.luxe = {
         else
             circleIcon = Instance.new("TextLabel")
             circleIcon.BackgroundTransparency = 1
-            circleIcon.Size                   = UDim2.fromScale(0.62, 0.62)
+            circleIcon.Size                   = UDim2.fromScale(0.82, 0.82)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.Font                   = Enum.Font.GothamBlack
@@ -5047,3 +5047,467 @@ end
 if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled and store.animations == false then
 	_G.NXHeadTags.SetAnimationsEnabled(false)
 end
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  ✦ PRISM LOOK · capa visual premium (glass + borde neón + ripple)     ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  Capa ADITIVA. No toca tu arquitectura: reusa tus hooks de tema       ║
+-- ║  (themed/onRepaint/C => todo sale de C.accent y cambia EN VIVO con    ║
+-- ║  el tema), tu motionTween (respeta el toggle de Animaciones de        ║
+-- ║  Ajustes) y track() para autolimpiarse al cerrar. Va en una IIFE:     ║
+-- ║  no añade NI UNA variable a tu scope de archivo (registros aislados).  ║
+-- ║  Apaga lo que no quieras en la tabla PRISM de abajo.                  ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+-- (IIFE: scope de registros propio, no suma locales a tu chunk principal)
+;(function()
+	local RunService = game:GetService("RunService")
+	local Lighting   = game:GetService("Lighting")
+
+	-- ▼▼▼ AJUSTA AQUÍ (true/false para encender/apagar cada efecto) ▼▼▼
+	local PRISM = {
+		neonBorder   = true,   -- borde con gradiente neón que gira lento
+		titleShimmer = true,   -- brillo que recorre el título
+		headerLine   = true,   -- línea de acento bajo la cabecera
+		glassBlur    = false,  -- desenfoque del fondo 3D (APAGADO a pedido)
+		popOpen      = true,   -- animación de apertura (escala + rebote)
+		ripple       = true,   -- onda al pulsar botones
+		blurSize     = 12,     -- intensidad del cristal (0–24)
+		spinSpeed    = 24,     -- velocidad del borde neón (grados/seg)
+		strokeAlpha  = 0.30,   -- transparencia del borde (0 = sólido)
+		strokeWidth  = 1.6,    -- grosor del borde neón
+	}
+	-- ▲▲▲ ───────────────────────────────────────────────────────── ▲▲▲
+
+	-- Mezclas de color: el neón se DERIVA de C.accent (respeta el tema).
+	local function lerp(a, b, t) return a + (b - a) * t end
+	local function lighten(c, f) return Color3.new(lerp(c.R,1,f), lerp(c.G,1,f), lerp(c.B,1,f)) end
+	local function darken(c, f)  return Color3.new(lerp(c.R,0,f), lerp(c.G,0,f), lerp(c.B,0,f)) end
+
+	local function neonSeq()
+		local a = C.accent
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0.0, darken(a, 0.12)),
+			ColorSequenceKeypoint.new(0.5, lighten(a, 0.55)),
+			ColorSequenceKeypoint.new(1.0, darken(a, 0.12)),
+		})
+	end
+	local function titleSeq()
+		local a = C.accent
+		return ColorSequence.new({
+			ColorSequenceKeypoint.new(0.0, lighten(a, 0.05)),
+			ColorSequenceKeypoint.new(0.5, lighten(a, 0.85)),
+			ColorSequenceKeypoint.new(1.0, lighten(a, 0.05)),
+		})
+	end
+
+	-- 1) BORDE NEÓN ANIMADO (sobre el UIStroke de la ventana 'main')
+	local neonGrad
+	if PRISM.neonBorder then
+		pcall(function()
+			local winStroke = main:FindFirstChildOfClass("UIStroke")
+			if winStroke then
+				winStroke.Transparency = PRISM.strokeAlpha
+				winStroke.Thickness    = PRISM.strokeWidth
+				neonGrad = Instance.new("UIGradient", winStroke)
+				neonGrad.Color = neonSeq()
+			end
+		end)
+	end
+
+	-- 2) SHIMMER EN EL TÍTULO
+	local titleGrad
+	if PRISM.titleShimmer then
+		pcall(function()
+			titleGrad = Instance.new("UIGradient", title)
+			titleGrad.Color = titleSeq()
+		end)
+	end
+
+	-- 3) LÍNEA DE ACENTO BAJO LA CABECERA (se atenúa en los bordes)
+	if PRISM.headerLine then
+		pcall(function()
+			local line = Instance.new("Frame", header)
+			line.Size = UDim2.new(1, 0, 0, 1)
+			line.Position = UDim2.new(0, 0, 1, -1)
+			line.BorderSizePixel = 0
+			line.BackgroundColor3 = C.accent
+			line.BackgroundTransparency = 0.5
+			line.ZIndex = 2
+			themed(line, "BackgroundColor3", "accent")
+			local g = Instance.new("UIGradient", line)
+			g.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.5, 0),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+		end)
+	end
+
+	-- 4) EFECTO CRISTAL: desenfoque del fondo 3D al abrir el panel.
+	-- Quita cualquier blur previo para que al recargar el script no se acumulen.
+	for _, v in ipairs(Lighting:GetChildren()) do
+		if v.Name == "PrismGlass" then v:Destroy() end
+	end
+	local blur
+	if PRISM.glassBlur then
+		blur = Instance.new("BlurEffect")
+		blur.Name = "PrismGlass"
+		blur.Size = 0
+		blur.Parent = Lighting
+		track(gui.Destroying:Connect(function()
+			if blur then blur:Destroy() end
+		end))
+	end
+
+	-- 5) APERTURA con POP (UIScale sobre 'main': es visual, NO afecta drag/resize)
+	local mainScale
+	if PRISM.popOpen then
+		mainScale = Instance.new("UIScale", main)
+		mainScale.Scale = 1
+	end
+
+	local OPEN_INFO  = TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local FADE_INFO  = TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local CLOSE_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+	local function playOpen()
+		if mainScale then
+			mainScale.Scale = 0.9
+			motionTween(mainScale, OPEN_INFO, { Scale = 1 })
+		end
+		if blur then motionTween(blur, FADE_INFO, { Size = PRISM.blurSize }) end
+	end
+	local function playClose()
+		if blur then motionTween(blur, CLOSE_INFO, { Size = 0 }) end
+	end
+
+	-- Tu setHidden ya alterna gui.Enabled (botón "–" y tecla RightShift):
+	-- escuchamos ese cambio para disparar pop+blur sin tocar tu función.
+	track(gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled then playOpen() else playClose() end
+	end))
+	if gui.Enabled then task.defer(playOpen) end   -- también al cargar el script
+
+	-- 6) RIPPLE (onda al pulsar) en los botones, presente y futuros.
+	local Mouse = player:GetMouse()
+	local function attachRipple(btn)
+		local sx = btn.Size.X
+		if sx.Scale <= 0 and sx.Offset < 50 then return end   -- salta los semáforos/iconos
+		if btn:GetAttribute("PrismRipple") then return end
+		btn:SetAttribute("PrismRipple", true)
+		btn.ClipsDescendants = true
+		track(btn.MouseButton1Down:Connect(function()
+			if not ANIM.enabled then return end
+			local circle = Instance.new("Frame")
+			circle.AnchorPoint = Vector2.new(0.5, 0.5)
+			circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			circle.BackgroundTransparency = 0.78
+			circle.BorderSizePixel = 0
+			circle.Position = UDim2.fromOffset(Mouse.X - btn.AbsolutePosition.X,
+				Mouse.Y - btn.AbsolutePosition.Y)
+			circle.Size = UDim2.fromOffset(0, 0)
+			circle.ZIndex = btn.ZIndex + 5
+			Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+			circle.Parent = btn
+			local d = math.max(btn.AbsoluteSize.X, btn.AbsoluteSize.Y) * 2
+			motionTween(circle,
+				TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Size = UDim2.fromOffset(d, d), BackgroundTransparency = 1 })
+			task.delay(0.5, function() if circle then circle:Destroy() end end)
+		end))
+	end
+	if PRISM.ripple then
+		for _, d in ipairs(main:GetDescendants()) do
+			if d:IsA("TextButton") then pcall(attachRipple, d) end
+		end
+		track(main.DescendantAdded:Connect(function(d)
+			if d:IsA("TextButton") then task.defer(function() pcall(attachRipple, d) end) end
+		end))
+	end
+
+	-- 7) LATIDO: gira el borde neón y mueve el shimmer. Respeta animaciones
+	-- (se calma si las apagas) y solo trabaja cuando el panel está visible.
+	local shim = 0
+	track(RunService.Heartbeat:Connect(function(dt)
+		if not gui.Enabled or not ANIM.enabled then return end
+		if neonGrad then neonGrad.Rotation = (neonGrad.Rotation + dt * PRISM.spinSpeed) % 360 end
+		if titleGrad then
+			shim = (shim + dt * 0.25) % 2
+			titleGrad.Offset = Vector2.new(shim - 1, 0)
+		end
+	end))
+
+	-- 8) Mantener neón/shimmer sincronizados con el TEMA EN VIVO.
+	onRepaint(function()
+		if neonGrad  then pcall(function() neonGrad.Color  = neonSeq()  end) end
+		if titleGrad then pcall(function() titleGrad.Color = titleSeq() end) end
+	end)
+end)()
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  ✦ PRISM HUD + NX  ·  barra superior · logo NX · TP-al-tocar-el-tag   ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  · Barra HUD arriba (score · ms · fps) que se ADAPTA al tema (C).     ║
+-- ║  · Logo NX en la cabecera del panel (tu marca siempre presente).      ║
+-- ║  · Círculo del tag re-estilizado a "badge sólido" como tu imagen.     ║
+-- ║  · TP robusto al tocar el tag: proyecta cada jugador-con-tag a la     ║
+-- ║    pantalla y TP al más cercano al cursor (basta click cerca de él).  ║
+-- ║  IIFE: registros aislados. Usa themed/track/C => cambia con el tema.   ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+;(function()
+	local RunService = game:GetService("RunService")
+	local UIS        = game:GetService("UserInputService")
+	local Players    = game:GetService("Players")
+
+	-- ── 1) LOGO NX a la DERECHA de la cabecera del panel ─────────────────
+	pcall(function()
+		local badge = Instance.new("Frame")
+		badge.Name = "NXBadge"
+		badge.AnchorPoint = Vector2.new(1, 0.5)
+		badge.Position = UDim2.new(1, -12, 0.5, 0)        -- esquina DERECHA del header
+		badge.Size = UDim2.fromOffset(30, 20)
+		badge.BackgroundColor3 = Color3.fromRGB(10, 10, 12)  -- fondo negro
+		badge.BackgroundTransparency = 0.1
+		badge.ZIndex = 4
+		badge.Parent = header
+		local bc = Instance.new("UICorner", badge); bc.CornerRadius = UDim.new(0, 6)
+		local bs = Instance.new("UIStroke", badge); bs.Thickness = 1.4; bs.Color = C.accent
+		themed(bs, "Color", "accent")                     -- borde = color del tema
+		local bl = Instance.new("TextLabel", badge)
+		bl.BackgroundTransparency = 1
+		bl.Size = UDim2.fromScale(1, 1)
+		bl.Font = Enum.Font.GothamBold
+		bl.Text = "NX"
+		bl.TextSize = 12
+		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco
+		bl.ZIndex = 5
+		title.Position = UDim2.new(0, 80, 0, 0)            -- título vuelve a su sitio
+		title.Size     = UDim2.new(1, -130, 1, 0)          -- deja sitio al logo a la derecha
+	end)
+
+	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
+	-- Iconos con emoji (tu script ya usa emojis => renderizan). Para iconos
+	-- monocromos EXACTOS como la imagen, pásame los rbxassetid y los cambio.
+	local DISCORD_INVITE  = ""   -- "https://discord.gg/tucodigo"  (se copia al click)
+	local DISCORD_LOGO_ID = ""   -- "rbxassetid://123..."  ("" = icono por defecto)
+	local pingLabel, fpsLabel, playersLabel
+	pcall(function()
+		local hud = Instance.new("Frame")
+		hud.Name = "PrismHUD"
+		hud.AnchorPoint = Vector2.new(1, 0)
+		hud.Position = UDim2.new(1, -12, 0, 10)            -- esquina superior DERECHA
+		hud.Size = UDim2.fromOffset(60, 40)
+		hud.AutomaticSize = Enum.AutomaticSize.X
+		hud.BackgroundColor3 = C.card
+		hud.BackgroundTransparency = 0.02
+		hud.BorderSizePixel = 0
+		hud.Parent = gui
+		themed(hud, "BackgroundColor3", "card")
+		local hc = Instance.new("UICorner", hud); hc.CornerRadius = UDim.new(0, 20)
+		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.4; hs.Color = C.accent; hs.Transparency = 0.4
+		themed(hs, "Color", "accent")
+
+		local lay = Instance.new("UIListLayout", hud)
+		lay.FillDirection = Enum.FillDirection.Horizontal
+		lay.VerticalAlignment = Enum.VerticalAlignment.Center
+		lay.Padding = UDim.new(0, 9)
+		lay.SortOrder = Enum.SortOrder.LayoutOrder
+		local hp = Instance.new("UIPadding", hud)
+		hp.PaddingLeft = UDim.new(0, 13); hp.PaddingRight = UDim.new(0, 13)
+		hp.PaddingTop = UDim.new(0, 5); hp.PaddingBottom = UDim.new(0, 5)
+
+		local order = 0
+		-- celda = icono (emoji) + valor
+		local function cell(emoji, text, valueRole)
+			order += 1
+			local holder = Instance.new("Frame", hud)
+			holder.BackgroundTransparency = 1
+			holder.AutomaticSize = Enum.AutomaticSize.X
+			holder.Size = UDim2.fromOffset(0, 24)
+			holder.LayoutOrder = order
+			local hl = Instance.new("UIListLayout", holder)
+			hl.FillDirection = Enum.FillDirection.Horizontal
+			hl.VerticalAlignment = Enum.VerticalAlignment.Center
+			hl.Padding = UDim.new(0, 5)
+			local ic = Instance.new("TextLabel", holder)
+			ic.BackgroundTransparency = 1
+			ic.AutomaticSize = Enum.AutomaticSize.X
+			ic.Size = UDim2.fromOffset(0, 24)
+			ic.Font = Enum.Font.GothamBold
+			ic.Text = emoji
+			ic.TextSize = 15
+			ic.TextColor3 = C.accent
+			ic.LayoutOrder = 1
+			themed(ic, "TextColor3", "accent")
+			local v = Instance.new("TextLabel", holder)
+			v.BackgroundTransparency = 1
+			v.AutomaticSize = Enum.AutomaticSize.X
+			v.Size = UDim2.fromOffset(0, 24)
+			v.Font = Enum.Font.GothamBold
+			v.Text = text
+			v.TextSize = 14
+			v.TextColor3 = C[valueRole]
+			v.LayoutOrder = 2
+			themed(v, "TextColor3", valueRole)
+			return v
+		end
+		local function divider()
+			order += 1
+			local d = Instance.new("Frame", hud)
+			d.Size = UDim2.fromOffset(1, 18)
+			d.BackgroundColor3 = C.text
+			d.BackgroundTransparency = 0.78
+			d.BorderSizePixel = 0
+			d.LayoutOrder = order
+			themed(d, "BackgroundColor3", "text")
+		end
+
+		playersLabel = cell("👥", "—/—", "text")
+		divider()
+		pingLabel    = cell("🕐", "— ms", "text")
+		divider()
+		fpsLabel     = cell("📊", "— fps", "good")
+
+		-- botón Discord (color de marca "blurple")
+		order += 1
+		local dc = Instance.new("TextButton", hud)
+		dc.Size = UDim2.fromOffset(26, 26)
+		dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+		dc.AutoButtonColor = false
+		dc.Text = ""
+		dc.LayoutOrder = order
+		local dcc = Instance.new("UICorner", dc); dcc.CornerRadius = UDim.new(0, 13)
+		if DISCORD_LOGO_ID ~= "" then
+			local img = Instance.new("ImageLabel", dc)
+			img.BackgroundTransparency = 1
+			img.AnchorPoint = Vector2.new(0.5, 0.5)
+			img.Position = UDim2.fromScale(0.5, 0.5)
+			img.Size = UDim2.fromScale(0.62, 0.62)
+			img.Image = DISCORD_LOGO_ID
+			img.ImageColor3 = Color3.fromRGB(255, 255, 255)
+		else
+			local t = Instance.new("TextLabel", dc)
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.fromScale(1, 1)
+			t.Font = Enum.Font.GothamBold
+			t.Text = "💬"
+			t.TextSize = 13
+			t.TextColor3 = Color3.fromRGB(255, 255, 255)
+		end
+		track(dc.MouseEnter:Connect(function() dc.BackgroundColor3 = Color3.fromRGB(108, 121, 255) end))
+		track(dc.MouseLeave:Connect(function() dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242) end))
+		track(dc.MouseButton1Click:Connect(function()
+			if DISCORD_INVITE ~= "" then pcall(clipboard, DISCORD_INVITE) end
+		end))
+
+		-- FPS (promediado) en vivo
+		local frames, acc = 0, 0
+		track(RunService.RenderStepped:Connect(function(dt)
+			frames += 1; acc += dt
+			if acc >= 0.5 then
+				if fpsLabel then fpsLabel.Text = math.floor(frames / acc + 0.5) .. " fps" end
+				frames, acc = 0, 0
+			end
+		end))
+		-- ping + jugadores cada 1s (ahora SÍ cuenta los jugadores)
+		task.spawn(function()
+			while hud.Parent do
+				local ok, ms = pcall(function() return math.floor((player:GetNetworkPing() or 0) * 1000 + 0.5) end)
+				if pingLabel then pingLabel.Text = (ok and ms or 0) .. " ms" end
+				if playersLabel then
+					local mx = Players.MaxPlayers
+					local cnt = #Players:GetPlayers()
+					playersLabel.Text = (mx and mx > 0) and (cnt .. "/" .. mx) or tostring(cnt)
+				end
+				task.wait(1)
+			end
+		end)
+	end)
+
+	-- ── 3) Círculo del tag => NX BLANCO, fondo NEGRO, borde = COLOR DEL ROL
+	-- (limpio y legible; sin respiración por GLOW_ALL=false).
+	local function restyleCircle(circle)
+		if not circle or circle:GetAttribute("PrismStyled") then return end
+		circle:SetAttribute("PrismStyled", true)
+		local st = circle:FindFirstChildOfClass("UIStroke")
+		local roleColor = (st and st.Color) or Color3.fromRGB(255, 255, 255)
+		circle.BackgroundColor3 = Color3.fromRGB(10, 10, 12)   -- fondo NEGRO
+		circle.BackgroundTransparency = 0
+		if st then
+			st.Color = roleColor       -- borde = COLOR DEL ROL
+			st.Thickness = 3
+			st.Transparency = 0
+		end
+		for _, ch in ipairs(circle:GetChildren()) do
+			if ch:IsA("TextLabel") then
+				ch.TextColor3 = Color3.fromRGB(255, 255, 255)  -- NX BLANCO
+				ch.Size = UDim2.fromScale(0.62, 0.62)          -- NX más pequeño
+				local ts = ch:FindFirstChildOfClass("UIStroke")
+				if ts then ts.Transparency = 1 end             -- sin contorno (limpio)
+			elseif ch:IsA("ImageLabel") then
+				ch.ImageColor3 = Color3.fromRGB(255, 255, 255)
+				ch.Size = UDim2.fromScale(0.55, 0.55)
+			end
+		end
+	end
+	task.spawn(function()
+		local pg = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
+		local folder = pg:FindFirstChild("NXHeadTags")
+		local t0 = os.clock()
+		while not folder and (os.clock() - t0) < 20 do
+			task.wait(0.5); folder = pg:FindFirstChild("NXHeadTags")
+		end
+		if not folder then return end
+		for _, bb in ipairs(folder:GetChildren()) do
+			local c = bb:FindFirstChild("Circle"); if c then restyleCircle(c) end
+		end
+		track(folder.ChildAdded:Connect(function(bb)
+			task.defer(function()
+				local c = bb:FindFirstChild("Circle"); if c then restyleCircle(c) end
+			end)
+		end))
+	end)
+
+	-- ── 4) TP AL TOCAR EL TAG (robusto, por proyección a pantalla) ───────
+	-- Proyecta la cabeza de cada jugador-CON-tag a la pantalla y, al hacer
+	-- click, TP al más cercano al cursor. No hace falta acertar la pill
+	-- flotante: basta tocar cerca del jugador. Cooldown anti-spam.
+	local lastTp = 0
+	local function rootOf(ch)
+		return ch and (ch:FindFirstChild("HumanoidRootPart")
+			or ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("Torso"))
+	end
+	track(UIS.InputBegan:Connect(function(input, gpe)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1
+			and input.UserInputType ~= Enum.UserInputType.Touch then return end
+		local now = os.clock()
+		if now - lastTp < 0.4 then return end
+		local cam = workspace.CurrentCamera
+		if not cam then return end
+		local pg = player:FindFirstChildOfClass("PlayerGui")
+		local folder = pg and pg:FindFirstChild("NXHeadTags")
+		local mouse = UIS:GetMouseLocation()
+		local best, bestD
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= player and plr.Character then
+				local head = plr.Character:FindFirstChild("Head")
+				local hasTag = folder and folder:FindFirstChild("NXHeadTag_" .. plr.UserId)
+				if head and hasTag then
+					local sp, on = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 2.6, 0))
+					if on then
+						local d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
+						if not bestD or d < bestD then bestD = d; best = plr end
+					end
+				end
+			end
+		end
+		local radius = gpe and 55 or 120   -- más permisivo si clickeas el mundo 3D
+		if best and bestD and bestD <= radius then
+			local myR, tR = rootOf(player.Character), rootOf(best.Character)
+			if myR and tR then
+				myR.CFrame = tR.CFrame
+				lastTp = now
+			end
+		end
+	end))
+end)()
