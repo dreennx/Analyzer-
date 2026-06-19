@@ -5288,8 +5288,8 @@ end)()
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
 	-- Iconos con emoji (tu script ya usa emojis => renderizan). Para iconos
 	-- monocromos EXACTOS como la imagen, pásame los rbxassetid y los cambio.
-	local DISCORD_INVITE  = ""   -- "https://discord.gg/tucodigo"  (se copia al click)
-	local DISCORD_LOGO_ID = ""   -- "rbxassetid://123..."  ("" = icono por defecto)
+	local DISCORD_INVITE  = "https://discord.gg/JgsW2M6322"   -- (se copia al click + intenta abrir)
+	local DISCORD_LOGO_ID = ""   -- pega aquí TU logo Discord (rbxassetid). "" = usa el icono 💬
 	local pingLabel, fpsLabel, playersLabel
 	pcall(function()
 		local hud = Instance.new("Frame")
@@ -5364,41 +5364,87 @@ end)()
 
 		playersLabel = cell("👥", "—/—", "text")
 		divider()
-		pingLabel    = cell("🕐", "— ms", "text")
+		pingLabel    = cell("🌐", "— ms", "text")
 		divider()
 		fpsLabel     = cell("📊", "— fps", "good")
 
-		-- botón Discord (color de marca "blurple")
-		order += 1
-		local dc = Instance.new("TextButton", hud)
-		dc.Size = UDim2.fromOffset(26, 26)
-		dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-		dc.AutoButtonColor = false
-		dc.Text = ""
-		dc.LayoutOrder = order
-		local dcc = Instance.new("UICorner", dc); dcc.CornerRadius = UDim.new(0, 13)
-		if DISCORD_LOGO_ID ~= "" then
-			local img = Instance.new("ImageLabel", dc)
-			img.BackgroundTransparency = 1
-			img.AnchorPoint = Vector2.new(0.5, 0.5)
-			img.Position = UDim2.fromScale(0.5, 0.5)
-			img.Size = UDim2.fromScale(0.62, 0.62)
-			img.Image = DISCORD_LOGO_ID
-			img.ImageColor3 = Color3.fromRGB(255, 255, 255)
-		else
-			local t = Instance.new("TextLabel", dc)
-			t.BackgroundTransparency = 1
-			t.Size = UDim2.fromScale(1, 1)
-			t.Font = Enum.Font.GothamBold
-			t.Text = "💬"
-			t.TextSize = 13
-			t.TextColor3 = Color3.fromRGB(255, 255, 255)
+		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid) o emoji
+		local function iconButton(emoji, imageId, onClick, bgColor)
+			order += 1
+			local b = Instance.new("TextButton", hud)
+			b.Size = UDim2.fromOffset(28, 28)
+			b.AutoButtonColor = false
+			b.Text = ""
+			b.LayoutOrder = order
+			if bgColor then
+				b.BackgroundColor3 = bgColor            -- color fijo (p.ej. blurple de Discord)
+			else
+				b.BackgroundColor3 = C.neutral
+				themed(b, "BackgroundColor3", "neutral") -- se adapta al tema
+			end
+			local cc = Instance.new("UICorner", b); cc.CornerRadius = UDim.new(0, 14)
+			local content
+			if imageId and imageId ~= "" then
+				content = Instance.new("ImageLabel", b)
+				content.BackgroundTransparency = 1
+				content.AnchorPoint = Vector2.new(0.5, 0.5)
+				content.Position = UDim2.fromScale(0.5, 0.5)
+				content.Size = UDim2.fromScale(0.64, 0.64)
+				content.Image = imageId
+			else
+				content = Instance.new("TextLabel", b)
+				content.BackgroundTransparency = 1
+				content.Size = UDim2.fromScale(1, 1)
+				content.Font = Enum.Font.GothamBold
+				content.Text = emoji or "?"
+				content.TextSize = 14
+			end
+			track(b.MouseButton1Click:Connect(onClick))
+			return b, content
 		end
-		track(dc.MouseEnter:Connect(function() dc.BackgroundColor3 = Color3.fromRGB(108, 121, 255) end))
-		track(dc.MouseLeave:Connect(function() dc.BackgroundColor3 = Color3.fromRGB(88, 101, 242) end))
-		track(dc.MouseButton1Click:Connect(function()
-			if DISCORD_INVITE ~= "" then pcall(clipboard, DISCORD_INVITE) end
-		end))
+
+		-- DISCORD: usa el RPC LOCAL de la app Discord (puertos 6463-6472) para
+		-- abrir el invite DIRECTO en la app, como tu otro script. Además copia
+		-- el invite por si la app no estuviera abierta.
+		local function openDiscord()
+			if DISCORD_INVITE == "" then return end
+			pcall(function() if clipboard then clipboard(DISCORD_INVITE) end end)
+			local code = DISCORD_INVITE:match("([%w%-_]+)%s*$")   -- saca el código del invite
+			if not code or not httpRequest then return end
+			task.spawn(function()
+				for port = 6463, 6472 do                          -- Discord escucha en uno de estos
+					pcall(function()
+						httpRequest({
+							Url = "http://127.0.0.1:" .. port .. "/rpc?v=1",
+							Method = "POST",
+							Headers = {
+								["Content-Type"] = "application/json",
+								["Origin"] = "https://discord.com",
+							},
+							Body = HttpService:JSONEncode({
+								cmd = "INVITE_BROWSER",
+								args = { code = code },
+								nonce = HttpService:GenerateGUID(false),
+							}),
+						})
+					end)
+				end
+			end)
+		end
+		iconButton("💬", DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242))  -- blurple Discord
+
+		-- OCULTAR / MOSTRAR todos los tags (rápido, desde la barra). Persiste.
+		local tagsOn = (store.headTags ~= false)
+		local tagIcon
+		local function setTags(on)
+			tagsOn = on
+			store.headTags = on
+			pcall(saveStore)
+			if _G.NXHeadTags then pcall(_G.NXHeadTags.SetEnabled, on) end
+			if tagIcon then tagIcon.Text = on and "🏷️" or "🚫" end
+		end
+		local _, ti = iconButton(tagsOn and "🏷️" or "🚫", nil, function() setTags(not tagsOn) end)
+		tagIcon = ti
 
 		-- FPS (promediado) en vivo
 		local frames, acc = 0, 0
