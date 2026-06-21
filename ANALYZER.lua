@@ -273,7 +273,13 @@ applyTheme(store.theme)
 -- repaint() recorre el registro y actualiza todo al instante (sin reabrir).
 local roleMap = {}
 local function themed(inst, prop, role)
-	table.insert(roleMap, { inst = inst, prop = prop, role = role })
+	local entry = { inst = inst, prop = prop, role = role }
+	table.insert(roleMap, entry)
+	-- Cuando la instancia se destruye, su slot queda en nil.
+	-- repaint() ya ignora entries con inst == nil (via pcall), así no hay leak.
+	pcall(function()
+		inst.Destroying:Connect(function() entry.inst = nil end)
+	end)
 	pcall(function() inst[prop] = C[role] end)
 	return inst
 end
@@ -1020,7 +1026,23 @@ local function getNameHistory(userId)
 end
 
 -- ====================== RECOLECCIÓN EN PARALELO ======================
-local profileCache = {}
+-- Cache con evicción LRU: máximo 20 perfiles en memoria.
+-- Sin límite, en sesiones largas se acumularían muchas tablas grandes
+-- (_itemsCached, _groupsCached, _badgesCached, etc.) sin liberarse nunca.
+local profileCache      = {}
+local profileCacheOrder = {}
+local PROFILE_CACHE_MAX = 20
+
+local function setCached(userId, data)
+	if not profileCache[userId] then
+		table.insert(profileCacheOrder, userId)
+		if #profileCacheOrder > PROFILE_CACHE_MAX then
+			local oldest = table.remove(profileCacheOrder, 1)
+			profileCache[oldest] = nil
+		end
+	end
+	profileCache[userId] = data
+end
 
 local function gatherData(userId)
 	local profile = apiGet("https://users.roblox.com/v1/users/" .. userId)
@@ -1217,16 +1239,16 @@ themed(stroke, "Color", "accent")
 
 -- Sombra suave de la ventana (profundidad). Va detrás de 'main' (ZIndex 0) y la
 -- sigue al arrastrar/redimensionar escuchando los cambios de Position/Size.
-local SHADOW_PAD = 11   -- pegada al UI (antes 22): la sombra abraza el borde.
+local SHADOW_PAD = 14   -- separación de la sombra (con el asset de esquinas redondeadas).
 local windowShadow = Instance.new("ImageLabel")
 windowShadow.Name = "WindowShadow"
 windowShadow.Active = false
 windowShadow.BackgroundTransparency = 1
-windowShadow.Image = "rbxassetid://1316045217"
+windowShadow.Image = "rbxassetid://6014261993"   -- sombra suave con esquinas REDONDEADAS ("finalshdw")
 windowShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-windowShadow.ImageTransparency = 0.62   -- más sutil (antes 0.42).
+windowShadow.ImageTransparency = 0.5    -- visible pero suave
 windowShadow.ScaleType = Enum.ScaleType.Slice
-windowShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+windowShadow.SliceCenter = Rect.new(49, 49, 450, 450)   -- centro del asset redondeado
 windowShadow.ZIndex = 0
 windowShadow.Parent = gui
 local function syncWindowShadow()
@@ -2670,6 +2692,7 @@ local function buildFriendButton(parent, targetId, order)
 				setState("✕ Límite — reintentar", C.bad, C.onAccent, true)
 				statusLabel.Text = "Demasiadas solicitudes (límite de Roblox). Espera un poco."
 			elseif code == 401 then
+				cachedCsrf = nil  -- token inválido: limpiar para que el próximo intento lo renueve
 				setState("✕ Sin sesión", C.bad, C.onAccent, false)
 				statusLabel.Text = "El executor no envía tu sesión; Roblox rechazó la solicitud."
 			elseif low:find("already") or low:find("friend") then
@@ -3658,7 +3681,7 @@ analyze = function(input)
 			statusLabel.Text = "Error o usuario inexistente."
 			render(nil)
 		else
-			profileCache[userId] = data
+			setCached(userId, data)
 			render(data)
 			statusLabel.Text = "Listo."
 		end
@@ -5304,7 +5327,7 @@ end)()
 		hud.Parent = gui
 		themed(hud, "BackgroundColor3", "card")
 		local hc = Instance.new("UICorner", hud); hc.CornerRadius = UDim.new(0, 20)
-		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.4; hs.Color = C.accent; hs.Transparency = 0.4
+		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.6; hs.Color = C.accent; hs.Transparency = 0.1  -- borde vívido (igual de intenso que el panel)
 		themed(hs, "Color", "accent")
 
 		local lay = Instance.new("UIListLayout", hud)
@@ -5364,7 +5387,7 @@ end)()
 
 		playersLabel = cell("👥", "—/—", "text")
 		divider()
-		pingLabel    = cell("🌐", "— ms", "text")
+		pingLabel    = cell("🕐", "— ms", "text")
 		divider()
 		fpsLabel     = cell("📊", "— fps", "good")
 
@@ -5441,9 +5464,9 @@ end)()
 			store.headTags = on
 			pcall(saveStore)
 			if _G.NXHeadTags then pcall(_G.NXHeadTags.SetEnabled, on) end
-			if tagIcon then tagIcon.Text = on and "🏷️" or "🚫" end
+			if tagIcon then tagIcon.Text = on and "👁" or "🚫" end
 		end
-		local _, ti = iconButton(tagsOn and "🏷️" or "🚫", nil, function() setTags(not tagsOn) end)
+		local _, ti = iconButton(tagsOn and "👁" or "🚫", nil, function() setTags(not tagsOn) end)
 		tagIcon = ti
 
 		-- FPS (promediado) en vivo
@@ -5547,7 +5570,7 @@ end)()
 				end
 			end
 		end
-		local radius = gpe and 55 or 120   -- más permisivo si clickeas el mundo 3D
+		local radius = gpe and 55 or 60    -- radio conservador (120 era demasiado agresivo)
 		if best and bestD and bestD <= radius then
 			local myR, tR = rootOf(player.Character), rootOf(best.Character)
 			if myR and tR then
