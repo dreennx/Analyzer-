@@ -1,7 +1,7 @@
 --[[
-   Roblox Public Profile Analyzer  v3.3.0
+   Roblox Public Profile Analyzer  v3.4.0
    ---------------------------------------------------------------
-   Cambios en v3.3.0 (sobre v3.2.5):
+   Cambios en v3.4.0 (sobre v3.3.0):
      • INTEGRACIÓN NX Head Tags (Fase 1 · coexistencia segura). El módulo
        "NX Head Tag System V2" (BillboardGui de roles sobre las cabezas) se
        pega VERBATIM al final de este archivo, en su propio bloque do...end
@@ -484,6 +484,136 @@ local function getNXTag(userId)
 end
 
 loadNXTags()      -- precarga al iniciar (no bloquea: corre en segundo plano)
+
+-- ====================== NX CORE  v1.0.0 ======================
+-- Sistema centralizado de administración remota (GitHub, solo lectura).
+-- Descarga licenses.json / warnings.json / permissions.json en paralelo.
+-- Fail-safe: si un archivo no carga, el sistema continúa (fail-open).
+-- API pública (todo asíncrono via onReady):
+--   isLicensed / getWarning / getPermissions / isAdmin / can /
+--   countOf / countTags / logEvent (stub) / getData / getVersion.
+-- logEvent() es un no-op hasta que se conecte un backend en v3.5+.
+-- ================================================================
+local NXCore = (function()
+	local NX_BASE    = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/"
+	local NX_VERSION = "3.4.0"
+
+	local state = {
+		licenses    = {},
+		warnings    = {},
+		permissions = {},
+		ready       = false,
+		loadedAt    = 0,
+		failed      = {},   -- { licenses=true, warnings=true, permissions=true }
+	}
+
+	local readyCbs = {}
+
+	-- Descarga y parsea un JSON usando rawGet() (ya definida en el script).
+	local function fetchJSON(filename)
+		local body = rawGet(NX_BASE .. filename)
+		if not body then return nil end
+		local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
+		return (ok and type(t) == "table") and t or nil
+	end
+
+	local function fireReady()
+		state.ready    = true
+		state.loadedAt = os.time()
+		for _, fn in ipairs(readyCbs) do pcall(fn) end
+		readyCbs = {}
+	end
+
+	-- Descarga los 3 archivos en paralelo; fireReady cuando terminan los 3.
+	do
+		local pending = 3
+		local function dec()
+			pending = pending - 1
+			if pending <= 0 then fireReady() end
+		end
+		task.spawn(function()
+			local d = fetchJSON("licenses.json")
+			if d then state.licenses = d else state.failed.licenses = true end
+			dec()
+		end)
+		task.spawn(function()
+			local d = fetchJSON("warnings.json")
+			if d then state.warnings = d else state.failed.warnings = true end
+			dec()
+		end)
+		task.spawn(function()
+			local d = fetchJSON("permissions.json")
+			if d then state.permissions = d else state.failed.permissions = true end
+			dec()
+		end)
+	end
+
+	-- ── API pública ──────────────────────────────────────────────────────────
+
+	local api = {}
+
+	-- Registra un callback para cuando los 3 JSONs terminen de cargar.
+	-- Si ya están listos, lo ejecuta en el siguiente frame (task.defer).
+	function api.onReady(fn)
+		if state.ready then task.defer(fn)
+		else table.insert(readyCbs, fn) end
+	end
+
+	-- Licencias: fail-open si el archivo falló o aún no ha cargado.
+	function api.isLicensed(userId)
+		if state.failed.licenses or not state.ready then return true end
+		return state.licenses[tostring(userId)] == true
+	end
+
+	-- Advertencia del usuario ({ level, message }) o nil si no tiene.
+	function api.getWarning(userId)
+		if not state.ready then return nil end
+		local w = state.warnings[tostring(userId)]
+		return (type(w) == "table") and w or nil
+	end
+
+	-- Tabla de permisos del usuario ({}) si no existe o si aún no cargó.
+	function api.getPermissions(userId)
+		if not state.ready then return {} end
+		local p = state.permissions[tostring(userId)]
+		return (type(p) == "table") and p or {}
+	end
+
+	function api.isAdmin(userId)
+		return api.getPermissions(userId).admin == true
+	end
+
+	function api.can(userId, perm)
+		return api.getPermissions(userId)[perm] == true
+	end
+
+	-- Cuenta entradas en state.licenses / state.warnings / state.permissions.
+	function api.countOf(key)
+		local n = 0
+		for _ in pairs(state[key] or {}) do n = n + 1 end
+		return n
+	end
+
+	-- Cuenta los tags cargados del JSON de NX Tags (nxTags del scope padre).
+	function api.countTags()
+		if type(nxTags) ~= "table" then return 0 end
+		local n = 0
+		for _ in pairs(nxTags) do n = n + 1 end
+		return n
+	end
+
+	-- Acceso al estado interno (solo lectura; para el panel admin).
+	function api.getData() return state end
+	function api.getVersion() return NX_VERSION end
+
+	-- Stub de log — arquitectura lista, implementación pendiente.
+	-- En v3.5+ reemplazar el cuerpo con la llamada HTTP al backend elegido.
+	-- Formato: { userId, username, version, timestamp, event, ...data }
+	-- Ejemplo: NXCore.logEvent("analyze", { targetId = 12345678 })
+	function api.logEvent(_eventType, _data) end
+
+	return api
+end)()
 
 -- ====================== HELPERS DE DATOS ======================
 local function countPaged(url, limit)
@@ -1811,6 +1941,266 @@ local function showLinkModal(url)
 	end)
 
 	clipboard(url)
+end
+
+-- ====================== POPUP DE ADVERTENCIA NX ======================
+-- Popup modal con 3 niveles (amarillo / naranja / rojo).
+-- Se muestra al iniciar si el usuario tiene una entrada en warnings.json.
+local function showNXWarning(warning)
+	local level   = math.clamp(tonumber(warning.level) or 1, 1, 3)
+	local message = tostring(warning.message or "Has recibido un aviso del sistema NX.")
+
+	local LEVELS = {
+		[1] = { label = "AVISO",             color = Color3.fromRGB(220, 185, 50)  },
+		[2] = { label = "ADVERTENCIA",       color = Color3.fromRGB(230, 120, 40)  },
+		[3] = { label = "ADVERTENCIA GRAVE", color = Color3.fromRGB(215, 50,  50)  },
+	}
+	local ld = LEVELS[level]
+
+	local overlay = Instance.new("Frame", gui)
+	overlay.Name                   = "NXWarningOverlay"
+	overlay.Size                   = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 1
+	overlay.ZIndex                 = 90
+	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.52 })
+
+	local box = Instance.new("Frame", overlay)
+	box.Size             = UDim2.new(0, 440, 0, 0)
+	box.AutomaticSize    = Enum.AutomaticSize.Y
+	box.AnchorPoint      = Vector2.new(0.5, 0.5)
+	box.Position         = UDim2.new(0.5, 0, 0.5, 0)
+	box.BackgroundColor3 = C.modalBg
+	box.BorderSizePixel  = 0
+	box.ClipsDescendants = false
+	box.ZIndex           = 91
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	local wStroke = Instance.new("UIStroke", box)
+	wStroke.Color = ld.color; wStroke.Thickness = 2; wStroke.Transparency = 0.12
+
+	local wScale = Instance.new("UIScale", box); wScale.Scale = 0.88
+	motionTween(wScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+
+	local wOuterPad = Instance.new("UIPadding", box)
+	wOuterPad.PaddingBottom = UDim.new(0, 20)
+	local wLay = Instance.new("UIListLayout", box)
+	wLay.Padding = UDim.new(0, 12); wLay.SortOrder = Enum.SortOrder.LayoutOrder
+	wLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	-- Franja superior de color
+	local stripe = Instance.new("Frame", box)
+	stripe.LayoutOrder           = 0
+	stripe.Size                  = UDim2.new(1, 0, 0, 44)
+	stripe.BackgroundColor3      = ld.color
+	stripe.BackgroundTransparency = 0.78
+	stripe.BorderSizePixel       = 0
+	Instance.new("UICorner", stripe).CornerRadius = UDim.new(0, 12)
+	local stripeLbl = Instance.new("TextLabel", stripe)
+	stripeLbl.Size                  = UDim2.new(1, 0, 1, 0)
+	stripeLbl.BackgroundTransparency = 1
+	stripeLbl.Font                  = Enum.Font.GothamBold
+	stripeLbl.TextSize              = 16
+	stripeLbl.TextColor3            = ld.color
+	stripeLbl.Text                  = "  " .. ld.label
+
+	-- Chip de nivel
+	local chip = Instance.new("Frame", box)
+	chip.LayoutOrder           = 1
+	chip.Size                  = UDim2.new(0, 110, 0, 26)
+	chip.BackgroundColor3      = ld.color
+	chip.BackgroundTransparency = 0.75
+	chip.BorderSizePixel       = 0
+	Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 13)
+	local chipLbl = Instance.new("TextLabel", chip)
+	chipLbl.Size                  = UDim2.new(1, 0, 1, 0)
+	chipLbl.BackgroundTransparency = 1
+	chipLbl.Font                  = Enum.Font.GothamBold
+	chipLbl.TextSize              = 12
+	chipLbl.TextColor3            = ld.color
+	chipLbl.Text                  = "NIVEL " .. level .. " / 3"
+
+	-- Cuerpo del mensaje
+	local msgBox = Instance.new("Frame", box)
+	msgBox.LayoutOrder           = 2
+	msgBox.Size                  = UDim2.new(1, -40, 0, 0)
+	msgBox.AutomaticSize         = Enum.AutomaticSize.Y
+	msgBox.BackgroundColor3      = C.card
+	msgBox.BackgroundTransparency = 0.3
+	msgBox.BorderSizePixel       = 0
+	Instance.new("UICorner", msgBox).CornerRadius = UDim.new(0, 8)
+	local msgPad = Instance.new("UIPadding", msgBox)
+	msgPad.PaddingTop = UDim.new(0, 12); msgPad.PaddingBottom = UDim.new(0, 12)
+	msgPad.PaddingLeft = UDim.new(0, 14); msgPad.PaddingRight = UDim.new(0, 14)
+	local msgLbl = Instance.new("TextLabel", msgBox)
+	msgLbl.Size                  = UDim2.new(1, 0, 0, 0)
+	msgLbl.AutomaticSize         = Enum.AutomaticSize.Y
+	msgLbl.BackgroundTransparency = 1
+	msgLbl.Font                  = Enum.Font.Gotham
+	msgLbl.TextSize              = 14
+	msgLbl.TextColor3            = C.text
+	msgLbl.TextWrapped           = true
+	msgLbl.TextXAlignment        = Enum.TextXAlignment.Left
+	msgLbl.TextYAlignment        = Enum.TextYAlignment.Top
+	msgLbl.Text                  = message
+
+	-- Firma
+	local wSign = Instance.new("TextLabel", box)
+	wSign.LayoutOrder           = 3
+	wSign.Size                  = UDim2.new(1, -40, 0, 16)
+	wSign.BackgroundTransparency = 1
+	wSign.Font                  = Enum.Font.Gotham
+	wSign.TextSize              = 11
+	wSign.TextColor3            = C.subtext
+	wSign.Text                  = "— NX System  v" .. NXCore.getVersion()
+	wSign.TextXAlignment        = Enum.TextXAlignment.Right
+
+	-- Botón cerrar
+	local function closeWarn()
+		motionTween(wScale, TweenInfo.new(0.14), { Scale = 0.88 })
+		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
+		task.delay(0.16, function() if overlay.Parent then overlay:Destroy() end end)
+	end
+	local wClose = Instance.new("TextButton", box)
+	wClose.LayoutOrder           = 4
+	wClose.Size                  = UDim2.new(1, -40, 0, 38)
+	wClose.BackgroundColor3      = ld.color
+	wClose.BackgroundTransparency = 0.08
+	wClose.Text                  = "Entendido"
+	wClose.Font                  = Enum.Font.GothamBold
+	wClose.TextSize              = 14
+	wClose.TextColor3            = Color3.fromRGB(255, 255, 255)
+	wClose.BorderSizePixel       = 0
+	Instance.new("UICorner", wClose).CornerRadius = UDim.new(0, 8)
+	wClose.MouseButton1Click:Connect(closeWarn)
+
+	overlay.InputBegan:Connect(function(inp)
+		if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+			local p = inp.Position
+			local bp, bs = box.AbsolutePosition, box.AbsoluteSize
+			if p.X < bp.X or p.X > bp.X + bs.X or p.Y < bp.Y or p.Y > bp.Y + bs.Y then
+				closeWarn()
+			end
+		end
+	end)
+end
+
+-- ====================== PANTALLA SIN LICENCIA NX ======================
+-- Bloquea el botón de analizar y muestra un overlay de acceso denegado.
+-- Solo aparece si el UserId no está en licenses.json (o si está en false).
+local function showLicenseDenied()
+	analyzeBtn.Active           = false
+	analyzeBtn.Text             = "Sin acceso"
+	analyzeBtn.BackgroundColor3 = C.neutral
+	statusLabel.Text            = "Sin licencia NX."
+
+	local overlay = Instance.new("Frame", gui)
+	overlay.Name                   = "NXLicenseDenied"
+	overlay.Size                   = UDim2.new(1, 0, 1, 0)
+	overlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+	overlay.BackgroundTransparency = 0.45
+	overlay.ZIndex                 = 88
+
+	local box = Instance.new("Frame", overlay)
+	box.Size             = UDim2.new(0, 380, 0, 0)
+	box.AutomaticSize    = Enum.AutomaticSize.Y
+	box.AnchorPoint      = Vector2.new(0.5, 0.5)
+	box.Position         = UDim2.new(0.5, 0, 0.5, 0)
+	box.BackgroundColor3 = C.modalBg
+	box.BorderSizePixel  = 0
+	box.ClipsDescendants = false
+	box.ZIndex           = 89
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	local dStroke = Instance.new("UIStroke", box)
+	dStroke.Color = C.bad; dStroke.Thickness = 2; dStroke.Transparency = 0.15
+
+	local dScale = Instance.new("UIScale", box); dScale.Scale = 0.88
+	motionTween(dScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+
+	local dPad = Instance.new("UIPadding", box)
+	dPad.PaddingTop = UDim.new(0, 24); dPad.PaddingBottom = UDim.new(0, 24)
+	dPad.PaddingLeft = UDim.new(0, 24); dPad.PaddingRight = UDim.new(0, 24)
+	local dLay = Instance.new("UIListLayout", box)
+	dLay.Padding = UDim.new(0, 10); dLay.SortOrder = Enum.SortOrder.LayoutOrder
+	dLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	local iconFrame = Instance.new("Frame", box)
+	iconFrame.LayoutOrder           = 0
+	iconFrame.Size                  = UDim2.new(0, 52, 0, 52)
+	iconFrame.BackgroundColor3      = C.bad
+	iconFrame.BackgroundTransparency = 0.75
+	iconFrame.BorderSizePixel       = 0
+	Instance.new("UICorner", iconFrame).CornerRadius = UDim.new(0, 26)
+	local iconLbl = Instance.new("TextLabel", iconFrame)
+	iconLbl.Size                  = UDim2.new(1, 0, 1, 0)
+	iconLbl.BackgroundTransparency = 1
+	iconLbl.Font                  = Enum.Font.GothamBold
+	iconLbl.TextSize              = 22
+	iconLbl.TextColor3            = C.bad
+	iconLbl.Text                  = "X"
+
+	local deniedTitle = Instance.new("TextLabel", box)
+	deniedTitle.LayoutOrder           = 1
+	deniedTitle.Size                  = UDim2.new(1, 0, 0, 24)
+	deniedTitle.BackgroundTransparency = 1
+	deniedTitle.Font                  = Enum.Font.GothamBold
+	deniedTitle.TextSize              = 18
+	deniedTitle.TextColor3            = C.bad
+	deniedTitle.Text                  = "Acceso no autorizado"
+	deniedTitle.TextXAlignment        = Enum.TextXAlignment.Center
+
+	local deniedSub = Instance.new("TextLabel", box)
+	deniedSub.LayoutOrder           = 2
+	deniedSub.Size                  = UDim2.new(1, 0, 0, 0)
+	deniedSub.AutomaticSize         = Enum.AutomaticSize.Y
+	deniedSub.BackgroundTransparency = 1
+	deniedSub.Font                  = Enum.Font.Gotham
+	deniedSub.TextSize              = 13
+	deniedSub.TextColor3            = C.subtext
+	deniedSub.TextWrapped           = true
+	deniedSub.TextXAlignment        = Enum.TextXAlignment.Center
+	deniedSub.Text = "Tu cuenta (" .. tostring(player.UserId)
+		.. ") no está en la lista de licencias.\n\nContacta con un administrador si crees que es un error."
+
+	local idRow = Instance.new("Frame", box)
+	idRow.LayoutOrder      = 3
+	idRow.Size             = UDim2.new(1, 0, 0, 30)
+	idRow.BackgroundColor3 = C.neutral
+	idRow.BorderSizePixel  = 0
+	Instance.new("UICorner", idRow).CornerRadius = UDim.new(0, 6)
+	local idLbl = Instance.new("TextLabel", idRow)
+	idLbl.Size                  = UDim2.new(1, -76, 1, 0)
+	idLbl.Position              = UDim2.new(0, 10, 0, 0)
+	idLbl.BackgroundTransparency = 1
+	idLbl.Font                  = Enum.Font.Code
+	idLbl.TextSize              = 13
+	idLbl.TextColor3            = C.text
+	idLbl.TextXAlignment        = Enum.TextXAlignment.Left
+	idLbl.Text                  = "UserId: " .. tostring(player.UserId)
+	local copyIdBtn = Instance.new("TextButton", idRow)
+	copyIdBtn.Size             = UDim2.new(0, 64, 1, -8)
+	copyIdBtn.Position         = UDim2.new(1, -68, 0, 4)
+	copyIdBtn.BackgroundColor3 = C.accent
+	copyIdBtn.Text             = "Copiar"
+	copyIdBtn.Font             = Enum.Font.GothamBold
+	copyIdBtn.TextSize         = 12
+	copyIdBtn.TextColor3       = C.onAccent
+	copyIdBtn.BorderSizePixel  = 0
+	Instance.new("UICorner", copyIdBtn).CornerRadius = UDim.new(0, 4)
+	copyIdBtn.MouseButton1Click:Connect(function()
+		clipboard(tostring(player.UserId))
+		copyIdBtn.Text = "OK"
+		task.delay(1.2, function() if copyIdBtn.Parent then copyIdBtn.Text = "Copiar" end end)
+	end)
+
+	local deniedSign = Instance.new("TextLabel", box)
+	deniedSign.LayoutOrder           = 4
+	deniedSign.Size                  = UDim2.new(1, 0, 0, 14)
+	deniedSign.BackgroundTransparency = 1
+	deniedSign.Font                  = Enum.Font.Gotham
+	deniedSign.TextSize              = 11
+	deniedSign.TextColor3            = C.subtext
+	deniedSign.Text                  = "NX System  v" .. NXCore.getVersion()
+	deniedSign.TextXAlignment        = Enum.TextXAlignment.Center
 end
 
 -- ====================== VISOR DE PERSONAJE (3D + 2D) ======================
@@ -3638,6 +4028,392 @@ do
 	end)
 end
 
+-- ====================== NX CONTROL CENTER (Panel Admin) ======================
+-- Pestaña exclusiva para administradores (permissions.admin == true).
+-- Se construye y añade al tab bar dinámicamente desde NXCore.onReady().
+-- Secciones: Dashboard · Licencias · Avisos · Tags · Permisos.
+-- Usa los helpers del scope padre: createTab, makeScroll, addRow, C, themed,
+-- onRepaint, content, nxTags, player, NXCore.
+local function buildAdminPanel()
+	local d = NXCore.getData()
+
+	-- ── Página raíz del admin ─────────────────────────────────────────────
+	local adminPage = Instance.new("Frame", content)
+	adminPage.Size                = UDim2.new(1, 0, 1, 0)
+	adminPage.BackgroundTransparency = 1
+	adminPage.Visible             = false
+	createTab("Admin", adminPage)
+
+	-- ── Sub-navegación horizontal ─────────────────────────────────────────
+	local subNav = Instance.new("ScrollingFrame", adminPage)
+	subNav.Size                  = UDim2.new(1, 0, 0, 28)
+	subNav.BackgroundTransparency = 1
+	subNav.BorderSizePixel       = 0
+	subNav.ScrollBarThickness    = 2
+	subNav.ScrollBarImageColor3  = C.accent
+	subNav.ScrollingDirection    = Enum.ScrollingDirection.X
+	subNav.CanvasSize            = UDim2.new(0, 0, 0, 0)
+	subNav.AutomaticCanvasSize   = Enum.AutomaticSize.X
+	themed(subNav, "ScrollBarImageColor3", "accent")
+	local snLay = Instance.new("UIListLayout", subNav)
+	snLay.FillDirection = Enum.FillDirection.Horizontal
+	snLay.Padding       = UDim.new(0, 5)
+	snLay.SortOrder     = Enum.SortOrder.LayoutOrder
+
+	-- ── Área de contenido de las sub-secciones ────────────────────────────
+	local adminArea = Instance.new("Frame", adminPage)
+	adminArea.Size                = UDim2.new(1, 0, 1, -34)
+	adminArea.Position            = UDim2.new(0, 0, 0, 34)
+	adminArea.BackgroundTransparency = 1
+
+	local subPages   = {}
+	local subBtns    = {}
+	local activeSub  = nil
+
+	local function showSub(id)
+		for k, pg in pairs(subPages) do pg.Visible = (k == id) end
+		activeSub = id
+		for k, b in pairs(subBtns) do
+			b.BackgroundColor3 = (k == id) and C.accent or C.neutral
+			b.TextColor3       = (k == id) and C.onAccent or C.text
+		end
+	end
+
+	-- Crea un botón de sub-navegación y su página vacía.
+	local SUB_SECTIONS = {
+		{ id = "dashboard", label = "Dashboard"  },
+		{ id = "licenses",  label = "Licencias"  },
+		{ id = "warnings",  label = "Avisos"      },
+		{ id = "tags",      label = "Tags"         },
+		{ id = "perms",     label = "Permisos"     },
+	}
+	for i, sec in ipairs(SUB_SECTIONS) do
+		local btn = Instance.new("TextButton", subNav)
+		btn.Size             = UDim2.new(0, 84, 0, 24)
+		btn.LayoutOrder      = i
+		btn.BackgroundColor3 = C.neutral
+		btn.Text             = sec.label
+		btn.Font             = Enum.Font.Gotham
+		btn.TextSize         = 12
+		btn.TextColor3       = C.text
+		btn.BorderSizePixel  = 0
+		btn.AutoButtonColor  = false
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+		subBtns[sec.id] = btn
+		btn.MouseButton1Click:Connect(function() showSub(sec.id) end)
+
+		local pg = Instance.new("Frame", adminArea)
+		pg.Size                = UDim2.new(1, 0, 1, 0)
+		pg.BackgroundTransparency = 1
+		pg.Visible             = false
+		subPages[sec.id] = pg
+	end
+
+	-- Repaint de sub-nav con el tema en vivo.
+	onRepaint(function()
+		for k, b in pairs(subBtns) do
+			b.BackgroundColor3 = (k == activeSub) and C.accent or C.neutral
+			b.TextColor3       = (k == activeSub) and C.onAccent or C.text
+		end
+	end)
+
+	-- ── Helpers de layout internos ────────────────────────────────────────
+	local function aScroll(parent)
+		local sf = Instance.new("ScrollingFrame", parent)
+		sf.Size                  = UDim2.new(1, 0, 1, 0)
+		sf.BackgroundTransparency = 1
+		sf.BorderSizePixel       = 0
+		sf.ScrollBarThickness    = 4
+		sf.ScrollBarImageColor3  = C.accent
+		sf.CanvasSize            = UDim2.new(0, 0, 0, 0)
+		sf.AutomaticCanvasSize   = Enum.AutomaticSize.Y
+		sf.ClipsDescendants      = true
+		themed(sf, "ScrollBarImageColor3", "accent")
+		local ly = Instance.new("UIListLayout", sf)
+		ly.Padding = UDim.new(0, 7); ly.SortOrder = Enum.SortOrder.LayoutOrder
+		Instance.new("UIPadding", sf).PaddingRight = UDim.new(0, 6)
+		return sf
+	end
+
+	-- Tarjeta de estadística grande (número + etiqueta).
+	local function statCard(parent, label, value, color, order)
+		local card = Instance.new("Frame", parent)
+		card.BackgroundColor3 = C.card; card.BorderSizePixel = 0; card.LayoutOrder = order
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+		local st = Instance.new("UIStroke", card)
+		st.Color = color or C.accent; st.Transparency = 0.45; st.Thickness = 1
+		themed(card, "BackgroundColor3", "card")
+		local numLbl = Instance.new("TextLabel", card)
+		numLbl.Size                  = UDim2.new(1, 0, 0, 34)
+		numLbl.Position              = UDim2.new(0, 0, 0, 8)
+		numLbl.BackgroundTransparency = 1
+		numLbl.Font                  = Enum.Font.GothamBold
+		numLbl.TextSize              = 24
+		numLbl.TextColor3            = color or C.accent
+		numLbl.Text                  = tostring(value)
+		numLbl.TextXAlignment        = Enum.TextXAlignment.Center
+		local nameLbl = Instance.new("TextLabel", card)
+		nameLbl.Size                  = UDim2.new(1, 0, 0, 16)
+		nameLbl.Position              = UDim2.new(0, 0, 0, 42)
+		nameLbl.BackgroundTransparency = 1
+		nameLbl.Font                  = Enum.Font.Gotham
+		nameLbl.TextSize              = 11
+		nameLbl.TextColor3            = C.subtext
+		nameLbl.Text                  = label
+		nameLbl.TextXAlignment        = Enum.TextXAlignment.Center
+		themed(nameLbl, "TextColor3", "subtext")
+		return card
+	end
+
+	-- Fila de tabla (cabecera o dato).
+	local function tRow(parent, cols, isHeader, order)
+		local row = Instance.new("Frame", parent)
+		row.Size             = UDim2.new(1, -4, 0, isHeader and 22 or 26)
+		row.BackgroundColor3 = isHeader and C.neutral or C.card
+		row.BorderSizePixel  = 0
+		row.LayoutOrder      = order
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+		themed(row, "BackgroundColor3", isHeader and "neutral" or "card")
+		local colW = 1 / #cols
+		for i, txt in ipairs(cols) do
+			local c = Instance.new("TextLabel", row)
+			c.Size                  = UDim2.new(colW, -4, 1, 0)
+			c.Position              = UDim2.new((i - 1) * colW, 2, 0, 0)
+			c.BackgroundTransparency = 1
+			c.Font                  = isHeader and Enum.Font.GothamBold or Enum.Font.Gotham
+			c.TextSize              = isHeader and 11 or 12
+			c.TextColor3            = isHeader and C.subtext or C.text
+			c.Text                  = tostring(txt)
+			c.TextXAlignment        = i == 1 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center
+			c.TextTruncate          = Enum.TextTruncate.AtEnd
+			themed(c, "TextColor3", isHeader and "subtext" or "text")
+		end
+		return row
+	end
+
+	local function emptyNote(parent, msg, order)
+		local lbl = Instance.new("TextLabel", parent)
+		lbl.LayoutOrder           = order
+		lbl.Size                  = UDim2.new(1, -4, 0, 22)
+		lbl.BackgroundTransparency = 1
+		lbl.Font                  = Enum.Font.Gotham
+		lbl.TextSize              = 12
+		lbl.TextColor3            = C.subtext
+		lbl.Text                  = msg
+		lbl.TextXAlignment        = Enum.TextXAlignment.Left
+		themed(lbl, "TextColor3", "subtext")
+	end
+
+	-- ── DASHBOARD ─────────────────────────────────────────────────────────
+	do
+		local sf = aScroll(subPages.dashboard)
+
+		local hdr = Instance.new("TextLabel", sf)
+		hdr.LayoutOrder           = 0; hdr.Size = UDim2.new(1, -4, 0, 28)
+		hdr.BackgroundTransparency = 1; hdr.Font = Enum.Font.GothamBold
+		hdr.TextSize              = 16; hdr.TextColor3 = C.accent
+		hdr.Text                  = "NX Control Center  v" .. NXCore.getVersion()
+		hdr.TextXAlignment        = Enum.TextXAlignment.Left
+		themed(hdr, "TextColor3", "accent")
+
+		-- Grid 2×2 de stats
+		local grid = Instance.new("Frame", sf)
+		grid.LayoutOrder           = 1
+		grid.Size                  = UDim2.new(1, -4, 0, 136)
+		grid.BackgroundTransparency = 1
+		local gl = Instance.new("UIGridLayout", grid)
+		gl.CellSize    = UDim2.new(0.5, -5, 0, 62)
+		gl.CellPadding = UDim2.new(0, 6, 0, 6)
+		gl.SortOrder   = Enum.SortOrder.LayoutOrder
+		statCard(grid, "Licencias",  NXCore.countOf("licenses"),    C.good,    1)
+		statCard(grid, "Avisos",     NXCore.countOf("warnings"),     C.warn,    2)
+		statCard(grid, "Tags NX",    NXCore.countTags(),             C.accent,  3)
+		statCard(grid, "Permisos",   NXCore.countOf("permissions"),  C.subtext, 4)
+
+		-- Estado de carga de archivos remotos
+		local stCard = Instance.new("Frame", sf)
+		stCard.LayoutOrder      = 2
+		stCard.Size             = UDim2.new(1, -4, 0, 0)
+		stCard.AutomaticSize    = Enum.AutomaticSize.Y
+		stCard.BackgroundColor3 = C.card; stCard.BorderSizePixel = 0
+		Instance.new("UICorner", stCard).CornerRadius = UDim.new(0, 8)
+		themed(stCard, "BackgroundColor3", "card")
+		local stp = Instance.new("UIPadding", stCard)
+		stp.PaddingTop = UDim.new(0,10); stp.PaddingBottom = UDim.new(0,10)
+		stp.PaddingLeft = UDim.new(0,12); stp.PaddingRight = UDim.new(0,12)
+		local stLay = Instance.new("UIListLayout", stCard)
+		stLay.Padding = UDim.new(0, 5); stLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local stTitle = Instance.new("TextLabel", stCard)
+		stTitle.LayoutOrder = 0; stTitle.Size = UDim2.new(1,0,0,20)
+		stTitle.BackgroundTransparency = 1; stTitle.Font = Enum.Font.GothamBold
+		stTitle.TextSize = 13; stTitle.TextColor3 = C.accent
+		stTitle.Text = "Archivos remotos"; stTitle.TextXAlignment = Enum.TextXAlignment.Left
+		themed(stTitle, "TextColor3", "accent")
+
+		for i, f in ipairs({ {"licenses.json","licenses"}, {"warnings.json","warnings"}, {"permissions.json","permissions"} }) do
+			local ok = not d.failed[f[2]]
+			local fRow = Instance.new("Frame", stCard)
+			fRow.LayoutOrder = i; fRow.Size = UDim2.new(1,0,0,22); fRow.BackgroundTransparency = 1
+			local fName = Instance.new("TextLabel", fRow)
+			fName.Size = UDim2.new(1,-70,1,0); fName.BackgroundTransparency = 1
+			fName.Font = Enum.Font.Gotham; fName.TextSize = 12; fName.TextColor3 = C.text
+			fName.Text = f[1]; fName.TextXAlignment = Enum.TextXAlignment.Left
+			themed(fName, "TextColor3", "text")
+			local fSt = Instance.new("TextLabel", fRow)
+			fSt.Size = UDim2.new(0,66,1,0); fSt.Position = UDim2.new(1,-68,0,0)
+			fSt.BackgroundTransparency = 1; fSt.Font = Enum.Font.GothamBold; fSt.TextSize = 12
+			fSt.TextColor3 = ok and C.good or C.bad
+			fSt.Text = ok and "OK" or "Error"
+			fSt.TextXAlignment = Enum.TextXAlignment.Right
+		end
+
+		-- Tus permisos
+		local myPerms  = NXCore.getPermissions(player.UserId)
+		local permCard = Instance.new("Frame", sf)
+		permCard.LayoutOrder = 3; permCard.Size = UDim2.new(1,-4,0,0)
+		permCard.AutomaticSize = Enum.AutomaticSize.Y
+		permCard.BackgroundColor3 = C.card; permCard.BorderSizePixel = 0
+		Instance.new("UICorner", permCard).CornerRadius = UDim.new(0, 8)
+		themed(permCard, "BackgroundColor3", "card")
+		local pp = Instance.new("UIPadding", permCard)
+		pp.PaddingTop = UDim.new(0,10); pp.PaddingBottom = UDim.new(0,10)
+		pp.PaddingLeft = UDim.new(0,12); pp.PaddingRight = UDim.new(0,12)
+		local pLay = Instance.new("UIListLayout", permCard)
+		pLay.Padding = UDim.new(0, 5); pLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local pTitle = Instance.new("TextLabel", permCard)
+		pTitle.LayoutOrder = 0; pTitle.Size = UDim2.new(1,0,0,20)
+		pTitle.BackgroundTransparency = 1; pTitle.Font = Enum.Font.GothamBold
+		pTitle.TextSize = 13; pTitle.TextColor3 = C.accent
+		pTitle.Text = "Tus permisos  (" .. player.DisplayName .. ")"
+		pTitle.TextXAlignment = Enum.TextXAlignment.Left
+		themed(pTitle, "TextColor3", "accent")
+
+		for i, pDef in ipairs({
+			{"admin","Administrador"},{"canWarn","Puede advertir"},
+			{"canManageTags","Gestionar Tags"},{"canAccessBeta","Acceso Beta"},
+		}) do
+			local has = myPerms[pDef[1]] == true
+			local pRow = Instance.new("Frame", permCard)
+			pRow.LayoutOrder = i; pRow.Size = UDim2.new(1,0,0,22); pRow.BackgroundTransparency = 1
+			local pName = Instance.new("TextLabel", pRow)
+			pName.Size = UDim2.new(1,-50,1,0); pName.BackgroundTransparency = 1
+			pName.Font = Enum.Font.Gotham; pName.TextSize = 12; pName.TextColor3 = C.text
+			pName.Text = pDef[2]; pName.TextXAlignment = Enum.TextXAlignment.Left
+			themed(pName, "TextColor3", "text")
+			local pVal = Instance.new("TextLabel", pRow)
+			pVal.Size = UDim2.new(0,46,1,0); pVal.Position = UDim2.new(1,-48,0,0)
+			pVal.BackgroundTransparency = 1; pVal.Font = Enum.Font.GothamBold; pVal.TextSize = 12
+			pVal.TextColor3 = has and C.good or C.subtext
+			pVal.Text = has and "Si" or "No"
+			pVal.TextXAlignment = Enum.TextXAlignment.Right
+		end
+	end
+
+	-- ── LICENCIAS ─────────────────────────────────────────────────────────
+	do
+		local sf = aScroll(subPages.licenses)
+		local hdr = Instance.new("TextLabel", sf)
+		hdr.LayoutOrder = 0; hdr.Size = UDim2.new(1,-4,0,24)
+		hdr.BackgroundTransparency = 1; hdr.Font = Enum.Font.GothamBold
+		hdr.TextSize = 14; hdr.TextColor3 = C.accent
+		hdr.Text = "Licencias activas  (" .. NXCore.countOf("licenses") .. ")"
+		hdr.TextXAlignment = Enum.TextXAlignment.Left
+		themed(hdr, "TextColor3", "accent")
+
+		tRow(sf, {"UserId", "Estado", "Cargado"}, true, 1)
+		local loadedAt = d.loadedAt > 0 and os.date("%H:%M:%S", d.loadedAt) or "—"
+		local rOrder = 2
+		for uid, active in pairs(d.licenses) do
+			tRow(sf, {uid, active and "Activa" or "Inactiva", loadedAt}, false, rOrder)
+			rOrder = rOrder + 1
+		end
+		if rOrder == 2 then emptyNote(sf, "Sin datos (archivo vacío o no disponible).", 2) end
+	end
+
+	-- ── AVISOS ────────────────────────────────────────────────────────────
+	do
+		local sf = aScroll(subPages.warnings)
+		local hdr = Instance.new("TextLabel", sf)
+		hdr.LayoutOrder = 0; hdr.Size = UDim2.new(1,-4,0,24)
+		hdr.BackgroundTransparency = 1; hdr.Font = Enum.Font.GothamBold
+		hdr.TextSize = 14; hdr.TextColor3 = C.warn
+		hdr.Text = "Advertencias  (" .. NXCore.countOf("warnings") .. ")"
+		hdr.TextXAlignment = Enum.TextXAlignment.Left
+
+		tRow(sf, {"UserId", "Nivel", "Mensaje"}, true, 1)
+		local rOrder = 2
+		for uid, w in pairs(d.warnings) do
+			if type(w) == "table" then
+				tRow(sf, {uid, tostring(w.level or "?"), tostring(w.message or "—")}, false, rOrder)
+				rOrder = rOrder + 1
+			end
+		end
+		if rOrder == 2 then emptyNote(sf, "Sin advertencias activas.", 2) end
+	end
+
+	-- ── TAGS ──────────────────────────────────────────────────────────────
+	do
+		local sf = aScroll(subPages.tags)
+		local hdr = Instance.new("TextLabel", sf)
+		hdr.LayoutOrder = 0; hdr.Size = UDim2.new(1,-4,0,24)
+		hdr.BackgroundTransparency = 1; hdr.Font = Enum.Font.GothamBold
+		hdr.TextSize = 14; hdr.TextColor3 = C.accent
+		hdr.Text = "Tags NX  (" .. NXCore.countTags() .. ")"
+		hdr.TextXAlignment = Enum.TextXAlignment.Left
+		themed(hdr, "TextColor3", "accent")
+
+		tRow(sf, {"UserId", "Tag", "Prioridad", "Color"}, true, 1)
+		local rOrder = 2
+		if type(nxTags) == "table" then
+			for uid, t in pairs(nxTags) do
+				if type(t) == "table" then
+					tRow(sf, {
+						uid,
+						tostring(t.tag or "—"),
+						tostring(t.priority or "—"),
+						tostring(t.color or "—"),
+					}, false, rOrder)
+					rOrder = rOrder + 1
+				end
+			end
+		end
+		if rOrder == 2 then emptyNote(sf, "Tags aún cargando o sin datos.", 2) end
+	end
+
+	-- ── PERMISOS ──────────────────────────────────────────────────────────
+	do
+		local sf = aScroll(subPages.perms)
+		local hdr = Instance.new("TextLabel", sf)
+		hdr.LayoutOrder = 0; hdr.Size = UDim2.new(1,-4,0,24)
+		hdr.BackgroundTransparency = 1; hdr.Font = Enum.Font.GothamBold
+		hdr.TextSize = 14; hdr.TextColor3 = C.accent
+		hdr.Text = "Permisos  (" .. NXCore.countOf("permissions") .. ")"
+		hdr.TextXAlignment = Enum.TextXAlignment.Left
+		themed(hdr, "TextColor3", "accent")
+
+		tRow(sf, {"UserId", "Admin", "Advertir", "Tags", "Beta"}, true, 1)
+		local rOrder = 2
+		for uid, p in pairs(d.permissions) do
+			if type(p) == "table" then
+				tRow(sf, {
+					uid,
+					p.admin         and "Si" or "—",
+					p.canWarn       and "Si" or "—",
+					p.canManageTags and "Si" or "—",
+					p.canAccessBeta and "Si" or "—",
+				}, false, rOrder)
+				rOrder = rOrder + 1
+			end
+		end
+		if rOrder == 2 then emptyNote(sf, "Sin permisos configurados.", 2) end
+	end
+
+	-- Mostrar dashboard al abrir el panel admin.
+	showSub("dashboard")
+end
+
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
 analyze = function(input)
@@ -3699,6 +4475,27 @@ createTab("Estadísticas", statsPage)
 createTab("Items", itemsPage)
 createTab("Análisis", analysisPage)
 createTab("Ajustes", settingsPage)
+
+-- ── NXCore integration: licencias + avisos + panel admin ─────────────────
+NXCore.onReady(function()
+	local uid = player.UserId
+
+	-- 1. Licencia: si el sistema cargó y el usuario NO está licenciado, bloquear.
+	if not NXCore.isLicensed(uid) then
+		showLicenseDenied()
+	end
+
+	-- 2. Advertencia: mostrar popup si existe una para este usuario.
+	local warning = NXCore.getWarning(uid)
+	if warning then
+		task.delay(1.2, function() showNXWarning(warning) end)
+	end
+
+	-- 3. Panel admin: solo si el usuario tiene admin = true.
+	if NXCore.isAdmin(uid) then
+		buildAdminPanel()
+	end
+end)
 
 -- ====================== ARRASTRE (sin conexión global permanente) ======================
 local dragInputConn, dragEndedConn
@@ -3779,7 +4576,7 @@ if not httpRequest then
 end
 
 
-print(("[Profile Analyzer v3.3.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
+print(("[Profile Analyzer v3.4.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
