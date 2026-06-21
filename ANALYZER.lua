@@ -1,6 +1,22 @@
 --[[
-   Roblox Public Profile Analyzer  v3.4.0
+   Roblox Public Profile Analyzer  v3.5.0
    ---------------------------------------------------------------
+   Cambios en v3.5.0 (sobre v3.4.0):
+     • NUEVO: NX Broadcast (Avisos remotos). Ahora TÚ (el autor) puedes
+       enviar mensajes / warnings a CUALQUIERA que ejecute el script, en
+       vivo, editando un JSON público en GitHub (mismo método que NX Tags).
+       Cuando haces commit al messages.json, a los pocos segundos le aparece
+       un toast premium (glass/neon que respeta el tema y las animaciones)
+       a todos los que tengan el script abierto. Tipos info/warn/error/
+       success (color por tipo), duración configurable, barra de cuenta
+       atrás con pausa al pasar el cursor, y dedupe por id ("once" = se
+       muestra una sola vez por persona, recordado entre sesiones). Soporta
+       segmentar por UserId ("targets") o enviar a todos. Imágenes opcionales
+       (campo "image": rbxassetid); si no hay imagen válida, usa emoji por
+       tipo. Pruebas sin tocar GitHub: _G.NXBroadcast.test() / .refresh() /
+       .clearSeen(). Repo sugerido: github.com/dreennx/nx-messages
+       Falla en silencio: si el JSON no carga, no rompe nada.
+
    Cambios en v3.4.0 (sobre v3.3.0):
      • INTEGRACIÓN NX Head Tags (Fase 1 · coexistencia segura). El módulo
        "NX Head Tag System V2" (BillboardGui de roles sobre las cabezas) se
@@ -144,7 +160,7 @@ local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
 
-local store = { theme = "negro", headTags = true, animations = true }
+local store = { theme = "negro", headTags = true, animations = true, ownTag = true }
 
 local function saveStore()
 	if not hasFS then return end
@@ -160,6 +176,7 @@ local function loadStore()
 				store.theme = decoded.theme or "negro"
 				if type(decoded.headTags) == "boolean" then store.headTags = decoded.headTags end
 				if type(decoded.animations) == "boolean" then store.animations = decoded.animations end
+				if type(decoded.ownTag) == "boolean" then store.ownTag = decoded.ownTag end
 			end
 		end
 	end)
@@ -484,6 +501,140 @@ local function getNXTag(userId)
 end
 
 loadNXTags()      -- precarga al iniciar (no bloquea: corre en segundo plano)
+
+-- ===================== NX V2 · capa de datos /v2/ (ADITIVA, reversible) =====================
+-- Autocontenido en do...end: NO añade locals permanentes al chunk principal
+-- (evita el límite de 200 locals de Luau). Expone _G.NXV2 / _G.NXAsset /
+-- _G.NXResolve y reasigna el local getNXTag a un dispatcher (v2 -> legacy).
+-- Reversible: _G.NXV2.setEnabled(false) vuelve a legacy; borrar el bloque revierte.
+do
+	local NX_V2 = { enabled = true, images = false }   -- images OFF: assets aún no válidos
+	local BASE  = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/v2/"
+	local TTL, RETRY = 300, 15
+
+	-- NXData: fetch + cache + dedup + retry + refresh
+	local store, at, inflight = {}, {}, {}
+	local function fetch(f, force)
+		if inflight[f] then return end
+		if not force and store[f] and (os.clock() - (at[f] or 0)) < TTL then return end
+		inflight[f] = true
+		task.spawn(function()
+			local body = rawGet(BASE .. f)                  -- reusa tu rawGet (con fallback)
+			if body then
+				local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
+				if ok and type(t) == "table" then store[f], at[f] = t, os.clock() end
+			end
+			inflight[f] = nil
+		end)
+	end
+	local function dget(f) return store[f] end
+	task.spawn(function()
+		while true do
+			if NX_V2.enabled then
+				for _, f in ipairs({ "roles.json", "tags.json" }) do
+					if not store[f] then fetch(f)
+					elseif (os.clock() - (at[f] or 0)) >= TTL then fetch(f, true) end
+				end
+			end
+			task.wait(RETRY)
+		end
+	end)
+	fetch("roles.json"); fetch("tags.json")
+
+	-- ImageResolver: normaliza + valida (PreloadAsync) + cachea
+	local CP, icache = game:GetService("ContentProvider"), {}
+	local function imgNormalize(v)
+		if v == nil then return nil end
+		if type(v) == "number" then v = "rbxassetid://" .. v end
+		v = tostring(v); if v == "" or v == "rbxassetid://0" then return nil end
+		local d = v:match("^(%d+)$"); if d then v = "rbxassetid://" .. d end
+		return (v:match("^rbxassetid://%d+$") or v:match("^rbxthumb") or v:match("^http")) and v or nil
+	end
+	local function imgPreload(v)
+		local id = imgNormalize(v); if not id or icache[id] then return end
+		icache[id] = "pending"
+		task.spawn(function()
+			local i = Instance.new("ImageLabel"); i.Image = id
+			icache[id] = pcall(function() CP:PreloadAsync({ i }) end) and "ok" or "bad"
+			i:Destroy()
+		end)
+	end
+	local function imgUsable(v) local id = imgNormalize(v); return id ~= nil and icache[id] ~= "bad" end
+
+	-- Catálogo de assets (fallback hardcodeado si v2 no cargó)
+	local ASSET_FALLBACK = {
+		graphic_ui = "rbxassetid://96973325922644", settings = "rbxassetid://131435728006094",
+		youtube = "rbxassetid://3117561276", discord = "rbxassetid://74340827915824",
+		copy_link = "rbxassetid://15416627598",
+	}
+	local function nxAsset(key)
+		local r = dget("roles.json")
+		return (r and r._assets and r._assets[key]) or ASSET_FALLBACK[key]
+	end
+
+	-- TagRegistry: rol por nombre (con aliases)
+	local function normRole(s) s = tostring(s or ""):gsub("%s+", " "); return string.upper(s:match("^%s*(.-)%s*$") or s) end
+	local function roleDef(tagName)
+		local r = dget("roles.json"); if not r then return nil end
+		local k = normRole(tagName)
+		if r._aliases and r._aliases[k] then k = normRole(r._aliases[k]) end
+		return r[k]
+	end
+
+	-- TagResolver: userId -> entry visual (color = Color3 vía nxColor)
+	local function resolveV2(userId)
+		if not NX_V2.enabled then return nil end
+		local tags = dget("tags.json"); if not tags then return nil end
+		local raw = tags[tostring(userId)]; if type(raw) ~= "table" then return nil end
+		local role = roleDef(raw.tag) or {}
+		local img = nil
+		if NX_V2.images then                                 -- imágenes gateadas en Fase 1
+			img = imgNormalize(raw.iconImage) or imgNormalize(nxAsset(raw.iconAsset))
+			   or imgNormalize(role.iconImage) or imgNormalize(nxAsset(role.iconAsset))
+			if img then imgPreload(img) end
+		end
+		local tagText, icon = raw.tag or "", raw.icon or role.icon or ""
+		if tagText == "" and icon == "" and not img then return nil end
+		return {
+			tag = tagText, discordRole = raw.discordRole or role.discordRole,
+			icon = icon, iconImage = img,
+			color = nxColor(raw.color or role.color),
+			animation = string.lower(tostring(raw.animation or role.animation or "gradient")),
+			priority = tonumber(raw.priority) or tonumber(role.priority) or 0,
+		}
+	end
+
+	-- API global (chip, head tag y capa UI). No añade locals al chunk principal.
+	_G.NXV2 = {
+		enabled = true, images = false,
+		resolve = resolveV2, role = roleDef, asset = nxAsset,
+		image = { normalize = imgNormalize, preload = imgPreload, usable = imgUsable },
+		data = { get = dget, ensure = fetch },
+		pending = function() return not (dget("roles.json") and dget("tags.json")) end,
+		setEnabled = function(on) NX_V2.enabled = on and true or false; _G.NXV2.enabled = NX_V2.enabled end,
+		setImages = function(on) NX_V2.images = on and true or false; _G.NXV2.images = NX_V2.images end,
+	}
+	_G.NXAsset = nxAsset
+	_G.NXResolve = resolveV2
+
+	-- Dispatcher: v2 primero, legacy de fallback. NO toca el cuerpo de getNXTag.
+	local getNXTag_legacy = getNXTag
+	getNXTag = function(userId)
+		if NX_V2.enabled then local v = resolveV2(userId); if v then return v end end
+		return getNXTag_legacy(userId)
+	end
+
+	-- Cuando v2 termine de cargar por primera vez, refresca los head tags para
+	-- que apliquen v2 sin esperar al refresh de 5 min.
+	task.spawn(function()
+		local n = 0
+		while n < 120 and dget("tags.json") == nil do task.wait(0.1); n = n + 1 end
+		if dget("tags.json") and _G.NXHeadTags and _G.NXHeadTags.Refresh then
+			pcall(_G.NXHeadTags.Refresh)
+		end
+	end)
+end
+-- ===========================================================================================
 
 -- ====================== NX CORE  v1.0.0 ======================
 -- Sistema centralizado de administración remota (GitHub, solo lectura).
@@ -3180,7 +3331,24 @@ local function render(data, skipEntrance)
 	nxStroke.Transparency = 1
 	local nxPad = Instance.new("UIPadding", nxChip)
 	nxPad.PaddingLeft = UDim.new(0, 12); nxPad.PaddingRight = UDim.new(0, 12)
+	-- (Fase 1 NX V2) Layout horizontal: icono opcional (imagen) + texto del rol.
+	-- Con images OFF, nxIcon queda oculto y el chip se ve igual que antes (emoji + texto).
+	local nxList = Instance.new("UIListLayout", nxChip)
+	nxList.FillDirection = Enum.FillDirection.Horizontal
+	nxList.VerticalAlignment = Enum.VerticalAlignment.Center
+	nxList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	nxList.SortOrder = Enum.SortOrder.LayoutOrder
+	nxList.Padding = UDim.new(0, 6)
+
+	local nxIcon = Instance.new("ImageLabel", nxChip)
+	nxIcon.Name = "NXIcon"
+	nxIcon.BackgroundTransparency = 1
+	nxIcon.Size = UDim2.fromOffset(18, 18)
+	nxIcon.LayoutOrder = 1
+	nxIcon.Visible = false
+
 	local nxLabel = Instance.new("TextLabel", nxChip)
+	nxLabel.LayoutOrder = 2
 	nxLabel.AutomaticSize = Enum.AutomaticSize.X
 	nxLabel.Size = UDim2.new(0, 0, 1, 0)
 	nxLabel.BackgroundTransparency = 1
@@ -3194,7 +3362,24 @@ local function render(data, skipEntrance)
 		local function applyTag(t)
 			if not t or not nxChip.Parent then return end
 			if currentData == nil or currentData.UserId ~= renderedFor then return end
-			nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+			local IR  = _G.NXV2 and _G.NXV2.image
+			local img = t.iconImage and IR and IR.normalize(t.iconImage)
+			if img and IR.usable(img) then
+				nxIcon.Image = img; nxIcon.Visible = true
+				nxLabel.Text = t.tag                                  -- imagen + texto (sin emoji)
+				IR.preload(img)
+				task.spawn(function()                                  -- si el asset es inválido, cae a emoji
+					local n = 0
+					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
+					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
+						nxIcon.Visible = false
+						nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+					end
+				end)
+			else
+				nxIcon.Visible = false
+				nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag   -- emoji + texto (igual que hoy)
+			end
 			nxLabel.TextColor3 = t.color
 			nxStroke.Color = t.color
 			nxStroke.Transparency = 0.25
@@ -3202,15 +3387,27 @@ local function render(data, skipEntrance)
 			nxChip.Visible = true
 			avatarFrame.Size = UDim2.new(1, -4, 0, 232)   -- hueco para el chip
 		end
+		-- Resuelve vía dispatcher (v2 -> legacy). Reintenta mientras CUALQUIER backend carga.
 		local now = getNXTag(data.UserId)
 		if now then
 			applyTag(now)
-		elseif nxTags == nil then
-			-- el JSON aún se está descargando: aplica cuando esté listo
+		else
 			task.spawn(function()
 				local tries = 0
-				while nxTags == nil and tries < 40 do task.wait(0.1); tries = tries + 1 end
-				applyTag(getNXTag(renderedFor))
+				local function pending()
+					if nxTags == nil then return true end
+					if _G.NXV2 and _G.NXV2.enabled and _G.NXV2.pending and _G.NXV2.pending() then return true end
+					return false
+				end
+				while pending() and tries < 60 do
+					task.wait(0.1); tries = tries + 1
+					local t = getNXTag(renderedFor)
+					if t then
+						if currentData and currentData.UserId == renderedFor then applyTag(t) end
+						return
+					end
+				end
+				if currentData and currentData.UserId == renderedFor then applyTag(getNXTag(renderedFor)) end
 			end)
 		end
 	end
@@ -3275,9 +3472,9 @@ local function render(data, skipEntrance)
 	openProfile.MouseButton1Click:Connect(function()
 		local opened = openURL(data.ProfileUrl)
 		if opened then
-			statusLabel.Text = "Perfil abierto en el navegador."
+			statusLabel.Text = "✓ Perfil abierto en el navegador."
 		else
-			statusLabel.Text = "El executor " .. EXECUTOR_NAME .. " no permite abrir el navegador."
+			statusLabel.Text = "☹ El executor " .. EXECUTOR_NAME .. " no permite abrir el navegador."
 			showLinkModal(data.ProfileUrl)
 		end
 	end)
@@ -3309,7 +3506,7 @@ local function render(data, skipEntrance)
 				TS:TeleportToPlaceInstance(data.PresencePlace, data.PresenceGame, player)
 			end)
 			if not ok then
-				statusLabel.Text = "No se pudo unir (servidor lleno/privado o sin acceso)."
+				statusLabel.Text = "☹ No se pudo unir (servidor lleno/privado o sin acceso)."
 			end
 		end)
 	end
@@ -3549,17 +3746,40 @@ local function render(data, skipEntrance)
 		end)
 	end
 
-	mkBtn("Copiar TXT", 0).MouseButton1Click:Connect(function()
+	-- Feedback visual EN EL PROPIO BOTÓN: cambia a "✓"/"☹" un instante y vuelve.
+	local function flashBtn(btn, msg)
+		local prev = btn.Text
+		btn.Text = msg
+		task.delay(1.1, function()
+			if btn and btn.Parent then btn.Text = prev end
+		end)
+	end
+
+	local txtBtn = mkBtn("Copiar TXT", 0)
+	txtBtn.MouseButton1Click:Connect(function()
 		withNames("Preparando TXT (historial de nombres)...", function()
-			clipboard(table.concat(buildTxtLines(), "\n"))
-			statusLabel.Text = "Copiado a portapapeles (TXT)"
+			local ok = pcall(function() clipboard(table.concat(buildTxtLines(), "\n")) end)
+			if ok then
+				statusLabel.Text = "✓ Copiado a portapapeles (TXT)"
+				flashBtn(txtBtn, "Copiado ✓")
+			else
+				statusLabel.Text = "☹ No se pudo copiar (executor sin portapapeles)"
+				flashBtn(txtBtn, "Error ☹")
+			end
 		end)
 	end)
 
-	mkBtn("Copiar JSON", 140).MouseButton1Click:Connect(function()
+	local jsonBtn = mkBtn("Copiar JSON", 140)
+	jsonBtn.MouseButton1Click:Connect(function()
 		withNames("Preparando JSON (historial de nombres)...", function()
-			clipboard(HttpService:JSONEncode(buildExportData()))
-			statusLabel.Text = "Copiado a portapapeles (JSON)"
+			local ok = pcall(function() clipboard(HttpService:JSONEncode(buildExportData())) end)
+			if ok then
+				statusLabel.Text = "✓ Copiado a portapapeles (JSON)"
+				flashBtn(jsonBtn, "Copiado ✓")
+			else
+				statusLabel.Text = "☹ No se pudo copiar (executor sin portapapeles)"
+				flashBtn(jsonBtn, "Error ☹")
+			end
 		end)
 	end)
 
@@ -3939,14 +4159,15 @@ do
 	local nxTitle = Instance.new("TextLabel", nxCard)
 	nxTitle.LayoutOrder = 0; nxTitle.Size = UDim2.new(1, 0, 0, 20); nxTitle.BackgroundTransparency = 1
 	nxTitle.Font = Enum.Font.GothamBold; nxTitle.TextSize = 14; nxTitle.TextColor3 = C.accent
-	nxTitle.Text = "🏷️ NX Head Tags"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
+	nxTitle.Text = "🏷️ NX Head Tags (todos)"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(nxTitle, "TextColor3", "accent")
 
 	local nxDesc = Instance.new("TextLabel", nxCard)
 	nxDesc.LayoutOrder = 1; nxDesc.Size = UDim2.new(1, 0, 0, 16); nxDesc.BackgroundTransparency = 1
 	nxDesc.Font = Enum.Font.Gotham; nxDesc.TextSize = 11; nxDesc.TextColor3 = C.subtext
-	nxDesc.Text = "Etiquetas sobre la cabeza de usuarios NX (solo las ves tú)."
+	nxDesc.Text = "Muestra/oculta los tags de TODOS (solo los ves tú). Para ocultar SOLO el tuyo, usa el icono 🪪 de la barra superior."
 	nxDesc.TextXAlignment = Enum.TextXAlignment.Left
+	nxDesc.TextWrapped = true
 	themed(nxDesc, "TextColor3", "subtext")
 
 	local nxToggle = Instance.new("TextButton", nxCard)
@@ -4026,6 +4247,61 @@ do
 		setAnimationsEnabled(newOn)
 		paintAnToggle()
 	end)
+
+	-- ====== Signos / Glyphs (diagnóstico de soporte del executor) ======
+	-- Tarjeta de prueba: muestra los símbolos especiales agrupados POR DONDE
+	-- tienen lógica en la UI. De un vistazo ves si tu executor/fuente los
+	-- renderiza. Si aparece un cuadro (▯) en lugar del símbolo => no soportado.
+	local sgCard = Instance.new("Frame", settingsScroll)
+	sgCard.LayoutOrder = 4
+	sgCard.Size = UDim2.new(1, -4, 0, 0)
+	sgCard.AutomaticSize = Enum.AutomaticSize.Y
+	sgCard.BackgroundColor3 = C.card
+	sgCard.BorderSizePixel = 0
+	Instance.new("UICorner", sgCard).CornerRadius = UDim.new(0, 8)
+	themed(sgCard, "BackgroundColor3", "card")
+	addDepth(sgCard)
+	local sgPad = Instance.new("UIPadding", sgCard)
+	sgPad.PaddingTop = UDim.new(0, 8); sgPad.PaddingBottom = UDim.new(0, 8)
+	sgPad.PaddingLeft = UDim.new(0, 10); sgPad.PaddingRight = UDim.new(0, 10)
+	local sgLay = Instance.new("UIListLayout", sgCard)
+	sgLay.Padding = UDim.new(0, 5); sgLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local sgTitle = Instance.new("TextLabel", sgCard)
+	sgTitle.LayoutOrder = 0; sgTitle.Size = UDim2.new(1, 0, 0, 20); sgTitle.BackgroundTransparency = 1
+	sgTitle.Font = Enum.Font.GothamBold; sgTitle.TextSize = 14; sgTitle.TextColor3 = C.accent
+	sgTitle.Text = "♞ Signos · prueba de glifos"; sgTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(sgTitle, "TextColor3", "accent")
+
+	local sgDesc = Instance.new("TextLabel", sgCard)
+	sgDesc.LayoutOrder = 1; sgDesc.Size = UDim2.new(1, 0, 0, 28); sgDesc.BackgroundTransparency = 1
+	sgDesc.Font = Enum.Font.Gotham; sgDesc.TextSize = 11; sgDesc.TextColor3 = C.subtext
+	sgDesc.Text = "Si ves un cuadro (▯) en vez del símbolo, tu executor no soporta ese glifo."
+	sgDesc.TextXAlignment = Enum.TextXAlignment.Left
+	sgDesc.TextWrapped = true
+	themed(sgDesc, "TextColor3", "subtext")
+
+	-- Cada fila = una categoría con sus signos, donde tienen sentido en la UI.
+	local sgRows = {
+		{ "Estados",            "✓ OK   ✗ Error   ☹ Fallo" },
+		{ "Tendencias",         "→  ←  ↑  ↓" },
+		{ "Reproducir / abrir", "►  [►]" },
+		{ "Música",             "♫  ♪" },
+		{ "Destacado",          "★  ♥" },
+		{ "Naipes / decor",     "♠  ♣  ♦  ♞" },
+	}
+	for i, row in ipairs(sgRows) do
+		local lbl = Instance.new("TextLabel", sgCard)
+		lbl.LayoutOrder = 1 + i
+		lbl.Size = UDim2.new(1, 0, 0, 18)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamMedium
+		lbl.TextSize = 13
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextColor3 = C.text
+		lbl.Text = row[1] .. ":   " .. row[2]
+		themed(lbl, "TextColor3", "text")
+	end
 end
 
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
@@ -4431,11 +4707,11 @@ analyze = function(input)
 			local id, _, errType = getUserIdByName(input)
 			if not id then
 				if errType == "not_found" then
-					statusLabel.Text = "Usuario no encontrado."
+					statusLabel.Text = "☹ Usuario no encontrado."
 				elseif errType == "api_error" then
-					statusLabel.Text = "Error temporal de Roblox API. Intenta más tarde."
+					statusLabel.Text = "☹ Error temporal de Roblox API. Intenta más tarde."
 				else
-					statusLabel.Text = "Error desconocido."
+					statusLabel.Text = "☹ Error desconocido."
 				end
 				render(nil)
 				analyzing = false
@@ -4446,7 +4722,7 @@ analyze = function(input)
 
 		if profileCache[userId] then
 			render(profileCache[userId])
-			statusLabel.Text = "Listo (caché)."
+			statusLabel.Text = "✓ Listo (caché)."
 			analyzing = false
 			return
 		end
@@ -4454,12 +4730,12 @@ analyze = function(input)
 		statusLabel.Text = "Consultando APIs..."
 		local data = gatherData(userId)
 		if not data then
-			statusLabel.Text = "Error o usuario inexistente."
+			statusLabel.Text = "☹ Error o usuario inexistente."
 			render(nil)
 		else
 			setCached(userId, data)
 			render(data)
-			statusLabel.Text = "Listo."
+			statusLabel.Text = "✓ Listo."
 		end
 		analyzing = false
 	end)
@@ -4575,8 +4851,613 @@ if not httpRequest then
 	statusLabel.Text = "Aviso: " .. EXECUTOR_NAME .. " no expone 'request'; se usará game:HttpGet."
 end
 
+-- ====================== NX BROADCAST · AVISOS REMOTOS ======================
+-- Sistema para que TÚ (el autor) envíes mensajes/warnings a CUALQUIERA que
+-- ejecute el script, EN VIVO. Funciona igual que NX Tags: lees un JSON público
+-- en GitHub; cuando lo editas (commit), a los pocos segundos le sale el aviso a
+-- todos los que tengan el script abierto. Toast premium (glass/neon) que respeta
+-- el tema en vivo y el toggle de animaciones. Las imágenes son OPCIONALES: si el
+-- campo "image" trae un rbxassetid válido, se usa; si no, sale un emoji por tipo.
+--
+--   Cómo ENVIAR un aviso  (editas messages.json en tu repo y haces commit):
+--   {
+--     "messages": [
+--       {
+--         "id": "2026-06-21-bienvenida",   -- ÚNICO; sirve para no repetir
+--         "type": "info",                   -- info | warn | error | success
+--         "title": "Bienvenido a NX",
+--         "body":  "Gracias por usar la herramienta.",
+--         "image": "",                       -- rbxassetid OPCIONAL (cuando tengas el ID)
+--         "duration": 8,                     -- seg en pantalla; 0 = fijo (cierra a mano)
+--         "once": true,                      -- true = se muestra UNA vez por persona
+--         "enabled": true,                   -- false = borrador (no se muestra)
+--         "expires": 0,                      -- os.time() límite; 0 = nunca caduca
+--         "targets": []                      -- [] = TODOS; [userId,...] = solo esos
+--       }
+--     ]
+--   }
+--
+--   AVISO ESTILO ROBLOX (popup centrado tipo "Error al unirse", troll/cosmético):
+--   añade  "style": "roblox"  al mensaje. Campos extra:
+--     "button"    -- texto del botón (por defecto "Salir")
+--     "errorCode" -- número; muestra "(Código de error: N)". Ej: 600
+--   { "id":"ban1", "style":"roblox", "title":"Error al unirse",
+--     "body":"Has sido expulsado por 4 minutos.", "button":"Salir",
+--     "errorCode":600, "duration":0, "enabled":true, "targets":[] }
+--
+--   Pruebas rápidas SIN tocar GitHub (consola del executor):
+--     _G.NXBroadcast.test()        -- muestra un toast de cada tipo
+--     _G.NXBroadcast.testBan()     -- muestra el popup estilo Roblox (como la foto)
+--     _G.NXBroadcast.refresh()     -- re-descarga el JSON ahora mismo
+--     _G.NXBroadcast.clearSeen()   -- olvida los "once" (vuelven a salir)
+--     _G.NXBroadcast.show({ type="warn", title="Hola", body="Texto", duration=6 })
+--     _G.NXBroadcast.modal({ title="Error al unirse", body="...", errorCode=600 })
+do
+    local CONFIG = {
+        -- 👇 EDITA esta URL a tu repo de avisos (raw de GitHub).
+        URL     = "https://raw.githubusercontent.com/dreennx/nx-messages/refs/heads/main/messages.json",
+        REFRESH = 120,   -- seg entre re-descargas (avisos nuevos en vivo). 0 = solo al iniciar.
+        RETRY   = 20,    -- seg para reintentar si la primera descarga falla.
+        WIDTH   = 330,   -- ancho del toast (px).
+        DEFAULT_DURATION = 8,
+        MAX_VISIBLE = 4, -- máximo de toasts a la vez (los viejos se cierran solos).
+        GAP = 0.18,      -- pausa entre toasts encolados (para que entren escalonados).
+    }
 
-print(("[Profile Analyzer v3.4.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
+    -- ---- persistencia "ya visto" (archivo propio; NO toca el store del tema) ----
+    local SEEN_FILE = "NX_msgs_seen.json"
+    local seen = {}
+    if hasFS then
+        pcall(function()
+            if isfile(SEEN_FILE) then
+                local d = HttpService:JSONDecode(readfile(SEEN_FILE))
+                if type(d) == "table" then seen = d end
+            end
+        end)
+    end
+    local function markSeen(id)
+        if not id then return end
+        seen[tostring(id)] = true
+        if hasFS then
+            pcall(function() writefile(SEEN_FILE, HttpService:JSONEncode(seen)) end)
+        end
+    end
+
+    -- ---- color e icono por tipo (usan los roles del tema => respetan el tema en vivo) ----
+    local function typeRole(t)
+        t = tostring(t or "info"):lower()
+        if t == "warn" or t == "warning" then return "warn" end
+        if t == "error" or t == "bad" or t == "danger" then return "bad" end
+        if t == "success" or t == "ok" or t == "good" then return "good" end
+        return "accent"
+    end
+    local function typeColor(t) return C[typeRole(t)] or C.accent end
+    local function typeEmoji(t)
+        t = tostring(t or "info"):lower()
+        if t == "warn" or t == "warning" then return "⚠️" end
+        if t == "error" or t == "bad" or t == "danger" then return "⛔" end
+        if t == "success" or t == "ok" or t == "good" then return "✅" end
+        return "🔔"
+    end
+
+    -- ---- normaliza la imagen opcional (acepta número, "123" o "rbxassetid://123") ----
+    local CP = game:GetService("ContentProvider")
+    local function normImg(v)
+        if v == nil then return nil end
+        if type(v) == "number" then v = "rbxassetid://" .. v end
+        v = tostring(v)
+        if v == "" or v == "rbxassetid://0" then return nil end
+        local d = v:match("^(%d+)$"); if d then v = "rbxassetid://" .. d end
+        return (v:match("^rbxassetid://%d+$") or v:match("^rbxthumb") or v:match("^http")) and v or nil
+    end
+
+    -- ---- contenedor (esquina superior derecha del ScreenGui) ----
+    local holder = Instance.new("Frame")
+    holder.Name = "NXBroadcast"
+    holder.AnchorPoint = Vector2.new(1, 0)
+    holder.Position = UDim2.new(1, -16, 0, 16)
+    holder.Size = UDim2.new(0, CONFIG.WIDTH, 1, -32)
+    holder.BackgroundTransparency = 1
+    holder.ClipsDescendants = false
+    holder.ZIndex = 300
+    holder.Parent = gui
+    local hlist = Instance.new("UIListLayout", holder)
+    hlist.FillDirection = Enum.FillDirection.Vertical
+    hlist.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    hlist.VerticalAlignment = Enum.VerticalAlignment.Top
+    hlist.SortOrder = Enum.SortOrder.LayoutOrder
+    hlist.Padding = UDim.new(0, 10)
+
+    local live = {}        -- toasts vivos: { slot, card, type, hovered, accentEls, dismiss }
+    local order = 0
+
+    -- Al cambiar de tema, re-aplica el color de tipo (acento/warn/bad/good) a cada toast vivo.
+    onRepaint(function()
+        for _, ti in ipairs(live) do
+            local col = typeColor(ti.type)
+            for _, el in ipairs(ti.accentEls) do
+                pcall(function() el.inst[el.prop] = col end)
+            end
+        end
+    end)
+
+    -- Cierra los toasts más viejos si pasamos del máximo visible.
+    local function reflowLimit()
+        while #live > CONFIG.MAX_VISIBLE do
+            local oldest = live[1]
+            if oldest and oldest.dismiss then oldest.dismiss() else table.remove(live, 1) end
+        end
+    end
+
+    -- ---- crea y muestra un toast ----
+    local function showToast(opts)
+        opts = opts or {}
+        local mtype = opts.type or "info"
+        local col   = typeColor(mtype)
+        order = order + 1
+
+        local slot = Instance.new("Frame")
+        slot.Name = "Slot"
+        slot.BackgroundTransparency = 1
+        slot.Size = UDim2.new(0, CONFIG.WIDTH, 0, 0)
+        slot.AutomaticSize = Enum.AutomaticSize.Y
+        slot.ClipsDescendants = false
+        slot.LayoutOrder = -order          -- los nuevos salen ARRIBA
+        slot.ZIndex = 301
+        slot.Parent = holder
+
+        -- CanvasGroup: nos deja desvanecer TODO el toast con una sola propiedad.
+        local card = Instance.new("CanvasGroup")
+        card.Name = "Card"
+        card.Size = UDim2.new(1, 0, 0, 0)
+        card.AutomaticSize = Enum.AutomaticSize.Y
+        card.BackgroundColor3 = C.card
+        card.BackgroundTransparency = 0.02
+        card.BorderSizePixel = 0
+        card.GroupTransparency = ANIM.enabled and 1 or 0
+        card.Position = ANIM.enabled and UDim2.new(0, CONFIG.WIDTH, 0, 0) or UDim2.new(0, 0, 0, 0)
+        card.ZIndex = 301
+        card.Parent = slot
+        themed(card, "BackgroundColor3", "card")
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+        local stroke = Instance.new("UIStroke", card)
+        stroke.Color = C.border; stroke.Transparency = 0.05; stroke.Thickness = 1
+        themed(stroke, "Color", "border")
+
+        -- barra de acento (izquierda)
+        local bar = Instance.new("Frame", card)
+        bar.Size = UDim2.new(0, 4, 1, 0)
+        bar.BackgroundColor3 = col
+        bar.BorderSizePixel = 0
+        bar.ZIndex = 303
+        Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
+
+        -- botón cerrar
+        local close = Instance.new("TextButton", card)
+        close.AnchorPoint = Vector2.new(1, 0)
+        close.Position = UDim2.new(1, -8, 0, 8)
+        close.Size = UDim2.new(0, 20, 0, 20)
+        close.BackgroundTransparency = 1
+        close.Text = "✕"
+        close.Font = Enum.Font.GothamBold
+        close.TextSize = 14
+        close.TextColor3 = C.subtext
+        close.AutoButtonColor = false
+        close.ZIndex = 305
+        themed(close, "TextColor3", "subtext")
+
+        -- contenido (con padding; el list-layout apila cabecera + cuerpo + progreso)
+        local content = Instance.new("Frame", card)
+        content.BackgroundTransparency = 1
+        content.Size = UDim2.new(1, 0, 0, 0)
+        content.AutomaticSize = Enum.AutomaticSize.Y
+        content.ZIndex = 302
+        local cpad = Instance.new("UIPadding", content)
+        cpad.PaddingLeft = UDim.new(0, 16)
+        cpad.PaddingRight = UDim.new(0, 30)
+        cpad.PaddingTop = UDim.new(0, 12)
+        cpad.PaddingBottom = UDim.new(0, 12)
+        local clist = Instance.new("UIListLayout", content)
+        clist.FillDirection = Enum.FillDirection.Vertical
+        clist.SortOrder = Enum.SortOrder.LayoutOrder
+        clist.Padding = UDim.new(0, 6)
+
+        -- cabecera: icono + título
+        local head = Instance.new("Frame", content)
+        head.BackgroundTransparency = 1
+        head.Size = UDim2.new(1, 0, 0, 24)
+        head.LayoutOrder = 1
+        head.ZIndex = 302
+
+        local iconBg = Instance.new("Frame", head)
+        iconBg.Size = UDim2.new(0, 24, 0, 24)
+        iconBg.BackgroundColor3 = col
+        iconBg.BackgroundTransparency = 0.82
+        iconBg.BorderSizePixel = 0
+        iconBg.ZIndex = 302
+        Instance.new("UICorner", iconBg).CornerRadius = UDim.new(0, 7)
+
+        local emoji = Instance.new("TextLabel", iconBg)
+        emoji.BackgroundTransparency = 1
+        emoji.Size = UDim2.new(1, 0, 1, 0)
+        emoji.Text = typeEmoji(mtype)
+        emoji.Font = Enum.Font.GothamBold
+        emoji.TextSize = 14
+        emoji.ZIndex = 303
+
+        local img = Instance.new("ImageLabel", iconBg)
+        img.BackgroundTransparency = 1
+        img.Size = UDim2.new(1, 0, 1, 0)
+        img.Visible = false
+        img.ScaleType = Enum.ScaleType.Fit
+        img.ZIndex = 303
+        Instance.new("UICorner", img).CornerRadius = UDim.new(0, 7)
+
+        local title = Instance.new("TextLabel", head)
+        title.BackgroundTransparency = 1
+        title.Position = UDim2.new(0, 32, 0, 0)
+        title.Size = UDim2.new(1, -32, 1, 0)
+        title.Text = tostring(opts.title or "Aviso")
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 15
+        title.TextColor3 = C.text
+        title.TextXAlignment = Enum.TextXAlignment.Left
+        title.TextYAlignment = Enum.TextYAlignment.Center
+        title.TextTruncate = Enum.TextTruncate.AtEnd
+        title.ZIndex = 302
+        themed(title, "TextColor3", "text")
+
+        -- cuerpo (se ajusta solo en altura)
+        local body = Instance.new("TextLabel", content)
+        body.BackgroundTransparency = 1
+        body.Size = UDim2.new(1, 0, 0, 0)
+        body.AutomaticSize = Enum.AutomaticSize.Y
+        body.Text = tostring(opts.body or "")
+        body.Font = Enum.Font.Gotham
+        body.TextSize = 13
+        body.TextColor3 = C.subtext
+        body.TextWrapped = true
+        body.TextXAlignment = Enum.TextXAlignment.Left
+        body.TextYAlignment = Enum.TextYAlignment.Top
+        body.LayoutOrder = 2
+        body.ZIndex = 302
+        themed(body, "TextColor3", "subtext")
+        if body.Text == "" then body.Visible = false end
+
+        -- imagen opcional: si el id carga bien, sustituye el emoji por la imagen
+        local idImg = normImg(opts.image)
+        if idImg then
+            task.spawn(function()
+                local probe = Instance.new("ImageLabel"); probe.Image = idImg
+                local ok = pcall(function() CP:PreloadAsync({ probe }) end)
+                probe:Destroy()
+                if ok and img.Parent then
+                    img.Image = idImg; img.Visible = true; emoji.Visible = false
+                end
+            end)
+        end
+
+        -- barra de progreso (cuenta atrás) si hay duración
+        local duration = tonumber(opts.duration) or CONFIG.DEFAULT_DURATION
+        local progFill
+        if duration and duration > 0 then
+            local ptrack = Instance.new("Frame", content)
+            ptrack.Size = UDim2.new(1, 0, 0, 3)
+            ptrack.BackgroundColor3 = C.neutral
+            ptrack.BackgroundTransparency = 0.3
+            ptrack.BorderSizePixel = 0
+            ptrack.LayoutOrder = 3
+            ptrack.ZIndex = 302
+            themed(ptrack, "BackgroundColor3", "neutral")
+            Instance.new("UICorner", ptrack).CornerRadius = UDim.new(1, 0)
+            progFill = Instance.new("Frame", ptrack)
+            progFill.Size = UDim2.new(1, 0, 1, 0)
+            progFill.BackgroundColor3 = col
+            progFill.BorderSizePixel = 0
+            progFill.ZIndex = 303
+            Instance.new("UICorner", progFill).CornerRadius = UDim.new(1, 0)
+        end
+
+        -- registro del toast (para repaint de color y para el límite de visibles)
+        local entry = {
+            slot = slot, card = card, type = mtype, hovered = false, _dead = false,
+            accentEls = {
+                { inst = bar, prop = "BackgroundColor3" },
+                { inst = iconBg, prop = "BackgroundColor3" },
+            },
+        }
+        if progFill then table.insert(entry.accentEls, { inst = progFill, prop = "BackgroundColor3" }) end
+
+        local function dismiss()
+            if entry._dead then return end
+            entry._dead = true
+            for i, v in ipairs(live) do if v == entry then table.remove(live, i) break end end
+            motionTween(card, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { GroupTransparency = 1, Position = UDim2.new(0, CONFIG.WIDTH, 0, 0) }, function()
+                    if slot and slot.Parent then slot:Destroy() end
+                end)
+        end
+        entry.dismiss = dismiss
+
+        close.MouseButton1Click:Connect(dismiss)
+        card.MouseEnter:Connect(function() entry.hovered = true end)
+        card.MouseLeave:Connect(function() entry.hovered = false end)
+
+        table.insert(live, entry)
+        reflowLimit()
+
+        -- animación de entrada (slide desde la derecha + fade)
+        motionTween(card, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            { GroupTransparency = 0, Position = UDim2.new(0, 0, 0, 0) })
+
+        -- cuenta atrás (se pausa mientras el cursor está encima)
+        if duration and duration > 0 then
+            task.spawn(function()
+                local elapsed = 0
+                while elapsed < duration and not entry._dead and slot.Parent do
+                    task.wait(0.05)
+                    if not entry.hovered then
+                        elapsed = elapsed + 0.05
+                        if progFill then
+                            local frac = math.clamp(1 - (elapsed / duration), 0, 1)
+                            progFill.Size = UDim2.new(frac, 0, 1, 0)
+                        end
+                    end
+                end
+                if not entry._dead then dismiss() end
+            end)
+        end
+
+        return entry
+    end
+
+    -- ---- aviso estilo POPUP DE ROBLOX (centrado, tipo "Error al unirse") ----
+    -- COSMÉTICO: solo aparece en la pantalla del que ejecuta el script. NO banea
+    -- ni expulsa a nadie de verdad; es una notificación que IMITA el modal de
+    -- Roblox (troll). Colores fijos (look Roblox), no siguen el tema a propósito.
+    local function showRobloxModal(opts)
+        opts = opts or {}
+        -- solo un modal a la vez (si había uno, lo quitamos)
+        local old = gui:FindFirstChild("NXBroadcastModal")
+        if old then old:Destroy() end
+
+        -- fondo oscurecido que bloquea clics detrás (como un modal real)
+        local backdrop = Instance.new("Frame")
+        backdrop.Name = "NXBroadcastModal"
+        backdrop.Size = UDim2.new(1, 0, 1, 0)
+        backdrop.Position = UDim2.new(0, 0, 0, 0)
+        backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        backdrop.BackgroundTransparency = ANIM.enabled and 1 or 0.45
+        backdrop.BorderSizePixel = 0
+        backdrop.Active = true
+        backdrop.ZIndex = 400
+        backdrop.Parent = gui
+
+        -- panel central
+        local panel = Instance.new("CanvasGroup")
+        panel.Name = "Panel"
+        panel.AnchorPoint = Vector2.new(0.5, 0.5)
+        panel.Position = UDim2.new(0.5, 0, 0.5, 0)
+        panel.Size = UDim2.new(0, 420, 0, 0)
+        panel.AutomaticSize = Enum.AutomaticSize.Y
+        panel.BackgroundColor3 = Color3.fromRGB(40, 42, 51)
+        panel.BackgroundTransparency = 0.02
+        panel.BorderSizePixel = 0
+        panel.GroupTransparency = ANIM.enabled and 1 or 0
+        panel.ZIndex = 401
+        panel.Parent = backdrop
+        Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 10)
+        local pst = Instance.new("UIStroke", panel)
+        pst.Color = Color3.fromRGB(70, 73, 85); pst.Transparency = 0.4; pst.Thickness = 1
+        local scale = Instance.new("UIScale", panel)
+        scale.Scale = ANIM.enabled and 0.9 or 1
+
+        local pad = Instance.new("UIPadding", panel)
+        pad.PaddingTop = UDim.new(0, 22); pad.PaddingBottom = UDim.new(0, 18)
+        pad.PaddingLeft = UDim.new(0, 26); pad.PaddingRight = UDim.new(0, 26)
+        local pl = Instance.new("UIListLayout", panel)
+        pl.FillDirection = Enum.FillDirection.Vertical
+        pl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        pl.SortOrder = Enum.SortOrder.LayoutOrder
+        pl.Padding = UDim.new(0, 14)
+
+        -- título
+        local title = Instance.new("TextLabel", panel)
+        title.BackgroundTransparency = 1
+        title.Size = UDim2.new(1, 0, 0, 26)
+        title.Text = tostring(opts.title or "Error al unirse")
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 21
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.TextXAlignment = Enum.TextXAlignment.Center
+        title.LayoutOrder = 1
+        title.ZIndex = 402
+
+        -- línea divisora bajo el título
+        local divider = Instance.new("Frame", panel)
+        divider.Size = UDim2.new(1, -10, 0, 1)
+        divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        divider.BackgroundTransparency = 0.82
+        divider.BorderSizePixel = 0
+        divider.LayoutOrder = 2
+        divider.ZIndex = 402
+
+        -- cuerpo (+ "(Código de error: N)" si pasas errorCode)
+        local bodyText = tostring(opts.body or "")
+        local code = tonumber(opts.errorCode)
+        if code then bodyText = bodyText .. "\n(Código de error: " .. tostring(code) .. ")" end
+        local body = Instance.new("TextLabel", panel)
+        body.BackgroundTransparency = 1
+        body.Size = UDim2.new(1, 0, 0, 0)
+        body.AutomaticSize = Enum.AutomaticSize.Y
+        body.Text = bodyText
+        body.Font = Enum.Font.Gotham
+        body.TextSize = 15
+        body.TextColor3 = Color3.fromRGB(225, 226, 232)
+        body.TextWrapped = true
+        body.TextXAlignment = Enum.TextXAlignment.Center
+        body.TextYAlignment = Enum.TextYAlignment.Top
+        body.LineHeight = 1.1
+        body.LayoutOrder = 3
+        body.ZIndex = 402
+
+        -- botón (pastilla clara con texto oscuro, como el de Roblox)
+        local btn = Instance.new("TextButton", panel)
+        btn.Size = UDim2.new(1, 0, 0, 42)
+        btn.BackgroundColor3 = Color3.fromRGB(228, 229, 234)
+        btn.AutoButtonColor = true
+        btn.Text = tostring(opts.button or "Salir")
+        btn.Font = Enum.Font.GothamMedium
+        btn.TextSize = 16
+        btn.TextColor3 = Color3.fromRGB(60, 62, 70)
+        btn.LayoutOrder = 4
+        btn.ZIndex = 402
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+        local dead = false
+        local function dismiss()
+            if dead then return end
+            dead = true
+            motionTween(backdrop, TweenInfo.new(0.18), { BackgroundTransparency = 1 })
+            motionTween(scale, TweenInfo.new(0.18), { Scale = 0.9 })
+            motionTween(panel, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                { GroupTransparency = 1 }, function()
+                    if backdrop and backdrop.Parent then backdrop:Destroy() end
+                end)
+        end
+        btn.MouseButton1Click:Connect(dismiss)
+
+        -- pop de entrada (escala + fade)
+        motionTween(backdrop, TweenInfo.new(0.18), { BackgroundTransparency = 0.45 })
+        motionTween(panel, TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 })
+        motionTween(scale, TweenInfo.new(0.26, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+
+        -- auto-cierre opcional (0 = se queda hasta que pulsen el botón)
+        local duration = tonumber(opts.duration) or 0
+        if duration > 0 then
+            task.delay(duration, function() if not dead then dismiss() end end)
+        end
+
+        return { dismiss = dismiss }
+    end
+
+    -- ---- decidir si un mensaje se muestra a ESTE usuario ----
+    local shownSession = {}    -- ids ya mostrados en esta sesión (evita repetir al refrescar)
+    local function eligible(m)
+        if type(m) ~= "table" then return false end
+        if m.enabled == false then return false end
+        local exp = tonumber(m.expires)
+        if exp and exp > 0 and os.time() > exp then return false end
+        local tg = m.targets
+        if type(tg) == "table" and #tg > 0 then
+            local me, ok = player.UserId, false
+            for _, u in ipairs(tg) do if tonumber(u) == me then ok = true break end end
+            if not ok then return false end
+        end
+        local id = m.id and tostring(m.id) or nil
+        if id then
+            if shownSession[id] then return false end
+            if m.once and seen[id] then return false end
+        end
+        return true
+    end
+
+    -- ---- procesa el JSON descargado y encola los avisos elegibles ----
+    local function consume(decoded)
+        local list = decoded
+        if type(decoded) == "table" and decoded.messages then list = decoded.messages end
+        if type(list) ~= "table" then return end
+        -- acepta array [..] o diccionario { id = {..} }
+        local arr = {}
+        if #list > 0 then
+            arr = list
+        else
+            for k, v in pairs(list) do
+                if type(v) == "table" then v.id = v.id or k; table.insert(arr, v) end
+            end
+        end
+        task.spawn(function()
+            for _, m in ipairs(arr) do
+                if eligible(m) then
+                    local id = m.id and tostring(m.id) or nil
+                    if id then shownSession[id] = true; if m.once then markSeen(id) end end
+                    local style = tostring(m.style or m.kind or "toast"):lower()
+                    if style == "roblox" or style == "ban" or style == "kick"
+                        or style == "modal" or style == "error" then
+                        pcall(showRobloxModal, {
+                            title = m.title, body = m.body, button = m.button,
+                            errorCode = m.errorCode or m.code,
+                            duration = tonumber(m.duration) or 0,
+                        })
+                    else
+                        pcall(showToast, {
+                            type = m.type, title = m.title, body = m.body, image = m.image,
+                            duration = tonumber(m.duration) or CONFIG.DEFAULT_DURATION,
+                        })
+                    end
+                    task.wait(CONFIG.GAP)
+                end
+            end
+        end)
+    end
+
+    local function fetchNow()
+        task.spawn(function()
+            local body = rawGet(CONFIG.URL)
+            if not body then return end
+            local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+            if ok and type(decoded) == "table" then consume(decoded) end
+        end)
+    end
+
+    -- ---- arranque: primer intento con reintentos + refresco periódico ----
+    task.spawn(function()
+        local got = false
+        while not got and gui.Parent do
+            local body = rawGet(CONFIG.URL)
+            if body then
+                local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+                if ok and type(decoded) == "table" then got = true; consume(decoded) end
+            end
+            if not got then task.wait(CONFIG.RETRY) end
+        end
+        if CONFIG.REFRESH and CONFIG.REFRESH > 0 then
+            while gui.Parent do
+                task.wait(CONFIG.REFRESH)
+                if gui.Parent then fetchNow() end
+            end
+        end
+    end)
+
+    -- ---- API pública para pruebas / uso manual ----
+    _G.NXBroadcast = {
+        show    = function(o) pcall(showToast, o or {}) end,
+        modal   = function(o) pcall(showRobloxModal, o or {}) end,
+        refresh = function() fetchNow() end,
+        clearSeen = function()
+            seen = {}
+            if hasFS then pcall(function() writefile(SEEN_FILE, HttpService:JSONEncode(seen)) end) end
+        end,
+        test = function()
+            pcall(showToast, { type = "info",    title = "Aviso de prueba", body = "Esto es un mensaje informativo de NX.", duration = 6 })
+            task.delay(0.2, function() pcall(showToast, { type = "success", title = "¡Listo!",  body = "Operación completada con éxito.",      duration = 6 }) end)
+            task.delay(0.4, function() pcall(showToast, { type = "warn",    title = "Cuidado",  body = "Esto es una advertencia importante.",   duration = 6 }) end)
+            task.delay(0.6, function() pcall(showToast, { type = "error",   title = "Error",    body = "Algo salió mal. Revisa la consola.",    duration = 0 }) end)
+        end,
+        testBan = function()
+            pcall(showRobloxModal, {
+                title = "Error al unirse",
+                body  = "Esta experiencia o sus moderadores te expulsaron por 4 minutos. Mensaje de moderación:\n\nRoblox has determined that content in this experience violated our Community Standards. You have been temporarily removed.",
+                button = "Salir",
+                errorCode = 600,
+                duration = 0,
+            })
+        end,
+    }
+end
+
+
+print(("[Profile Analyzer v3.5.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -4901,6 +5782,12 @@ do
     end
 
     function TagDatabase:Get(userId)
+        -- (Fase 1 NX V2) v2 primero; si no hay tag v2 o el resolver no existe,
+        -- cae al resuelto actual (presets). 100% aditivo / reversible.
+        if _G.NXResolve then
+            local v = _G.NXResolve(userId)
+            if v then return v end
+        end
         return self._resolved[tostring(userId)]
     end
 
@@ -5713,7 +6600,24 @@ Animations.luxe = {
             local camPos = cam and cam.CFrame.Position
             for _, ctx in pairs(TagManager.active) do
                 if not ctx.adornee or not ctx.adornee.Parent then
-                    ctx.billboard.Enabled = false           -- adornee gone; self-heal
+                    -- El adornee se fue: muerte, respawn o STREAMING al alejarte.
+                    -- Antes nos quedábamos con el tag APAGADO hasta el próximo
+                    -- refresh del JSON (hasta 5 min) => por eso "tardaba en volver".
+                    -- Ahora reintentamos enganchar la cabeza viva ~4 veces/seg, así
+                    -- al regresar (o al re-streamear la cabeza) el tag reaparece YA.
+                    ctx._reacquireAt = ctx._reacquireAt or 0
+                    if os.clock() >= ctx._reacquireAt then
+                        ctx._reacquireAt = os.clock() + 0.25
+                        local char = ctx.player and ctx.player.Character
+                        local head = char and char:FindFirstChild("Head")
+                        if head then
+                            ctx.adornee           = head
+                            ctx.billboard.Adornee = head
+                            ctx.billboard.Enabled = true
+                        else
+                            ctx.billboard.Enabled = false   -- aún sin cabeza: self-heal
+                        end
+                    end
                 elseif ctx.billboard.Enabled then
                     ctx.elapsed += dt
 
@@ -5833,6 +6737,13 @@ Animations.luxe = {
         CONFIG.TP_ON_CLICK = on and true or false
     end
 
+    -- Muestra/oculta SOLO el tag de TU propio personaje, sin tocar a los demás
+    -- (los tags del resto siguen igual). Lo usa el botón de la barra superior.
+    function NXHeadTags.SetShowOwnTag(on)
+        CONFIG.SHOW_OWN_TAG = on and true or false
+        pcall(function() TagManager:apply(LocalPlayer) end)
+    end
+
     -- Activa/desactiva el glow + shimmer de los tags (lo usa el toggle de
     -- Animaciones del Analyzer). El LOD (pill<->círculo) sigue funcionando.
     function NXHeadTags.SetAnimationsEnabled(on)
@@ -5860,6 +6771,12 @@ end
 -- módulo no exista: si _G.NXHeadTags es nil, no hace nada.
 if _G.NXHeadTags and not store.headTags then
 	_G.NXHeadTags.SetEnabled(false)
+end
+
+-- Aplica la preferencia guardada de "mi tag" (botón de la barra superior): si lo
+-- dejaste oculto, se quita SOLO tu propio tag al cargar (sin afectar a los demás).
+if _G.NXHeadTags and _G.NXHeadTags.SetShowOwnTag and store.ownTag == false then
+	_G.NXHeadTags.SetShowOwnTag(false)
 end
 
 -- Aplica la preferencia guardada de Animaciones: si las dejaste apagadas,
@@ -6079,6 +6996,40 @@ end)()
 	local UIS        = game:GetService("UserInputService")
 	local Players    = game:GetService("Players")
 
+	-- ── 0) TOOLTIP minimalista: etiqueta flotante al pasar el cursor sobre
+	-- los iconos del HUD (resuelve el "no se sabe qué hace cada icono"). Una
+	-- sola etiqueta reutilizada; se autolimpia con track() al cerrar la GUI.
+	local tip
+	local function attachTip(obj, text)
+		track(obj.MouseEnter:Connect(function()
+			if not tip then
+				tip = Instance.new("TextLabel")
+				tip.Name = "PrismTip"
+				tip.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+				tip.BackgroundTransparency = 0.05
+				tip.TextColor3 = Color3.fromRGB(240, 240, 240)
+				tip.Font = Enum.Font.GothamMedium
+				tip.TextSize = 12
+				tip.AutomaticSize = Enum.AutomaticSize.XY
+				tip.ZIndex = 60
+				tip.Parent = gui
+				local tcz = Instance.new("UICorner", tip); tcz.CornerRadius = UDim.new(0, 6)
+				local tpz = Instance.new("UIPadding", tip)
+				tpz.PaddingLeft = UDim.new(0, 8); tpz.PaddingRight = UDim.new(0, 8)
+				tpz.PaddingTop = UDim.new(0, 3); tpz.PaddingBottom = UDim.new(0, 3)
+				local tsz = Instance.new("UIStroke", tip); tsz.Color = C.accent; tsz.Transparency = 0.3
+				themed(tsz, "Color", "accent")
+			end
+			tip.Text = text
+			tip.Visible = true
+			local ap = obj.AbsolutePosition
+			tip.Position = UDim2.fromOffset(ap.X - 40, ap.Y + obj.AbsoluteSize.Y + 6)
+		end))
+		track(obj.MouseLeave:Connect(function()
+			if tip then tip.Visible = false end
+		end))
+	end
+
 	-- ── 1) LOGO NX a la DERECHA de la cabecera del panel ─────────────────
 	pcall(function()
 		local badge = Instance.new("Frame")
@@ -6251,20 +7202,26 @@ end)()
 				end
 			end)
 		end
-		iconButton("💬", DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242))  -- blurple Discord
+		local discBtn = iconButton("💬", DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242))  -- blurple Discord
+		attachTip(discBtn, "Discord NX")
 
-		-- OCULTAR / MOSTRAR todos los tags (rápido, desde la barra). Persiste.
-		local tagsOn = (store.headTags ~= false)
-		local tagIcon
-		local function setTags(on)
-			tagsOn = on
-			store.headTags = on
+		-- OCULTAR / MOSTRAR **SOLO TU PROPIO TAG** (rápido, desde la barra). Persiste.
+		-- El interruptor maestro que oculta los tags de TODOS vive en
+		-- Ajustes → 🏷️ NX Head Tags (todos). Aquí solo se quita/pone el tuyo.
+		local ownOn = (store.ownTag ~= false)
+		local ownIcon
+		local function setOwnTag(on)
+			ownOn = on
+			store.ownTag = on
 			pcall(saveStore)
-			if _G.NXHeadTags then pcall(_G.NXHeadTags.SetEnabled, on) end
-			if tagIcon then tagIcon.Text = on and "👁" or "🚫" end
+			if _G.NXHeadTags and _G.NXHeadTags.SetShowOwnTag then
+				pcall(_G.NXHeadTags.SetShowOwnTag, on)
+			end
+			if ownIcon then ownIcon.Text = on and "🪪" or "🙈" end
 		end
-		local _, ti = iconButton(tagsOn and "👁" or "🚫", nil, function() setTags(not tagsOn) end)
-		tagIcon = ti
+		local ownBtn, oi = iconButton(ownOn and "🪪" or "🙈", nil, function() setOwnTag(not ownOn) end)
+		ownIcon = oi
+		attachTip(ownBtn, ownOn and "Tu tag: visible (click = ocultar)" or "Tu tag: oculto (click = mostrar)")
 
 		-- FPS (promediado) en vivo
 		local frames, acc = 0, 0
