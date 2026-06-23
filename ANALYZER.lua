@@ -16,6 +16,18 @@
        tipo. Pruebas sin tocar GitHub: _G.NXBroadcast.test() / .refresh() /
        .clearSeen(). Repo sugerido: github.com/dreennx/nx-messages
        Falla en silencio: si el JSON no carga, no rompe nada.
+     • NX Broadcast · estilo POPUP DE ROBLOX: un mensaje con "style":"roblox"
+       (o "type":"roblox") muestra un modal centrado idéntico al "Error al
+       unirse" de Roblox (título, divisor, cuerpo, botón "Salir", "(Código de
+       error: N)" vía "errorCode"). Cosmético: solo en la pantalla del que
+       ejecuta, no banea de verdad. _G.NXBroadcast.testBan().
+     • NX Broadcast · BLOQUEO CON TIEMPO administrable: un mensaje con
+       "lockMinutes"/"lockSeconds"/"lock" muestra el popup Y cierra la
+       herramienta por ese tiempo. Se persiste en NX_lock.json + _G, así que
+       re-ejecutar el script NO lo salta (vuelve a salir el popup con el
+       tiempo restante). Se aplica UNA vez por id. Liberar antes: mensaje con
+       "unlock":true o _G.NXBroadcast.unlock(). Pruebas: .testLock(30) /
+       .lock(secs) / .unlock() / .lockStatus().
 
    Cambios en v3.4.0 (sobre v3.3.0):
      • INTEGRACIÓN NX Head Tags (Fase 1 · coexistencia segura). El módulo
@@ -4885,11 +4897,24 @@ end
 --     "body":"Has sido expulsado por 4 minutos.", "button":"Salir",
 --     "errorCode":600, "duration":0, "enabled":true, "targets":[] }
 --
+--   BLOQUEO CON TIEMPO (cierra la herramienta y no la pueden usar por X tiempo):
+--   añade  "lockMinutes": N  (o "lockSeconds"/"lock" en segundos) al mensaje. El
+--   bloqueo se guarda en disco, así que re-ejecutar el script NO lo salta. El
+--   tiempo lo administras tú. Para liberar antes: un mensaje con "unlock": true.
+--     LOCK:   { "id":"ban-2025", "style":"roblox", "title":"Error al unirse",
+--               "body":"...", "errorCode":600, "lockMinutes":5,
+--               "enabled":true, "targets":[123456789] }
+--     UNLOCK: { "id":"unlock-1", "unlock":true, "enabled":true, "targets":[123456789] }
+--   (cada bloqueo se aplica UNA vez por id: para re-bloquear, usa un id nuevo.)
+--
 --   Pruebas rápidas SIN tocar GitHub (consola del executor):
---     _G.NXBroadcast.test()        -- muestra un toast de cada tipo
---     _G.NXBroadcast.testBan()     -- muestra el popup estilo Roblox (como la foto)
---     _G.NXBroadcast.refresh()     -- re-descarga el JSON ahora mismo
---     _G.NXBroadcast.clearSeen()   -- olvida los "once" (vuelven a salir)
+--     _G.NXBroadcast.test()         -- muestra un toast de cada tipo
+--     _G.NXBroadcast.testBan()      -- muestra el popup estilo Roblox (como la foto)
+--     _G.NXBroadcast.testLock(30)   -- bloquea 30 seg (prueba el cierre). unlock() para salir
+--     _G.NXBroadcast.lock(300)      -- bloquea 300 seg manualmente
+--     _G.NXBroadcast.unlock()       -- quita el bloqueo
+--     _G.NXBroadcast.refresh()      -- re-descarga el JSON ahora mismo
+--     _G.NXBroadcast.clearSeen()    -- olvida los "once" (vuelven a salir)
 --     _G.NXBroadcast.show({ type="warn", title="Hola", body="Texto", duration=6 })
 --     _G.NXBroadcast.modal({ title="Error al unirse", body="...", errorCode=600 })
 do
@@ -5325,7 +5350,10 @@ do
                     if backdrop and backdrop.Parent then backdrop:Destroy() end
                 end)
         end
-        btn.MouseButton1Click:Connect(dismiss)
+        btn.MouseButton1Click:Connect(function()
+            dismiss()
+            if type(opts.onButton) == "function" then pcall(opts.onButton) end
+        end)
 
         -- pop de entrada (escala + fade)
         motionTween(backdrop, TweenInfo.new(0.18), { BackgroundTransparency = 0.45 })
@@ -5339,6 +5367,94 @@ do
         end
 
         return { dismiss = dismiss }
+    end
+
+    -- ---- BLOQUEO REMOTO (cierra la herramienta por X tiempo, administrable) ----
+    -- Si un mensaje trae lock/lockSeconds/lockMinutes, se muestra el popup Y la
+    -- herramienta queda BLOQUEADA hasta que pase ese tiempo. Se guarda en disco
+    -- (NX_lock.json) y en _G, así que aunque re-ejecuten el script durante el
+    -- bloqueo vuelve a salir el popup y NO pueden usarlo hasta que expire.
+    -- El tiempo lo administras TÚ en el JSON. Para liberar antes: manda un mensaje
+    -- con "unlock": true, o usa _G.NXBroadcast.unlock().
+    local LOCK_FILE = "NX_lock.json"
+
+    local function getLock()  -- devuelve la info del bloqueo ACTIVO (until > ahora), o nil
+        local best
+        local function consider(d)
+            if type(d) == "table" then
+                local u = tonumber(d["until"])
+                if u and u > os.time() and (not best or u > tonumber(best["until"])) then best = d end
+            end
+        end
+        if type(_G.NX_LOCK) == "table" then consider(_G.NX_LOCK) end
+        if hasFS then
+            pcall(function()
+                if isfile(LOCK_FILE) then consider(HttpService:JSONDecode(readfile(LOCK_FILE))) end
+            end)
+        end
+        return best
+    end
+
+    local function setLock(d)
+        _G.NX_LOCK = d
+        if hasFS then pcall(function() writefile(LOCK_FILE, HttpService:JSONEncode(d)) end) end
+    end
+
+    local function clearLock()
+        _G.NX_LOCK = nil
+        if hasFS then pcall(function() writefile(LOCK_FILE, HttpService:JSONEncode({ ["until"] = 0 })) end) end
+    end
+
+    local function fmtRemaining(secs)
+        secs = math.max(0, math.floor(secs))
+        local m = math.floor(secs / 60)
+        local s = secs % 60
+        if m > 0 then return string.format("%d min %d seg", m, s) end
+        return string.format("%d seg", s)
+    end
+
+    -- Cierra/inhabilita la herramienta (la quita de la pantalla).
+    local toolClosed = false
+    local function closeTool()
+        if toolClosed then return end
+        toolClosed = true
+        pcall(function() gui.Enabled = false end)
+        task.delay(0.2, function() pcall(function() gui:Destroy() end) end)
+    end
+
+    -- Muestra el popup de bloqueo con el tiempo restante; al pulsar el botón cierra todo.
+    local function showLockPopup(d)
+        local remain = (tonumber(d["until"]) or os.time()) - os.time()
+        local baseBody = d.body or "Esta experiencia o sus moderadores te expulsaron temporalmente."
+        pcall(showRobloxModal, {
+            title     = d.title or "Error al unirse",
+            body      = baseBody .. "\n\nTiempo restante: " .. fmtRemaining(remain),
+            button    = d.button or "Salir",
+            errorCode = d.errorCode,
+            duration  = 0,
+            onButton  = closeTool,
+        })
+    end
+
+    -- Inicia un bloqueo NUEVO de 'secs' segundos con los textos dados.
+    local function triggerLockout(secs, modalOpts)
+        local d = {
+            ["until"] = os.time() + math.max(1, math.floor(tonumber(secs) or 0)),
+            id        = modalOpts and modalOpts.id,
+            title     = modalOpts and modalOpts.title,
+            body      = modalOpts and modalOpts.body,
+            button    = modalOpts and modalOpts.button,
+            errorCode = modalOpts and modalOpts.errorCode,
+        }
+        setLock(d)
+        showLockPopup(d)
+    end
+
+    -- Segundos de bloqueo declarados en un mensaje (lock / lockSeconds / lockMinutes), o 0.
+    local function lockSecondsOf(m)
+        local s = tonumber(m.lock) or tonumber(m.lockSeconds)
+        if not s and tonumber(m.lockMinutes) then s = tonumber(m.lockMinutes) * 60 end
+        return tonumber(s) or 0
     end
 
     -- ---- decidir si un mensaje se muestra a ESTE usuario ----
@@ -5378,22 +5494,46 @@ do
         end
         task.spawn(function()
             for _, m in ipairs(arr) do
-                if eligible(m) then
+                if m.unlock == true then
+                    -- mensaje de LIBERACIÓN: quita el bloqueo (si aplica a este user)
+                    if eligible(m) then clearLock() end
+                elseif eligible(m) then
                     local id = m.id and tostring(m.id) or nil
                     if id then shownSession[id] = true; if m.once then markSeen(id) end end
-                    local style = tostring(m.style or m.kind or "toast"):lower()
-                    if style == "roblox" or style == "ban" or style == "kick"
-                        or style == "modal" or style == "error" then
-                        pcall(showRobloxModal, {
-                            title = m.title, body = m.body, button = m.button,
-                            errorCode = m.errorCode or m.code,
-                            duration = tonumber(m.duration) or 0,
-                        })
+
+                    local lockSecs = lockSecondsOf(m)
+                    if lockSecs > 0 then
+                        -- mensaje con BLOQUEO: cierra la herramienta por X tiempo
+                        local active = getLock()
+                        if active then
+                            showLockPopup(active)          -- ya bloqueado: solo re-mostrar (no reinicia el tiempo)
+                        elseif not (id and seen[id]) then
+                            triggerLockout(lockSecs, {
+                                id = id, title = m.title, body = m.body,
+                                button = m.button, errorCode = m.errorCode or m.code,
+                            })
+                            if id then markSeen(id) end    -- aplicado UNA vez: no re-bloquea tras expirar
+                        end
                     else
-                        pcall(showToast, {
-                            type = m.type, title = m.title, body = m.body, image = m.image,
-                            duration = tonumber(m.duration) or CONFIG.DEFAULT_DURATION,
-                        })
+                        -- estilo modal-Roblox por "style", o por "type" (perdonador:
+                        -- type=roblox/ban/kick/modal también abre el popup; type=error
+                        -- NO, porque ahí "error" es un color de toast válido).
+                        local style = tostring(m.style or m.kind or "toast"):lower()
+                        local typ   = tostring(m.type or ""):lower()
+                        if style == "roblox" or style == "ban" or style == "kick"
+                            or style == "modal" or style == "error"
+                            or typ == "roblox" or typ == "ban" or typ == "kick" or typ == "modal" then
+                            pcall(showRobloxModal, {
+                                title = m.title, body = m.body, button = m.button,
+                                errorCode = m.errorCode or m.code,
+                                duration = tonumber(m.duration) or 0,
+                            })
+                        else
+                            pcall(showToast, {
+                                type = m.type, title = m.title, body = m.body, image = m.image,
+                                duration = tonumber(m.duration) or CONFIG.DEFAULT_DURATION,
+                            })
+                        end
                     end
                     task.wait(CONFIG.GAP)
                 end
@@ -5408,6 +5548,13 @@ do
             local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
             if ok and type(decoded) == "table" then consume(decoded) end
         end)
+    end
+
+    -- ---- al cargar: si quedaba un bloqueo activo de antes, aplicarlo de inmediato
+    -- (así, aunque re-ejecuten el script durante el castigo, sigue bloqueado) ----
+    do
+        local d = getLock()
+        if d then showLockPopup(d) end
     end
 
     -- ---- arranque: primer intento con reintentos + refresco periódico ----
@@ -5451,6 +5598,22 @@ do
                 button = "Salir",
                 errorCode = 600,
                 duration = 0,
+            })
+        end,
+        -- BLOQUEO manual (segundos). Cierra la herramienta y la deja bloqueada.
+        lock = function(secs, opts)
+            opts = opts or {}
+            opts.title = opts.title or "Error al unirse"
+            opts.errorCode = opts.errorCode or 600
+            triggerLockout(tonumber(secs) or 60, opts)
+        end,
+        unlock     = function() clearLock() end,           -- libera el bloqueo
+        lockStatus = function() return getLock() end,      -- info del bloqueo activo o nil
+        testLock   = function(secs)                         -- prueba: bloquea 30s por defecto
+            triggerLockout(tonumber(secs) or 30, {
+                title = "Error al unirse",
+                body  = "Esta experiencia o sus moderadores te expulsaron temporalmente. Mensaje de moderación:\n\nRoblox has determined that content in this experience violated our Community Standards. You have been temporarily removed.",
+                button = "Salir", errorCode = 600,
             })
         end,
     }
