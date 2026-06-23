@@ -5381,14 +5381,9 @@ do
                 if eligible(m) then
                     local id = m.id and tostring(m.id) or nil
                     if id then shownSession[id] = true; if m.once then markSeen(id) end end
-                    -- estilo modal-Roblox por "style", o por "type" (perdonador:
-                    -- type=roblox/ban/kick/modal también abre el popup; type=error
-                    -- NO, porque ahí "error" es un color de toast válido).
                     local style = tostring(m.style or m.kind or "toast"):lower()
-                    local typ   = tostring(m.type or ""):lower()
                     if style == "roblox" or style == "ban" or style == "kick"
-                        or style == "modal" or style == "error"
-                        or typ == "roblox" or typ == "ban" or typ == "kick" or typ == "modal" then
+                        or style == "modal" or style == "error" then
                         pcall(showRobloxModal, {
                             title = m.title, body = m.body, button = m.button,
                             errorCode = m.errorCode or m.code,
