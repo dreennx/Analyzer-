@@ -334,6 +334,18 @@ local function setTheme(name)
 	if rerenderCurrent then pcall(rerenderCurrent) end
 end
 
+-- ====================== PUENTE DE TEMA (lo consume la Lista de Jugadores) ======================
+-- Expone la tabla de colores VIVA (C se muta en sitio, así que esta referencia
+-- siempre tiene el tema actual) + un registrador de repaint. La lista de
+-- jugadores se cuelga de aquí para sincronizar sus colores en vivo: cuando
+-- cambias el tema en Ajustes, repaint() llama también a sus callbacks.
+_G.NXTheme = {
+	C = C,                         -- tabla viva de colores (no reasignar, se muta)
+	onRepaint = onRepaint,         -- onRepaint(fn) → fn se llama en cada cambio de tema
+	themed = themed,               -- themed(inst, prop, role) por si quiere usarlo
+	getTheme = function() return store.theme end,
+}
+
 -- ====================== DETECCIÓN DE EXECUTOR ======================
 local function detectExecutor()
 	if identifyexecutor then
@@ -1924,7 +1936,17 @@ local GuiService = game:GetService("GuiService")
 -- OpenBrowserWindow quizá no abra en algunos executors, pero el flujo cae
 -- limpio al modal de "copiar link".
 local function openURL(url)
-	local ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
+	-- 1) NAVEGADOR NATIVO de Roblox. OpenBrowserWindow está protegido
+	-- (RobloxScriptSecurity): con identidad normal NO abre (y a veces ni
+	-- tira error -> antes "decía que sí" pero no abría nada). Elevamos a 8
+	-- SOLO dentro de un hilo aparte y desechable: al morir el hilo se va la
+	-- identidad elevada, así el hilo principal NUNCA queda elevado y no se
+	-- rompe el chat de Roblox (ese era el bug por el que se quitó antes).
+	local ok = false
+	task.spawn(function()
+		pcall(function() if setthreadidentity then setthreadidentity(8) end end)
+		ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
+	end)
 	if ok then return true end
 	local candidates = {
 		rawget(_G, "open_url"), rawget(_G, "openurl"), rawget(_G, "openUrl"), rawget(_G, "OpenURL"),
@@ -1944,6 +1966,31 @@ local function openURL(url)
 			if okExec then return true end
 		end
 	end
+
+	-- 3) NAVEGADOR POR PUERTO (igual que el truco de Discord, pero para TU
+	-- navegador). Si lanzaste Brave/Chrome con la bandera
+	-- --remote-debugging-port=9222, el navegador levanta un servidor local en
+	-- ese puerto y le pedimos por HTTP que abra una pestaña con el link.
+	-- Xeno SÍ puede pegarle a 127.0.0.1 (es lo mismo que hace con Discord).
+	-- Si NO lanzaste Brave con la bandera, el request falla solito y caemos
+	-- limpio al portapapeles de abajo, sin romper nada.
+	if httpRequest then
+		local okPort = false
+		local function tryPort(method)
+			pcall(function()
+				local res = httpRequest({
+					Url = "http://127.0.0.1:9222/json/new?" .. url,
+					Method = method,
+				})
+				local code = res and (res.StatusCode or res.Status)
+				if res and (res.Success == true or code == 200) then okPort = true end
+			end)
+		end
+		tryPort("PUT")            -- Brave/Chrome nuevos exigen PUT
+		if not okPort then tryPort("GET") end   -- versiones viejas
+		if okPort then return true end
+	end
+
 	clipboard(url)
 	return false
 end
@@ -4764,6 +4811,24 @@ createTab("Items", itemsPage)
 createTab("Análisis", analysisPage)
 createTab("Ajustes", settingsPage)
 
+-- ====================== PUENTE PÚBLICO (lo usa la Lista de Jugadores) ======================
+-- Expone una forma de "analizar a alguien" desde OTRO script (la lista de
+-- nombres pegada más abajo). Le pasas un usuario o UserId, y esto:
+--   1) muestra la ventana del Analyzer (por si estaba oculta),
+--   2) salta a la pestaña "Perfil",
+--   3) escribe el nombre en el buscador y lanza el análisis.
+-- Va envuelto en pcall: si algo no está listo, no rompe nada.
+_G.NXAnalyze = function(input)
+	input = tostring(input or ""):gsub("%s", "")
+	if input == "" then return end
+	pcall(function()
+		setHidden(false)            -- por si estaba en modo discreto
+		searchBox.Text = input
+		showPage(profilePage)       -- ir a Perfil (ya pinta la pestaña activa)
+	end)
+	analyze(input)
+end
+
 -- ── NXCore integration: licencias + avisos + panel admin ─────────────────
 NXCore.onReady(function()
 	local uid = player.UserId
@@ -7496,4 +7561,992 @@ end)()
 			end
 		end
 	end))
+end)()
+
+--[[ ==========================================================================
+   Lista de Jugadores Moderna  v2.4   (pegada al Analyzer · misma ejecución)
+   --------------------------------------------------------------------------
+   Cambios en v2.4 (sobre v2.3):
+   • COLORES SINCRONIZADOS con el Analyzer. Si el Analyzer está cargado,
+     la lista lee su tabla de tema VIVA (_G.NXTheme) y se cuelga de su
+     repaint: cuando cambias el tema en Ajustes, la lista se repinta sola
+     al instante. Si el Analyzer no está, usa la paleta Tor de respaldo.
+   • BOTONES DE VENTANA estilo navegador, blindados: minimizar (–),
+     pantalla completa / restaurar (cuadro dibujado con Frames pa' que
+     NUNCA salga el cuadrito de glifo roto) y cerrar (X de verdad). Hit-area
+     24x24, hover suave, borde sutil y consumen el input (no disparan el
+     arrastre por accidente). Pantalla completa = ~96% de la pantalla.
+   --------------------------------------------------------------------------
+   Cambios en v2.3 (sobre v2.2): integración con el Analyzer (una sola
+   ejecución) + BÚSQUEDA GLOBAL en todo Roblox (API users/search) con
+   sección "🌐 Roblox" y botón "Analizar" (→ _G.NXAnalyze).
+   Se mantiene TODO lo de v2.2: carga al instante, orden por secciones,
+   sugerencias, arrastre y live update al entrar/salir jugadores.
+============================================================================ ]]
+-- IIFE (no `do...end`): una función propia tiene su PROPIO presupuesto de 200
+-- locals de Luau. Con `do...end` los locals se apilaban sobre los ~154 del
+-- Analyzer y reventaba ("Out of local registers ... exceeded limit 200").
+;(function()
+	-- ====================== SERVICIOS ======================
+	local Players = game:GetService("Players")
+	local UserInputService = game:GetService("UserInputService")
+	local TweenService = game:GetService("TweenService")
+	local HttpService = game:GetService("HttpService")
+
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	-- ====================== TEMA (sincronizado con el Analyzer) ======================
+	-- Si el Analyzer está cargado expone su tabla de colores VIVA (_G.NXTheme.C,
+	-- se muta en sitio) + onRepaint. Nos colgamos de ahí: al cambiar el tema en
+	-- Ajustes, prepaint() repinta toda la lista. Si no está, usamos FALLBACK.
+	local NXT = rawget(_G, "NXTheme")
+	local C = NXT and NXT.C or nil
+	local WHITE = Color3.fromRGB(255, 255, 255)
+
+	local FALLBACK = {
+		bg=Color3.fromRGB(20,15,28), header=Color3.fromRGB(33,24,46), card=Color3.fromRGB(36,27,50),
+		input=Color3.fromRGB(26,19,38), neutral=Color3.fromRGB(42,31,58), border=Color3.fromRGB(60,45,82),
+		accent=Color3.fromRGB(160,100,210), accent2=Color3.fromRGB(122,82,178), onAccent=WHITE,
+		text=Color3.fromRGB(238,233,246), subtext=Color3.fromRGB(158,143,176),
+		good=Color3.fromRGB(80,190,110), bad=Color3.fromRGB(196,78,92),
+		avatarBg=Color3.fromRGB(52,40,72), scrollbar=Color3.fromRGB(108,86,140),
+		globe=Color3.fromRGB(160,100,210),
+	}
+
+	local function lighten(c, k) return Color3.new(math.min(c.R+k,1), math.min(c.G+k,1), math.min(c.B+k,1)) end
+	local function darken(c, k) return Color3.new(c.R*k, c.G*k, c.B*k) end
+
+	-- Resuelve un "rol" de color al Color3 actual (tema vivo del Analyzer o
+	-- respaldo). Los roles propios de la lista se derivan del tema del Analyzer.
+	local function col(role)
+		if role == "white" then return WHITE end
+		if C then
+			local direct = C[role]
+			if direct ~= nil then return direct end
+			if role == "header"    then return C.neutral end
+			if role == "avatarBg"  then return C.neutral end
+			if role == "scrollbar" then return C.accent end
+			if role == "globe"     then return C.accent end
+			if role == "accent2"   then return darken(C.accent, 0.78) end
+		end
+		return FALLBACK[role] or FALLBACK.accent
+	end
+
+	-- Registro de temizado: (inst, prop, rol). prepaint() lo recorre al cambiar
+	-- el tema. El slot pasa a nil cuando la instancia se destruye (sin leaks).
+	local plRoleMap = {}
+	local vivo = true
+	local function pthemed(inst, prop, role)
+		local entry = { inst = inst, prop = prop, role = role }
+		table.insert(plRoleMap, entry)
+		pcall(function() inst.Destroying:Connect(function() entry.inst = nil end) end)
+		pcall(function() inst[prop] = col(role) end)
+		return inst
+	end
+	local prepaintExtra = {}
+	local function onPrepaint(fn) table.insert(prepaintExtra, fn) end
+	local function prepaint()
+		if not vivo then return end
+		for _, e in ipairs(plRoleMap) do
+			if e.inst then pcall(function() e.inst[e.prop] = col(e.role) end) end
+		end
+		for _, fn in ipairs(prepaintExtra) do pcall(fn) end
+	end
+	if NXT and NXT.onRepaint then pcall(NXT.onRepaint, prepaint) end
+
+	-- Proxy de compatibilidad: TOR.x devuelve el color VIVO del rol "x".
+	local TOR = setmetatable({}, { __index = function(_, k) return col(k) end })
+
+	-- ====================== PORTAPAPELES ======================
+	local function copiar(texto)
+		local fns = { (getgenv and getgenv().setclipboard), setclipboard, (syn and syn.write_clipboard), toclipboard }
+		for _, fn in ipairs(fns) do
+			if type(fn) == "function" then
+				local ok = pcall(fn, texto)
+				if ok then return true end
+			end
+		end
+		warn("[Lista] No se encontró una función de portapapeles disponible.")
+		return false
+	end
+
+	-- ====================== HTTP (pa' la búsqueda global en TODO Roblox) ======================
+	local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
+	local function apiGet(url)
+		local body
+		if httpRequest then
+			local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
+			if ok and res and res.Body then body = res.Body end
+		end
+		if not body then
+			local ok, res = pcall(function() return game:HttpGet(url) end)
+			if ok then body = res end
+		end
+		if not body then return nil end
+		local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
+		return ok and decoded or nil
+	end
+
+	-- ====================== CACHÉ DE AVATARES (carga en segundo plano) ======================
+	local avatarCache = {}
+	local PLACEHOLDER = "rbxassetid://0"
+	local function cargarAvatarAsync(userId, imageLabel)
+		if avatarCache[userId] then
+			imageLabel.Image = avatarCache[userId]
+			return
+		end
+		task.spawn(function()
+			local ok, thumb = pcall(function()
+				return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+			end)
+			local content = (ok and thumb ~= "" and thumb) or PLACEHOLDER
+			avatarCache[userId] = content
+			if imageLabel and imageLabel.Parent then
+				imageLabel.Image = content
+			end
+		end)
+	end
+
+	-- ====================== LIMPIAR GUI ANTERIOR ======================
+	if playerGui:FindFirstChild("ListaJugadoresModerna") then
+		playerGui.ListaJugadoresModerna:Destroy()
+	end
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "ListaJugadoresModerna"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Parent = playerGui
+
+	-- ====================== VENTANA PRINCIPAL ======================
+	local ANCHO, ALTO = 380, 480
+	local ventana = Instance.new("Frame")
+	ventana.Name = "Ventana"
+	ventana.Size = UDim2.new(0, ANCHO, 0, ALTO)
+	-- Posición inicial = FALLBACK (se aplica si el Analyzer no está cargado).
+	-- El docking real (anclar a la derecha del Analyzer con un gap) se hace al
+	-- final del init en task.defer → ver "DOCKING" más abajo.
+	ventana.Position = UDim2.new(0.5, 308, 0.5, -ALTO/2)
+	ventana.BorderSizePixel = 0
+	ventana.ClipsDescendants = true
+	ventana.Parent = gui
+	pthemed(ventana, "BackgroundColor3", "bg")
+	Instance.new("UICorner", ventana).CornerRadius = UDim.new(0, 10)
+
+	local borde = Instance.new("UIStroke", ventana)
+	borde.Thickness = 1.2
+	borde.Transparency = 0.4
+	pthemed(borde, "Color", "border")
+
+	-- ====================== ENCABEZADO ======================
+	local encabezado = Instance.new("Frame", ventana)
+	encabezado.Name = "Encabezado"
+	encabezado.Size = UDim2.new(1, 0, 0, 34)
+	encabezado.BorderSizePixel = 0
+	pthemed(encabezado, "BackgroundColor3", "header")
+	Instance.new("UICorner", encabezado).CornerRadius = UDim.new(0, 10)
+
+	local titulo = Instance.new("TextLabel", encabezado)
+	titulo.Size = UDim2.new(1, -110, 1, 0)
+	titulo.Position = UDim2.new(0, 14, 0, 0)
+	titulo.BackgroundTransparency = 1
+	titulo.Font = Enum.Font.GothamBold
+	titulo.Text = "Jugadores: 0"
+	titulo.TextSize = 14
+	titulo.TextXAlignment = Enum.TextXAlignment.Left
+	titulo.TextTruncate = Enum.TextTruncate.AtEnd
+	pthemed(titulo, "TextColor3", "accent")
+
+	-- ====================== CONTROLES DE VENTANA (estilo navegador, blindados) ======================
+	-- Contenedor anclado a la derecha; 3 botones en fila: minimizar, pantalla
+	-- completa, cerrar. Iconos DIBUJADOS con Frames (no glifos) pa' que jamás
+	-- salga el "tofu"/cuadrito; la X de cerrar sí es letra (siempre renderiza).
+	-- Son TextButton → consumen el clic y no arrancan el arrastre.
+	local controles = Instance.new("Frame", encabezado)
+	controles.Name = "Controles"
+	controles.AnchorPoint = Vector2.new(1, 0.5)
+	controles.Position = UDim2.new(1, -8, 0.5, 0)
+	controles.Size = UDim2.new(0, 24*3 + 6*2, 0, 24)
+	controles.BackgroundTransparency = 1
+	local layoutCtrl = Instance.new("UIListLayout", controles)
+	layoutCtrl.FillDirection = Enum.FillDirection.Horizontal
+	layoutCtrl.Padding = UDim.new(0, 6)
+	layoutCtrl.SortOrder = Enum.SortOrder.LayoutOrder
+	layoutCtrl.VerticalAlignment = Enum.VerticalAlignment.Center
+
+	local function crearControl(orden, baseRole, onClick)
+		local b = Instance.new("TextButton", controles)
+		b.Size = UDim2.new(0, 24, 0, 24)
+		b.LayoutOrder = orden
+		b.AutoButtonColor = false
+		b.Text = ""
+		b.BorderSizePixel = 0
+		b.Active = true
+		b:SetAttribute("rolBase", baseRole)
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+		pthemed(b, "BackgroundColor3", baseRole)
+		local st = Instance.new("UIStroke", b)
+		st.Thickness = 1
+		st.Transparency = 0.35
+		pthemed(st, "Color", "border")
+		b.MouseEnter:Connect(function()
+			TweenService:Create(b, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col(baseRole), 0.10) }):Play()
+		end)
+		b.MouseLeave:Connect(function()
+			TweenService:Create(b, TweenInfo.new(0.16), { BackgroundColor3 = col(baseRole) }):Play()
+		end)
+		b.MouseButton1Click:Connect(onClick)
+		return b
+	end
+
+	local minimizado, maximizado = false, false
+	local NORMAL_SIZE = UDim2.new(0, ANCHO, 0, ALTO)
+	local posGuardada = ventana.Position
+	local function aplicarVentana(animar)
+		local size, pos
+		if maximizado then
+			size = UDim2.new(0.96, 0, 0.92, 0)
+			pos  = UDim2.new(0.02, 0, 0.04, 0)
+		else
+			size = NORMAL_SIZE
+			pos  = posGuardada
+		end
+		if minimizado then
+			size = UDim2.new(size.X.Scale, size.X.Offset, 0, 34)
+		end
+		local info = TweenInfo.new(animar == false and 0 or 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		TweenService:Create(ventana, info, { Size = size, Position = pos }):Play()
+	end
+
+	-- (1) Minimizar: barra horizontal dibujada.
+	local minBtn = crearControl(1, "neutral", function()
+		minimizado = not minimizado
+		aplicarVentana(true)
+	end)
+	do
+		local bar = Instance.new("Frame", minBtn)
+		bar.AnchorPoint = Vector2.new(0.5, 0.5)
+		bar.Position = UDim2.new(0.5, 0, 0.5, 0)
+		bar.Size = UDim2.new(0, 11, 0, 2)
+		bar.BorderSizePixel = 0
+		Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+		pthemed(bar, "BackgroundColor3", "text")
+	end
+
+	-- (2) Pantalla completa / restaurar: cuadro dibujado (con UIStroke).
+	local maxBtn = crearControl(2, "neutral", function()
+		maximizado = not maximizado
+		if maximizado then minimizado = false end
+		aplicarVentana(true)
+	end)
+	do
+		local box = Instance.new("Frame", maxBtn)
+		box.AnchorPoint = Vector2.new(0.5, 0.5)
+		box.Position = UDim2.new(0.5, 0, 0.5, 0)
+		box.Size = UDim2.new(0, 12, 0, 11)
+		box.BackgroundTransparency = 1
+		box.BorderSizePixel = 0
+		Instance.new("UICorner", box).CornerRadius = UDim.new(0, 2)
+		local bst = Instance.new("UIStroke", box)
+		bst.Thickness = 1.6
+		pthemed(bst, "Color", "text")
+	end
+
+	-- (3) Cerrar: la X es una letra (siempre renderiza), blanca sobre rojo.
+	local cerrarBtn = crearControl(3, "bad", function()
+		vivo = false
+		gui:Destroy()
+	end)
+	do
+		local x = Instance.new("TextLabel", cerrarBtn)
+		x.Size = UDim2.new(1, 0, 1, 0)
+		x.BackgroundTransparency = 1
+		x.Font = Enum.Font.GothamBold
+		x.TextSize = 14
+		x.Text = "X"
+		x.TextColor3 = WHITE
+	end
+
+	-- ====================== BARRA DE BÚSQUEDA (estilo barra de direcciones) ======================
+	local cajaBusqueda = Instance.new("TextBox", ventana)
+	cajaBusqueda.Size = UDim2.new(1, -16, 0, 30)
+	cajaBusqueda.Position = UDim2.new(0, 8, 0, 42)
+	cajaBusqueda.PlaceholderText = "Buscar en el servidor o en todo Roblox..."
+	cajaBusqueda.Font = Enum.Font.Gotham
+	cajaBusqueda.TextSize = 13
+	cajaBusqueda.BorderSizePixel = 0
+	cajaBusqueda.ClearTextOnFocus = false
+	cajaBusqueda.Text = ""
+	cajaBusqueda.TextXAlignment = Enum.TextXAlignment.Left
+	pthemed(cajaBusqueda, "BackgroundColor3", "input")
+	pthemed(cajaBusqueda, "TextColor3", "text")
+	pthemed(cajaBusqueda, "PlaceholderColor3", "subtext")
+	Instance.new("UICorner", cajaBusqueda).CornerRadius = UDim.new(0, 14)
+
+	local padBusqueda = Instance.new("UIPadding", cajaBusqueda)
+	padBusqueda.PaddingLeft = UDim.new(0, 30)
+	padBusqueda.PaddingRight = UDim.new(0, 8)
+
+	local lockGlyph = Instance.new("TextLabel", cajaBusqueda)
+	lockGlyph.Size = UDim2.new(0, 16, 0, 16)
+	lockGlyph.Position = UDim2.new(0, 9, 0.5, -8)
+	lockGlyph.BackgroundTransparency = 1
+	lockGlyph.Text = ""
+	lockGlyph.Font = Enum.Font.Gotham
+	lockGlyph.TextSize = 11
+	lockGlyph.ZIndex = 2
+	pthemed(lockGlyph, "TextColor3", "subtext")
+
+	local strokeBusqueda = Instance.new("UIStroke", cajaBusqueda)
+	strokeBusqueda.Thickness = 1
+	strokeBusqueda.Transparency = 0.45
+	pthemed(strokeBusqueda, "Color", "border")
+
+	-- ====================== PANEL DE SUGERENCIAS ======================
+	local panelSugerencias = Instance.new("Frame", ventana)
+	panelSugerencias.Size = UDim2.new(1, -16, 0, 0)
+	panelSugerencias.Position = UDim2.new(0, 8, 0, 74)
+	panelSugerencias.BorderSizePixel = 0
+	panelSugerencias.Visible = false
+	panelSugerencias.ZIndex = 5
+	panelSugerencias.ClipsDescendants = true
+	pthemed(panelSugerencias, "BackgroundColor3", "card")
+	Instance.new("UICorner", panelSugerencias).CornerRadius = UDim.new(0, 6)
+
+	local strokeSug = Instance.new("UIStroke", panelSugerencias)
+	strokeSug.Thickness = 1
+	strokeSug.Transparency = 0.4
+	pthemed(strokeSug, "Color", "border")
+
+	local listaSugerencias = Instance.new("UIListLayout", panelSugerencias)
+	listaSugerencias.SortOrder = Enum.SortOrder.LayoutOrder
+	listaSugerencias.Padding = UDim.new(0, 0)
+
+	-- ====================== ÁREA DE TARJETAS ======================
+	local scroll = Instance.new("ScrollingFrame", ventana)
+	scroll.Size = UDim2.new(1, -8, 1, -80)
+	scroll.Position = UDim2.new(0, 4, 0, 78)
+	scroll.BackgroundTransparency = 0.5
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 5
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	pthemed(scroll, "BackgroundColor3", "input")
+	pthemed(scroll, "ScrollBarImageColor3", "scrollbar")
+
+	local layoutLista = Instance.new("UIListLayout", scroll)
+	layoutLista.Padding = UDim.new(0, 4)
+	layoutLista.FillDirection = Enum.FillDirection.Vertical
+	layoutLista.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layoutLista.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local paddingLista = Instance.new("UIPadding", scroll)
+	paddingLista.PaddingTop = UDim.new(0, 4)
+	paddingLista.PaddingBottom = UDim.new(0, 4)
+
+	local sinResultados = Instance.new("TextLabel", ventana)
+	sinResultados.Size = UDim2.new(1, -20, 0, 30)
+	sinResultados.Position = UDim2.new(0, 10, 0.5, -15)
+	sinResultados.BackgroundTransparency = 1
+	sinResultados.Font = Enum.Font.Gotham
+	sinResultados.TextSize = 13
+	sinResultados.Text = "No se encontraron jugadores"
+	sinResultados.Visible = false
+	pthemed(sinResultados, "TextColor3", "subtext")
+
+	-- ====================== ESTADO ======================
+	local tarjetas = {}       -- [Player] = { frame, userId, username, displayName, ... }
+	local hayVisiblesLocal = false
+	local numGlobales = 0     -- cuántos resultados globales hay pintados ahora
+	local globalActivo = false -- true cuando hay sección "🌐 Roblox" en pantalla
+	                           -- (declarado arriba a propósito: lo capturan
+	                           --  actualizarSinResultados, crear/limpiarGlobales)
+
+	-- ====================== ORDENAMIENTO Y SECCIONES ======================
+	local function obtenerCategoriaYClave(displayName)
+		if displayName == "" then return 2, "" end
+		local primerCaracter = displayName:sub(1,1)
+		local byte = primerCaracter:byte()
+		if not byte then return 3, displayName:lower() end
+
+		if byte >= 48 and byte <= 57 then
+			return 0, displayName:lower()
+		elseif (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) then
+			return 1, displayName:lower()
+		elseif byte >= 32 and byte <= 126 then
+			return 2, displayName:lower()
+		else
+			return 3, displayName:lower()
+		end
+	end
+
+	local function obtenerSeccion(displayName)
+		local primerCaracter = displayName:sub(1,1)
+		local byte = primerCaracter:byte()
+		if not byte then return "Other" end
+		if byte >= 48 and byte <= 57 then
+			return "0-9"
+		elseif (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 122) then
+			return string.upper(primerCaracter)
+		elseif byte >= 32 and byte <= 126 then
+			return "#"
+		else
+			return "Other"
+		end
+	end
+
+	local function compararJugadores(plr1, plr2)
+		local datos1 = tarjetas[plr1]
+		local datos2 = tarjetas[plr2]
+		if not datos1 or not datos2 then return false end
+		local cat1, clave1 = obtenerCategoriaYClave(datos1.displayName)
+		local cat2, clave2 = obtenerCategoriaYClave(datos2.displayName)
+		if cat1 ~= cat2 then return cat1 < cat2 end
+		return clave1 < clave2
+	end
+
+	-- ====================== ANIMACIÓN DE BOTÓN COPIADO ======================
+	local function animarCopiado(btn, textoOriginal)
+		btn.Text = "✓ Copiado"
+		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = col("good") }):Play()
+		task.delay(0.9, function()
+			if btn and btn.Parent then
+				btn.Text = textoOriginal
+				local role = btn:GetAttribute("rolBase") or "accent"
+				TweenService:Create(btn, TweenInfo.new(0.25), { BackgroundColor3 = col(role) }):Play()
+			end
+		end)
+	end
+
+	-- Botón estándar de tarjeta (color por ROL → sincronizado con el tema).
+	local function crearBotonTarjeta(parent, texto, orden, role, accion)
+		local btn = Instance.new("TextButton", parent)
+		btn.Size = UDim2.new(1, 0, 0, 18)
+		btn.LayoutOrder = orden
+		btn.Text = texto
+		btn.Font = Enum.Font.GothamBold
+		btn.TextSize = 10
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn:SetAttribute("rolBase", role)
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+		pthemed(btn, "BackgroundColor3", role)
+		pthemed(btn, "TextColor3", "onAccent")
+		btn.MouseEnter:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col(role), 0.08) }):Play()
+		end)
+		btn.MouseLeave:Connect(function()
+			TweenService:Create(btn, TweenInfo.new(0.18), { BackgroundColor3 = col(role) }):Play()
+		end)
+		btn.MouseButton1Click:Connect(function() accion(btn, texto) end)
+		return btn
+	end
+
+	-- Llama al Analyzer (si está cargado) pa' analizar a esa persona.
+	local function analizarEnAnalyzer(usernameOId)
+		if type(_G.NXAnalyze) == "function" then
+			pcall(_G.NXAnalyze, usernameOId)
+			return true
+		end
+		warn("[Lista] El Analyzer no está cargado (sin _G.NXAnalyze).")
+		return false
+	end
+
+	-- forward declare
+	local actualizarSinResultados
+
+	-- ====================== ACTUALIZACIÓN COMPLETA DE LA LISTA (servidor) ======================
+	local function actualizarLista()
+		local jugadores = {}
+		for plr, _ in pairs(tarjetas) do table.insert(jugadores, plr) end
+		table.sort(jugadores, compararJugadores)
+
+		local texto = cajaBusqueda.Text:lower()
+		local hayFiltro = (texto ~= "")
+		local jugadoresVisibles = {}
+		for _, plr in ipairs(jugadores) do
+			local datos = tarjetas[plr]
+			if not hayFiltro
+				or string.find(datos.username:lower(), texto, 1, true)
+				or string.find(datos.displayName:lower(), texto, 1, true) then
+				table.insert(jugadoresVisibles, plr)
+			end
+		end
+
+		-- Limpiar SOLO las secciones locales (no tocar las globales)
+		for _, hijo in ipairs(scroll:GetChildren()) do
+			if hijo:IsA("Frame") and hijo.Name:find("^Seccion_") then
+				hijo:Destroy()
+			end
+		end
+
+		for plr, datos in pairs(tarjetas) do
+			datos.frame.Visible = false
+			datos.frame.LayoutOrder = 9999
+		end
+
+		local orden = 1
+		local ultimaSeccion = nil
+		for _, plr in ipairs(jugadoresVisibles) do
+			local datos = tarjetas[plr]
+			local seccion = obtenerSeccion(datos.displayName)
+			if seccion ~= ultimaSeccion then
+				local header = Instance.new("Frame", scroll)
+				header.Name = "Seccion_" .. seccion
+				header.Size = UDim2.new(1, -16, 0, 24)
+				header.BorderSizePixel = 0
+				header.LayoutOrder = orden
+				pthemed(header, "BackgroundColor3", "header")
+				Instance.new("UICorner", header).CornerRadius = UDim.new(0, 6)
+
+				local label = Instance.new("TextLabel", header)
+				label.Size = UDim2.new(1, -16, 1, 0)
+				label.Position = UDim2.new(0, 10, 0, 0)
+				label.BackgroundTransparency = 1
+				label.Font = Enum.Font.GothamBold
+				label.TextSize = 13
+				label.Text = seccion
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				pthemed(label, "TextColor3", "accent")
+
+				orden = orden + 1
+				ultimaSeccion = seccion
+			end
+			datos.frame.Visible = true
+			datos.frame.LayoutOrder = orden
+			orden = orden + 1
+		end
+
+		hayVisiblesLocal = (#jugadoresVisibles > 0)
+		actualizarSinResultados()
+
+		local total = 0
+		for _ in pairs(tarjetas) do total = total + 1 end
+		if hayFiltro then
+			titulo.Text = "Jugadores: " .. #jugadoresVisibles .. " / " .. total
+		else
+			titulo.Text = "Jugadores: " .. total
+		end
+	end
+
+	function actualizarSinResultados()
+		local hayFiltro = (cajaBusqueda.Text ~= "")
+		local hayJugadores = (next(tarjetas) ~= nil)
+		sinResultados.Visible =
+			(not globalActivo) and (not hayVisiblesLocal) and (hayJugadores or hayFiltro)
+	end
+
+	-- ====================== CREAR TARJETA (jugador del servidor) ======================
+	local function crearTarjeta(plr, diferir)
+		if tarjetas[plr] then return end
+		local userId = plr.UserId
+
+		local tarjeta = Instance.new("Frame", scroll)
+		tarjeta.Name = "Tarjeta_" .. plr.Name
+		tarjeta.Size = UDim2.new(1, -16, 0, 64)
+		tarjeta.BorderSizePixel = 0
+		tarjeta.LayoutOrder = 0
+		pthemed(tarjeta, "BackgroundColor3", "card")
+		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
+
+		local avatar = Instance.new("ImageLabel", tarjeta)
+		avatar.Size = UDim2.new(0, 44, 0, 44)
+		avatar.Position = UDim2.new(0, 10, 0.5, -22)
+		avatar.Image = avatarCache[userId] or PLACEHOLDER
+		avatar.BorderSizePixel = 0
+		pthemed(avatar, "BackgroundColor3", "avatarBg")
+		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 22)
+		cargarAvatarAsync(userId, avatar)
+
+		local labelDisplay = Instance.new("TextLabel", tarjeta)
+		labelDisplay.Size = UDim2.new(1, -100, 0, 20)
+		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
+		labelDisplay.BackgroundTransparency = 1
+		labelDisplay.Font = Enum.Font.GothamBold
+		labelDisplay.TextSize = 14
+		labelDisplay.Text = plr.DisplayName
+		labelDisplay.TextXAlignment = Enum.TextXAlignment.Left
+		labelDisplay.TextTruncate = Enum.TextTruncate.AtEnd
+		pthemed(labelDisplay, "TextColor3", "text")
+
+		local labelUser = Instance.new("TextLabel", tarjeta)
+		labelUser.Size = UDim2.new(1, -100, 0, 18)
+		labelUser.Position = UDim2.new(0, 64, 0, 32)
+		labelUser.BackgroundTransparency = 1
+		labelUser.Font = Enum.Font.Gotham
+		labelUser.TextSize = 12
+		labelUser.Text = "@" .. plr.Name
+		labelUser.TextXAlignment = Enum.TextXAlignment.Left
+		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
+		pthemed(labelUser, "TextColor3", "subtext")
+
+		local columnaBotones = Instance.new("Frame", tarjeta)
+		columnaBotones.Size = UDim2.new(0, 80, 0, 58)
+		columnaBotones.Position = UDim2.new(1, -88, 0.5, -29)
+		columnaBotones.BackgroundTransparency = 1
+
+		local layoutBotones = Instance.new("UIListLayout", columnaBotones)
+		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
+		layoutBotones.Padding = UDim.new(0, 2)
+
+		crearBotonTarjeta(columnaBotones, "Copiar nombre", 1, "accent", function(btn, txt)
+			if copiar(plr.DisplayName) then animarCopiado(btn, txt) end
+		end)
+		crearBotonTarjeta(columnaBotones, "Copiar usuario", 2, "accent2", function(btn, txt)
+			if copiar(plr.Name) then animarCopiado(btn, txt) end
+		end)
+		crearBotonTarjeta(columnaBotones, "Analizar", 3, "good", function()
+			analizarEnAnalyzer(plr.Name)
+		end)
+
+		local datos = {
+			frame = tarjeta, userId = userId,
+			labelDisplay = labelDisplay, labelUser = labelUser,
+			username = plr.Name, displayName = plr.DisplayName,
+		}
+		tarjetas[plr] = datos
+
+		plr:GetPropertyChangedSignal("DisplayName"):Connect(function()
+			datos.displayName = plr.DisplayName
+			labelDisplay.Text = plr.DisplayName
+			actualizarLista()
+		end)
+
+		if not diferir then actualizarLista() end
+	end
+
+	local function eliminarTarjeta(plr)
+		local datos = tarjetas[plr]
+		if datos and datos.frame then
+			datos.frame:Destroy()
+			tarjetas[plr] = nil
+			actualizarLista()
+		end
+	end
+
+	-- ====================== BÚSQUEDA GLOBAL (TODO ROBLOX vía API) ======================
+	local SECCION_GLOBAL = "SeccionGlobal"
+	local BASE_ORDEN_GLOBAL = 100000
+	local GLOBAL_MAX = 12
+	local globalHeaderLabel = nil
+	local busquedaGlobalId = 0
+	local hiloGlobal = nil
+
+	local function limpiarGlobales()
+		for _, hijo in ipairs(scroll:GetChildren()) do
+			if hijo:IsA("Frame") and (hijo.Name == SECCION_GLOBAL or hijo.Name:find("^Global_")) then
+				hijo:Destroy()
+			end
+		end
+		globalHeaderLabel = nil
+		numGlobales = 0
+		globalActivo = false
+	end
+
+	local function crearHeaderGlobal(texto)
+		local header = Instance.new("Frame", scroll)
+		header.Name = SECCION_GLOBAL
+		header.Size = UDim2.new(1, -16, 0, 24)
+		header.BorderSizePixel = 0
+		header.LayoutOrder = BASE_ORDEN_GLOBAL
+		pthemed(header, "BackgroundColor3", "header")
+		Instance.new("UICorner", header).CornerRadius = UDim.new(0, 6)
+		local label = Instance.new("TextLabel", header)
+		label.Size = UDim2.new(1, -16, 1, 0)
+		label.Position = UDim2.new(0, 10, 0, 0)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.TextSize = 13
+		label.Text = texto
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		pthemed(label, "TextColor3", "globe")
+		globalHeaderLabel = label
+		globalActivo = true
+	end
+
+	-- Tarjeta de un resultado global (no es un Player del servidor).
+	local function crearTarjetaGlobal(info, orden)
+		local tarjeta = Instance.new("Frame", scroll)
+		tarjeta.Name = "Global_" .. info.id
+		tarjeta.Size = UDim2.new(1, -16, 0, 64)
+		tarjeta.BorderSizePixel = 0
+		tarjeta.LayoutOrder = orden
+		pthemed(tarjeta, "BackgroundColor3", "card")
+		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
+
+		-- Filito de acento a la izquierda pa' distinguir lo global del servidor
+		local marca = Instance.new("Frame", tarjeta)
+		marca.Size = UDim2.new(0, 3, 1, -12)
+		marca.Position = UDim2.new(0, 0, 0, 6)
+		marca.BorderSizePixel = 0
+		pthemed(marca, "BackgroundColor3", "globe")
+		Instance.new("UICorner", marca).CornerRadius = UDim.new(0, 2)
+
+		local avatar = Instance.new("ImageLabel", tarjeta)
+		avatar.Size = UDim2.new(0, 44, 0, 44)
+		avatar.Position = UDim2.new(0, 10, 0.5, -22)
+		avatar.Image = avatarCache[info.id] or PLACEHOLDER
+		avatar.BorderSizePixel = 0
+		pthemed(avatar, "BackgroundColor3", "avatarBg")
+		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 22)
+		cargarAvatarAsync(info.id, avatar)
+
+		local labelDisplay = Instance.new("TextLabel", tarjeta)
+		labelDisplay.Size = UDim2.new(1, -100, 0, 20)
+		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
+		labelDisplay.BackgroundTransparency = 1
+		labelDisplay.Font = Enum.Font.GothamBold
+		labelDisplay.TextSize = 14
+		labelDisplay.Text = info.displayName
+		labelDisplay.TextXAlignment = Enum.TextXAlignment.Left
+		labelDisplay.TextTruncate = Enum.TextTruncate.AtEnd
+		pthemed(labelDisplay, "TextColor3", "text")
+
+		local labelUser = Instance.new("TextLabel", tarjeta)
+		labelUser.Size = UDim2.new(1, -100, 0, 18)
+		labelUser.Position = UDim2.new(0, 64, 0, 32)
+		labelUser.BackgroundTransparency = 1
+		labelUser.Font = Enum.Font.Gotham
+		labelUser.TextSize = 12
+		labelUser.Text = "@" .. info.name
+		labelUser.TextXAlignment = Enum.TextXAlignment.Left
+		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
+		pthemed(labelUser, "TextColor3", "subtext")
+
+		local columnaBotones = Instance.new("Frame", tarjeta)
+		columnaBotones.Size = UDim2.new(0, 80, 0, 58)
+		columnaBotones.Position = UDim2.new(1, -88, 0.5, -29)
+		columnaBotones.BackgroundTransparency = 1
+		local layoutBotones = Instance.new("UIListLayout", columnaBotones)
+		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
+		layoutBotones.Padding = UDim.new(0, 2)
+
+		crearBotonTarjeta(columnaBotones, "Copiar nombre", 1, "accent", function(btn, txt)
+			if copiar(info.displayName) then animarCopiado(btn, txt) end
+		end)
+		crearBotonTarjeta(columnaBotones, "Copiar usuario", 2, "accent2", function(btn, txt)
+			if copiar(info.name) then animarCopiado(btn, txt) end
+		end)
+		crearBotonTarjeta(columnaBotones, "Analizar", 3, "good", function()
+			analizarEnAnalyzer(info.name)
+		end)
+	end
+
+	local function buscarGlobal(textoCrudo)
+		busquedaGlobalId = busquedaGlobalId + 1
+		local myId = busquedaGlobalId
+		if hiloGlobal then pcall(task.cancel, hiloGlobal); hiloGlobal = nil end
+
+		local texto = (textoCrudo or ""):gsub("^%s+", ""):gsub("%s+$", "")
+		if #texto < 3 then
+			limpiarGlobales()
+			actualizarSinResultados()
+			return
+		end
+
+		limpiarGlobales()
+		crearHeaderGlobal("🌐 Roblox — buscando…")
+		actualizarSinResultados()
+
+		hiloGlobal = task.delay(0.45, function()
+			hiloGlobal = nil
+			if myId ~= busquedaGlobalId then return end
+			local url = "https://users.roblox.com/v1/users/search?keyword="
+				.. HttpService:UrlEncode(texto) .. "&limit=" .. GLOBAL_MAX
+			local data = apiGet(url)
+			if myId ~= busquedaGlobalId then return end
+
+			limpiarGlobales()
+			local lista = (data and type(data.data) == "table") and data.data or {}
+
+			local enServidor = {}
+			for plr, _ in pairs(tarjetas) do enServidor[plr.UserId] = true end
+
+			local filtrados = {}
+			for _, u in ipairs(lista) do
+				if u.id and not enServidor[u.id] then
+					table.insert(filtrados, u)
+				end
+			end
+
+			if #filtrados == 0 then
+				if not data then
+					crearHeaderGlobal("🌐 Roblox — sin conexión a la API")
+				else
+					crearHeaderGlobal("🌐 Roblox — sin resultados")
+				end
+				numGlobales = 0
+			else
+				crearHeaderGlobal("🌐 Roblox (" .. #filtrados .. ")")
+				local orden = BASE_ORDEN_GLOBAL + 1
+				for _, u in ipairs(filtrados) do
+					crearTarjetaGlobal({
+						id = u.id,
+						name = u.name or "?",
+						displayName = u.displayName or u.name or "?",
+					}, orden)
+					orden = orden + 1
+				end
+				numGlobales = #filtrados
+			end
+			actualizarSinResultados()
+		end)
+	end
+
+	-- ====================== SUGERENCIAS (locales del servidor) ======================
+	local function limpiarSugerencias()
+		for _, hijo in ipairs(panelSugerencias:GetChildren()) do
+			if hijo:IsA("TextButton") then hijo:Destroy() end
+		end
+	end
+
+	local function mostrarSugerencias(texto)
+		limpiarSugerencias()
+		if texto == "" then panelSugerencias.Visible = false; return end
+
+		local busqueda = texto:lower()
+		local coincidencias = {}
+		for plr, datos in pairs(tarjetas) do
+			local idxUser    = string.find(datos.username:lower(),    busqueda, 1, true)
+			local idxDisplay = string.find(datos.displayName:lower(), busqueda, 1, true)
+			if idxUser or idxDisplay then
+				local prioridad = math.min(idxUser or 999, idxDisplay or 999)
+				table.insert(coincidencias, { plr = plr, datos = datos, prioridad = prioridad })
+			end
+		end
+		if #coincidencias == 0 then panelSugerencias.Visible = false; return end
+		table.sort(coincidencias, function(a, b) return a.prioridad < b.prioridad end)
+
+		local maxMostrar = math.min(#coincidencias, 5)
+		local ALTO_FILA = 28
+		for i = 1, maxMostrar do
+			local datos = coincidencias[i].datos
+			local fila = Instance.new("TextButton", panelSugerencias)
+			fila.Size = UDim2.new(1, 0, 0, ALTO_FILA)
+			fila.BackgroundTransparency = 1
+			fila.Text = ""
+			fila.AutoButtonColor = false
+			fila.BorderSizePixel = 0
+			fila.LayoutOrder = i
+			fila.ZIndex = 6
+			pthemed(fila, "BackgroundColor3", "neutral")
+
+			local txt = Instance.new("TextLabel", fila)
+			txt.Size = UDim2.new(1, -16, 1, 0)
+			txt.Position = UDim2.new(0, 10, 0, 0)
+			txt.BackgroundTransparency = 1
+			txt.Font = Enum.Font.Gotham
+			txt.TextSize = 12
+			txt.Text = datos.displayName .. "  ·  @" .. datos.username
+			txt.TextXAlignment = Enum.TextXAlignment.Left
+			txt.TextTruncate = Enum.TextTruncate.AtEnd
+			txt.ZIndex = 7
+			pthemed(txt, "TextColor3", "text")
+
+			fila.MouseEnter:Connect(function()
+				TweenService:Create(fila, TweenInfo.new(0.1), { BackgroundTransparency = 0 }):Play()
+			end)
+			fila.MouseLeave:Connect(function()
+				TweenService:Create(fila, TweenInfo.new(0.15), { BackgroundTransparency = 1 }):Play()
+			end)
+			fila.MouseButton1Click:Connect(function()
+				cajaBusqueda.Text = datos.username
+				panelSugerencias.Visible = false
+				actualizarLista()
+			end)
+		end
+
+		panelSugerencias.Size = UDim2.new(1, -16, 0, maxMostrar * ALTO_FILA)
+		panelSugerencias.Visible = true
+	end
+
+	-- ====================== EVENTOS DEL CAMPO DE BÚSQUEDA ======================
+	cajaBusqueda:GetPropertyChangedSignal("Text"):Connect(function()
+		actualizarLista()
+		mostrarSugerencias(cajaBusqueda.Text)
+		buscarGlobal(cajaBusqueda.Text)
+	end)
+
+	cajaBusqueda.FocusLost:Connect(function()
+		task.delay(0.15, function()
+			if panelSugerencias and panelSugerencias.Parent then
+				panelSugerencias.Visible = false
+			end
+		end)
+	end)
+
+	-- ====================== EVENTOS DE JUGADORES ======================
+	Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end)
+	Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end)
+
+	-- ====================== ARRASTRE (mouse + táctil) ======================
+	local arrastrando, inicioInput, inicioPos = false, nil, nil
+	local function esInputArrastre(input)
+		return input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+	end
+	local function esMovimientoArrastre(input)
+		return input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch
+	end
+
+	encabezado.InputBegan:Connect(function(input)
+		if esInputArrastre(input) then
+			arrastrando = true
+			inicioInput = input.Position
+			inicioPos = ventana.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					arrastrando = false
+				end
+			end)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if arrastrando and esMovimientoArrastre(input) then
+			local delta = input.Position - inicioInput
+			ventana.Position = UDim2.new(
+				inicioPos.X.Scale, inicioPos.X.Offset + delta.X,
+				inicioPos.Y.Scale, inicioPos.Y.Offset + delta.Y
+			)
+			-- recordar la posición normal pa' restaurar desde pantalla completa
+			if not maximizado then posGuardada = ventana.Position end
+		end
+	end)
+
+	-- ====================== INICIALIZACIÓN ======================
+	for _, plr in ipairs(Players:GetPlayers()) do
+		crearTarjeta(plr, true)
+	end
+	actualizarLista()
+
+	-- ====================== DOCKING (ancla la Lista a la derecha del Analyzer) ======================
+	-- Lee la posición/tamaño REAL del Analyzer al primer frame y se pega a su
+	-- derecha con un gap. Defensivo: reintenta una vez si AbsoluteSize aún no
+	-- está calculado (ejecutores lentos). Si el Analyzer no está cargado, se
+	-- queda con el fallback inicial (posición fija a la derecha del centro).
+	local DOCK_GAP = 8
+	local function dockNextToAnalyzer()
+		local agui = playerGui:FindFirstChild("UtilityPanel")
+		local awin = agui and agui:FindFirstChild("main")
+		if not awin then return false end
+		local size = awin.AbsoluteSize
+		if size.X <= 0 or size.Y <= 0 then return false end   -- aún no calculado
+		local pos = awin.AbsolutePosition
+		ventana.Position = UDim2.fromOffset(pos.X + size.X + DOCK_GAP, pos.Y)
+		posGuardada = ventana.Position
+		return true
+	end
+	task.defer(function()
+		if not dockNextToAnalyzer() then
+			task.wait(0.1)
+			dockNextToAnalyzer()   -- segundo intento, sin drama si tampoco entra
+		end
+	end)
+
+	print("[Lista de Jugadores v2.4] Cargada · colores sincronizados + controles navegador.")
 end)()
