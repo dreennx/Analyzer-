@@ -1444,9 +1444,14 @@ end))
 -- un botón "—" en la cabecera que solo oculta (se recupera con la tecla).
 local HIDE_KEY = Enum.KeyCode.RightShift
 local guiHidden = false
+-- Tabla con las animaciones de ventana (se llena al crear la ventana). Va en UNA
+-- tabla, no en locals sueltos, para no agotar el límite de 200 locals de Luau.
+local NXWin = {}
 local function setHidden(h)
 	guiHidden = h
 	gui.Enabled = not h
+	-- Al volver a mostrar (tecla o botón), reproduce el "pop" de entrada premium.
+	if (not h) and NXWin.playOpenAnim then pcall(NXWin.playOpenAnim) end
 end
 track(UserInputService.InputBegan:Connect(function(input, processed)
 	-- no togglear si el juego ya procesó la tecla o si estás escribiendo
@@ -1585,30 +1590,124 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextTruncate = Enum.TextTruncate.AtEnd
 themed(title, "TextColor3", "accent")
 
--- ====================== CONTROLES ESTILO macOS / Tor ======================
--- Los tres "circulitos" arriba a la izquierda, como el navegador en Mac:
---   rojo = cerrar · amarillo = ocultar (minimizar) · verde = maximizar.
--- En reposo se ven lisos; al pasar el cursor por encima aparece su símbolo.
+-- ====================== BRILLO EN MOVIMIENTO (sheen del título) ======================
+-- Premium "shine sweep": una COPIA BLANCA del título por encima, revelada solo en
+-- una banda estrecha y diagonal que barre de izquierda a derecha en bucle. El título
+-- base (acento, temable) no se toca; solo se le pasa un destello blanco por arriba.
+-- En do...end: titleShine/shineGrad/syncShine NO gastan locals de raíz (límite 200 de Luau).
+do
+local titleShine = title:Clone()
+titleShine.Name = "TitleShine"
+titleShine.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleShine.TextTransparency = 0
+titleShine.ZIndex = title.ZIndex + 1
+titleShine.Parent = title.Parent
+local shineGrad = Instance.new("UIGradient", titleShine)
+shineGrad.Rotation = 18   -- ligeramente diagonal = look más premium
+shineGrad.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0.00, 1),
+	NumberSequenceKeypoint.new(0.42, 1),
+	NumberSequenceKeypoint.new(0.50, 0.05),  -- núcleo del destello (casi opaco)
+	NumberSequenceKeypoint.new(0.58, 1),
+	NumberSequenceKeypoint.new(1.00, 1),
+})
+-- El overlay sigue al título (PRISM lo reubica/redimensiona más abajo).
+local function syncShine()
+	titleShine.Size = title.Size
+	titleShine.Position = title.Position
+	titleShine.TextXAlignment = title.TextXAlignment
+end
+syncShine()
+track(title:GetPropertyChangedSignal("Size"):Connect(syncShine))
+track(title:GetPropertyChangedSignal("Position"):Connect(syncShine))
+-- Barrido infinito (respeta el toggle global de animaciones).
+if ANIM.enabled then
+	shineGrad.Offset = Vector2.new(-1, 0)
+	TweenService:Create(shineGrad,
+		TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 1.0),
+		{ Offset = Vector2.new(1, 0) }):Play()
+else
+	shineGrad.Offset = Vector2.new(2, 0)   -- banda fuera de pantalla = sin destello
+end
+end  -- /do (brillo del título)
 
--- Maximizar/restaurar: guarda el tamaño/posición previos y alterna a ~90%
--- de la pantalla. Vuelve a su tamaño original al pulsar de nuevo.
-local maximized, prevSize, prevPos = false, nil, nil
-local function toggleMaximize()
-	if maximized then
-		if prevSize then main.Size = prevSize end
-		if prevPos then main.Position = prevPos end
-		maximized = false
-	else
-		prevSize, prevPos = main.Size, main.Position
-		local cam = workspace.CurrentCamera
-		local vp = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
-		local w = math.max(MIN_W, math.floor(vp.X * 0.9))
-		local h = math.max(MIN_H, math.floor(vp.Y * 0.9))
-		main.Size = UDim2.new(0, w, 0, h)
-		main.Position = UDim2.new(0.5, -w/2, 0.5, -h/2)
-		maximized = true
+-- ====================== CIRCULITOS DECORATIVOS (macOS / Tor) ======================
+-- Los tres "circulitos" arriba a la izquierda son SOLO ADORNO (puro estilo). Los
+-- controles que de verdad funcionan (minimizar/expandir/cerrar) viven a la DERECHA,
+-- junto al logo NX (ver sección PRISM). En reposo se ven lisos; al pasar el cursor
+-- aparece su símbolo, pero no ejecutan ninguna acción.
+
+-- ====================== ANIMACIONES DE VENTANA (premium) ======================
+-- Todo dentro de un do...end + la tabla NXWin: el estado (introScale, maximized,
+-- etc.) vive en el bloque y NO gasta locals de raíz (Luau limita a 200 por función).
+do
+	local introScale = Instance.new("UIScale", main)
+	introScale.Scale = 1
+	local maximized, prevSize, prevPos = false, nil, nil
+	local windowCollapsed, savedCollapseSize = false, nil
+
+	-- Entrada: la ventana crece desde 0.94 con un leve rebote (Back). También al
+	-- reaparecer tras ocultar con la tecla/botón.
+	function NXWin.playOpenAnim()
+		if not ANIM.enabled then
+			introScale.Scale = 1
+			windowShadow.ImageTransparency = 0.5
+			return
+		end
+		introScale.Scale = 0.94
+		windowShadow.ImageTransparency = 0.5
+		motionTween(introScale, TweenInfo.new(0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+	end
+
+	-- Cerrar animado: colapso elegante y destruye la GUI al terminar.
+	function NXWin.animatedClose()
+		if not ANIM.enabled then gui:Destroy(); return end
+		motionTween(windowShadow, TweenInfo.new(0.18), { ImageTransparency = 1 })
+		motionTween(introScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.02 }, function()
+			gui:Destroy()
+		end)
+	end
+
+	-- MINIMIZAR DE VERDAD: la ventana se encoge hasta la barra de título (NO se
+	-- oculta); al pulsar de nuevo se restaura. Animado (como el panel de buscar nombres).
+	function NXWin.toggleCollapse()
+		if windowCollapsed then
+			windowCollapsed = false
+			motionTween(main, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = savedCollapseSize or main.Size })
+		else
+			savedCollapseSize = main.Size
+			windowCollapsed = true
+			motionTween(main, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				{ Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 34) })
+		end
+	end
+
+	-- Maximizar/restaurar a ~90% con TRANSICIÓN SUAVE. Si estaba colapsada, recuerda
+	-- su tamaño normal (no los 34px).
+	function NXWin.toggleMaximize()
+		local targetSize, targetPos
+		if maximized then
+			targetSize = prevSize or main.Size
+			targetPos  = prevPos  or main.Position
+			maximized = false
+		else
+			prevSize = (windowCollapsed and savedCollapseSize) or main.Size
+			prevPos  = main.Position
+			local cam = workspace.CurrentCamera
+			local vp = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
+			local w = math.max(MIN_W, math.floor(vp.X * 0.9))
+			local h = math.max(MIN_H, math.floor(vp.Y * 0.9))
+			targetSize = UDim2.new(0, w, 0, h)
+			targetPos  = UDim2.new(0.5, -w/2, 0.5, -h/2)
+			maximized = true
+		end
+		windowCollapsed = false   -- maximizar/restaurar siempre des-colapsa
+		motionTween(main, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = targetSize, Position = targetPos })
 	end
 end
+
+-- "Pop" de entrada al abrir el panel (se ve crecer con un leve rebote).
+NXWin.playOpenAnim()
 
 local function makeTrafficLight(x, color, glyph, onClick)
 	local b = Instance.new("TextButton", header)
@@ -1632,10 +1731,12 @@ local function makeTrafficLight(x, color, glyph, onClick)
 	return b
 end
 
--- rojo / amarillo / verde, espaciados a la izquierda (como en macOS/Tor)
-makeTrafficLight(14, Color3.fromRGB(255, 95, 86),  "×", function() gui:Destroy() end)
-makeTrafficLight(34, Color3.fromRGB(255, 189, 46), "–", function() setHidden(true) end)
-makeTrafficLight(54, Color3.fromRGB(39, 201, 63),  "+", function() toggleMaximize() end)
+-- rojo / amarillo / verde, espaciados a la izquierda (como en macOS/Tor).
+-- SOLO ADORNO: puntos de color lisos, SIN símbolo (para que no parezcan botones).
+-- Los controles reales (minimizar/expandir/cerrar) están a la derecha, con el logo NX.
+makeTrafficLight(14, Color3.fromRGB(255, 95, 86),  "", function() end)
+makeTrafficLight(34, Color3.fromRGB(255, 189, 46), "", function() end)
+makeTrafficLight(54, Color3.fromRGB(39, 201, 63),  "", function() end)
 
 -- ====================== BÚSQUEDA ======================
 local searchFrame = Instance.new("Frame", main)
@@ -1792,7 +1893,7 @@ statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextSize = 13
 statusLabel.TextColor3 = C.subtext
-statusLabel.Text = "Tip: [RShift] oculta/muestra"
+statusLabel.Text = ""   -- (antes había un tip de [RShift]; quitado a pedido del usuario)
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
 themed(statusLabel, "TextColor3", "subtext")
@@ -4307,60 +4408,7 @@ do
 		paintAnToggle()
 	end)
 
-	-- ====== Signos / Glyphs (diagnóstico de soporte del executor) ======
-	-- Tarjeta de prueba: muestra los símbolos especiales agrupados POR DONDE
-	-- tienen lógica en la UI. De un vistazo ves si tu executor/fuente los
-	-- renderiza. Si aparece un cuadro (▯) en lugar del símbolo => no soportado.
-	local sgCard = Instance.new("Frame", settingsScroll)
-	sgCard.LayoutOrder = 4
-	sgCard.Size = UDim2.new(1, -4, 0, 0)
-	sgCard.AutomaticSize = Enum.AutomaticSize.Y
-	sgCard.BackgroundColor3 = C.card
-	sgCard.BorderSizePixel = 0
-	Instance.new("UICorner", sgCard).CornerRadius = UDim.new(0, 8)
-	themed(sgCard, "BackgroundColor3", "card")
-	addDepth(sgCard)
-	local sgPad = Instance.new("UIPadding", sgCard)
-	sgPad.PaddingTop = UDim.new(0, 8); sgPad.PaddingBottom = UDim.new(0, 8)
-	sgPad.PaddingLeft = UDim.new(0, 10); sgPad.PaddingRight = UDim.new(0, 10)
-	local sgLay = Instance.new("UIListLayout", sgCard)
-	sgLay.Padding = UDim.new(0, 5); sgLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local sgTitle = Instance.new("TextLabel", sgCard)
-	sgTitle.LayoutOrder = 0; sgTitle.Size = UDim2.new(1, 0, 0, 20); sgTitle.BackgroundTransparency = 1
-	sgTitle.Font = Enum.Font.GothamBold; sgTitle.TextSize = 14; sgTitle.TextColor3 = C.accent
-	sgTitle.Text = "♞ Signos · prueba de glifos"; sgTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(sgTitle, "TextColor3", "accent")
-
-	local sgDesc = Instance.new("TextLabel", sgCard)
-	sgDesc.LayoutOrder = 1; sgDesc.Size = UDim2.new(1, 0, 0, 28); sgDesc.BackgroundTransparency = 1
-	sgDesc.Font = Enum.Font.Gotham; sgDesc.TextSize = 11; sgDesc.TextColor3 = C.subtext
-	sgDesc.Text = "Si ves un cuadro (▯) en vez del símbolo, tu executor no soporta ese glifo."
-	sgDesc.TextXAlignment = Enum.TextXAlignment.Left
-	sgDesc.TextWrapped = true
-	themed(sgDesc, "TextColor3", "subtext")
-
-	-- Cada fila = una categoría con sus signos, donde tienen sentido en la UI.
-	local sgRows = {
-		{ "Estados",            "✓ OK   ✗ Error   ☹ Fallo" },
-		{ "Tendencias",         "→  ←  ↑  ↓" },
-		{ "Reproducir / abrir", "►  [►]" },
-		{ "Música",             "♫  ♪" },
-		{ "Destacado",          "★  ♥" },
-		{ "Naipes / decor",     "♠  ♣  ♦  ♞" },
-	}
-	for i, row in ipairs(sgRows) do
-		local lbl = Instance.new("TextLabel", sgCard)
-		lbl.LayoutOrder = 1 + i
-		lbl.Size = UDim2.new(1, 0, 0, 18)
-		lbl.BackgroundTransparency = 1
-		lbl.Font = Enum.Font.GothamMedium
-		lbl.TextSize = 13
-		lbl.TextXAlignment = Enum.TextXAlignment.Left
-		lbl.TextColor3 = C.text
-		lbl.Text = row[1] .. ":   " .. row[2]
-		themed(lbl, "TextColor3", "text")
-	end
+	-- (La tarjeta "Signos · prueba de glifos" se quitó a pedido del usuario.)
 end
 
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
@@ -4751,6 +4799,86 @@ end
 
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
+
+-- ====================== ESCÁNER "FACE ID" (mientras carga un perfil) ======================
+-- Overlay sutil con una banda/línea de luz que barre la interfaz de arriba a abajo
+-- mientras se consultan las APIs. Se desvanece solo cuando termina el análisis.
+function NXWin.startScan()
+	if not ANIM.enabled then return end
+	local old = main:FindFirstChild("ScanOverlay")
+	if old then old:Destroy() end
+
+	local overlay = Instance.new("Frame")
+	overlay.Name = "ScanOverlay"
+	overlay.Position = UDim2.new(0, 0, 0, 34)        -- desde debajo de la barra de título
+	overlay.Size = UDim2.new(1, 0, 1, -34)
+	overlay.BackgroundColor3 = C.accent
+	overlay.BackgroundTransparency = 0.93            -- tinte muy sutil del color del tema
+	overlay.BorderSizePixel = 0
+	overlay.ClipsDescendants = true
+	overlay.Active = false
+	overlay.ZIndex = 50
+	overlay.Parent = main
+	themed(overlay, "BackgroundColor3", "accent")
+
+	-- Banda de luz (glow) que se desplaza.
+	local band = Instance.new("Frame")
+	band.AnchorPoint = Vector2.new(0, 0.5)
+	band.Size = UDim2.new(1, 0, 0, 60)
+	band.Position = UDim2.new(0, 0, -0.05, 0)
+	band.BackgroundColor3 = C.accent
+	band.BackgroundTransparency = 0.82
+	band.BorderSizePixel = 0
+	band.ZIndex = 51
+	band.Parent = overlay
+	themed(band, "BackgroundColor3", "accent")
+	local bgrad = Instance.new("UIGradient", band)
+	bgrad.Rotation = 90
+	bgrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.5, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+
+	-- Línea brillante central (el "haz" del escáner).
+	local line = Instance.new("Frame")
+	line.AnchorPoint = Vector2.new(0.5, 0.5)
+	line.Position = UDim2.new(0.5, 0, 0.5, 0)
+	line.Size = UDim2.new(1, 0, 0, 2)
+	line.BackgroundColor3 = C.accent
+	line.BackgroundTransparency = 0.05
+	line.BorderSizePixel = 0
+	line.ZIndex = 52
+	line.Parent = band
+	themed(line, "BackgroundColor3", "accent")
+	local lgrad = Instance.new("UIGradient", line)
+	lgrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, 0.25),
+		NumberSequenceKeypoint.new(0.5, 0),
+		NumberSequenceKeypoint.new(0.85, 0.25),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+
+	-- Barrido arriba→abajo→arriba en bucle.
+	local sweep = TweenService:Create(band,
+		TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Position = UDim2.new(0, 0, 1.05, 0) })
+	sweep:Play()
+
+	-- Cuando termina el análisis: fade-out y destruir.
+	task.spawn(function()
+		while analyzing and overlay.Parent do task.wait(0.05) end
+		if not overlay.Parent then return end
+		pcall(function() sweep:Cancel() end)
+		motionTween(band,    TweenInfo.new(0.3), { BackgroundTransparency = 1 })
+		motionTween(line,    TweenInfo.new(0.3), { BackgroundTransparency = 1 })
+		motionTween(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }, function()
+			if overlay then overlay:Destroy() end
+		end)
+	end)
+end
+
 analyze = function(input)
 	if analyzing then return end
 	input = (input or ""):gsub("%s", "")
@@ -4759,6 +4887,7 @@ analyze = function(input)
 	analyzing = true
 	hideAllSuggestions()
 	statusLabel.Text = "Buscando..."
+	NXWin.startScan()
 
 	task.spawn(function()
 		local userId = tonumber(input)
@@ -7278,10 +7407,118 @@ end)()
 		bl.Font = Enum.Font.GothamBold
 		bl.Text = "NX"
 		bl.TextSize = 12
-		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco
+		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco (respaldo)
 		bl.ZIndex = 5
+		-- Logo NX subido (rbxassetid). Mientras Roblox MODERA el asset, la imagen
+		-- no carga y se ve el texto "NX" de respaldo debajo. Al aprobarse, el logo
+		-- (fondo negro = igual que el badge) cubre el texto sin costuras.
+		local bImg = Instance.new("ImageLabel", badge)
+		bImg.Name = "NXLogo"
+		bImg.BackgroundTransparency = 1
+		bImg.Size = UDim2.fromScale(1, 1)
+		bImg.Image = "rbxassetid://97974702902814"         -- logo N/X
+		bImg.ScaleType = Enum.ScaleType.Fit
+		bImg.ZIndex = 6
 		title.Position = UDim2.new(0, 80, 0, 0)            -- título vuelve a su sitio
-		title.Size     = UDim2.new(1, -130, 1, 0)          -- deja sitio al logo a la derecha
+		title.Size     = UDim2.new(1, -224, 1, 0)          -- deja sitio a los controles + logo a la derecha
+	end)
+
+	-- ── 1.5) CONTROLES DE VENTANA (minimizar / expandir / cerrar) ───────────
+	-- A la IZQUIERDA del logo NX. Iconos DIBUJADOS con Frames (no glifos) para que
+	-- NUNCA salga el cuadrito "tofu"; la X de cerrar es letra (siempre renderiza).
+	-- Mismo estilo que el panel de buscar nombres. TextButton → consumen el clic
+	-- y no arrancan el arrastre de la ventana.
+	pcall(function()
+		local WHITE = Color3.fromRGB(255, 255, 255)
+		local function lighten(c, amt)
+			return Color3.new(c.R + (1 - c.R) * amt, c.G + (1 - c.G) * amt, c.B + (1 - c.B) * amt)
+		end
+
+		local ctrls = Instance.new("Frame")
+		ctrls.Name = "NXWindowControls"
+		ctrls.AnchorPoint = Vector2.new(1, 0.5)
+		ctrls.Position = UDim2.new(1, -50, 0.5, 0)         -- a la izquierda del badge NX
+		ctrls.Size = UDim2.fromOffset(24 * 3 + 6 * 2, 24)  -- 3 botones de 24 + 2 gaps de 6
+		ctrls.BackgroundTransparency = 1
+		ctrls.ZIndex = 4
+		ctrls.Parent = header
+		local lay = Instance.new("UIListLayout", ctrls)
+		lay.FillDirection = Enum.FillDirection.Horizontal
+		lay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		lay.VerticalAlignment = Enum.VerticalAlignment.Center
+		lay.Padding = UDim.new(0, 6)
+		lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local function ctrlButton(order, baseRole, tipText, onClick)
+			local b = Instance.new("TextButton")
+			b.Name = "Ctrl" .. order
+			b.LayoutOrder = order
+			b.Size = UDim2.fromOffset(24, 24)
+			b.AutoButtonColor = false
+			b.Text = ""
+			b.BorderSizePixel = 0
+			b.Active = true
+			b.ZIndex = 5
+			b.BackgroundColor3 = C[baseRole]
+			b.Parent = ctrls
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+			themed(b, "BackgroundColor3", baseRole)
+			local st = Instance.new("UIStroke", b)
+			st.Thickness = 1; st.Transparency = 0.35
+			themed(st, "Color", "border")
+			-- Hover: el botón se aclara un poco (suave).
+			track(b.MouseEnter:Connect(function()
+				motionTween(b, TweenInfo.new(0.12), { BackgroundColor3 = lighten(C[baseRole], 0.12) })
+			end))
+			track(b.MouseLeave:Connect(function()
+				motionTween(b, TweenInfo.new(0.16), { BackgroundColor3 = C[baseRole] })
+			end))
+			track(b.MouseButton1Click:Connect(onClick))
+			attachTip(b, tipText)
+			return b
+		end
+
+		-- (1) Minimizar: barra horizontal dibujada.
+		local minBtn = ctrlButton(1, "neutral", "Minimizar", function() NXWin.toggleCollapse() end)
+		do
+			local bar = Instance.new("Frame", minBtn)
+			bar.AnchorPoint = Vector2.new(0.5, 0.5)
+			bar.Position = UDim2.new(0.5, 0, 0.5, 0)
+			bar.Size = UDim2.new(0, 11, 0, 2)
+			bar.BorderSizePixel = 0
+			bar.ZIndex = 6
+			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+			themed(bar, "BackgroundColor3", "text")
+		end
+
+		-- (2) Expandir / restaurar: cuadro hueco dibujado (con UIStroke).
+		local maxBtn = ctrlButton(2, "neutral", "Expandir / Restaurar", function() NXWin.toggleMaximize() end)
+		do
+			local box = Instance.new("Frame", maxBtn)
+			box.AnchorPoint = Vector2.new(0.5, 0.5)
+			box.Position = UDim2.new(0.5, 0, 0.5, 0)
+			box.Size = UDim2.new(0, 12, 0, 11)
+			box.BackgroundTransparency = 1
+			box.BorderSizePixel = 0
+			box.ZIndex = 6
+			Instance.new("UICorner", box).CornerRadius = UDim.new(0, 2)
+			local bst = Instance.new("UIStroke", box)
+			bst.Thickness = 1.6
+			themed(bst, "Color", "text")
+		end
+
+		-- (3) Cerrar: la X es una letra (siempre renderiza), blanca sobre rojo.
+		local closeBtn = ctrlButton(3, "bad", "Cerrar", function() NXWin.animatedClose() end)
+		do
+			local x = Instance.new("TextLabel", closeBtn)
+			x.Size = UDim2.new(1, 0, 1, 0)
+			x.BackgroundTransparency = 1
+			x.Font = Enum.Font.GothamBold
+			x.TextSize = 14
+			x.Text = "X"
+			x.TextColor3 = WHITE
+			x.ZIndex = 6
+		end
 	end)
 
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
@@ -7297,11 +7534,10 @@ end)()
 		hud.Position = UDim2.new(1, -12, 0, 10)            -- esquina superior DERECHA
 		hud.Size = UDim2.fromOffset(60, 40)
 		hud.AutomaticSize = Enum.AutomaticSize.X
-		hud.BackgroundColor3 = C.card
-		hud.BackgroundTransparency = 0.02
+		hud.BackgroundColor3 = Color3.fromRGB(16, 16, 20)   -- glass OSCURO: legible sobre cualquier fondo de juego
+		hud.BackgroundTransparency = 0.1
 		hud.BorderSizePixel = 0
 		hud.Parent = gui
-		themed(hud, "BackgroundColor3", "card")
 		local hc = Instance.new("UICorner", hud); hc.CornerRadius = UDim.new(0, 20)
 		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.6; hs.Color = C.accent; hs.Transparency = 0.1  -- borde vívido (igual de intenso que el panel)
 		themed(hs, "Color", "accent")
@@ -7317,7 +7553,7 @@ end)()
 
 		local order = 0
 		-- celda = icono (emoji) + valor
-		local function cell(emoji, text, valueRole)
+		local function cell(emoji, text, valueColor)
 			order += 1
 			local holder = Instance.new("Frame", hud)
 			holder.BackgroundTransparency = 1
@@ -7345,27 +7581,25 @@ end)()
 			v.Font = Enum.Font.GothamBold
 			v.Text = text
 			v.TextSize = 14
-			v.TextColor3 = C[valueRole]
+			v.TextColor3 = valueColor or Color3.fromRGB(236, 238, 242)
 			v.LayoutOrder = 2
-			themed(v, "TextColor3", valueRole)
 			return v
 		end
 		local function divider()
 			order += 1
 			local d = Instance.new("Frame", hud)
 			d.Size = UDim2.fromOffset(1, 18)
-			d.BackgroundColor3 = C.text
-			d.BackgroundTransparency = 0.78
+			d.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			d.BackgroundTransparency = 0.8
 			d.BorderSizePixel = 0
 			d.LayoutOrder = order
-			themed(d, "BackgroundColor3", "text")
 		end
 
-		playersLabel = cell("👥", "—/—", "text")
+		playersLabel = cell("👥", "—/—", Color3.fromRGB(236, 238, 242))
 		divider()
-		pingLabel    = cell("🕐", "— ms", "text")
+		pingLabel    = cell("🕐", "— ms", Color3.fromRGB(236, 238, 242))
 		divider()
-		fpsLabel     = cell("📊", "— fps", "good")
+		fpsLabel     = cell("📊", "— fps", Color3.fromRGB(120, 230, 150))
 
 		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid) o emoji
 		local function iconButton(emoji, imageId, onClick, bgColor)
@@ -7450,6 +7684,13 @@ end)()
 		local ownBtn, oi = iconButton(ownOn and "🪪" or "🙈", nil, function() setOwnTag(not ownOn) end)
 		ownIcon = oi
 		attachTip(ownBtn, ownOn and "Tu tag: visible (click = ocultar)" or "Tu tag: oculto (click = mostrar)")
+
+		-- Destapa el límite de FPS del cliente (si el executor lo permite) para que el
+		-- contador muestre los FPS REALES, sin tope de 240. Falla en silencio.
+		pcall(function()
+			local cap = rawget(getfenv(), "setfpscap") or setfpscap
+			if type(cap) == "function" then cap(1000) end   -- 1000 = sin tope práctico (puedes subirlo)
+		end)
 
 		-- FPS (promediado) en vivo
 		local frames, acc = 0, 0
