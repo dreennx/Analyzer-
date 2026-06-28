@@ -172,7 +172,7 @@ local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
 
-local store = { theme = "negro", headTags = true, animations = true, ownTag = true }
+local store = { theme = "negro", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false }
 
 local function saveStore()
 	if not hasFS then return end
@@ -189,6 +189,8 @@ local function loadStore()
 				if type(decoded.headTags) == "boolean" then store.headTags = decoded.headTags end
 				if type(decoded.animations) == "boolean" then store.animations = decoded.animations end
 				if type(decoded.ownTag) == "boolean" then store.ownTag = decoded.ownTag end
+				if type(decoded.introEnabled) == "boolean" then store.introEnabled = decoded.introEnabled end
+				if type(decoded.introSeen) == "boolean" then store.introSeen = decoded.introSeen end
 			end
 		end
 	end)
@@ -1418,6 +1420,13 @@ gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = playerGui
+
+-- INTRO: si la animación de bienvenida va a salir, ocultamos el panel desde el
+-- arranque para que NO se vea antes que la intro. La intro lo revela al final
+-- (bloque "NX INTRO" → _G.NXIntro). Failsafe interno: nunca queda oculto.
+if (store.introEnabled ~= false) and (store.introSeen ~= true) then
+	gui.Enabled = false
+end
 
 -- ====================== SISTEMA DE CONEXIONES ======================
 local connections = {}
@@ -4406,6 +4415,88 @@ do
 		saveStore()
 		setAnimationsEnabled(newOn)
 		paintAnToggle()
+	end)
+
+	-- ====== Intro de inicio (animación de bienvenida · una sola vez) ======
+	-- La intro con el logo NX se reproduce SOLO la primera vez (se recuerda con
+	-- store.introSeen). Aquí puedes apagarla, o re-verla cuando quieras (útil en
+	-- pruebas): "Ver de nuevo" la fuerza al instante vía _G.NXIntro.play(true).
+	local introCard = Instance.new("Frame", settingsScroll)
+	introCard.LayoutOrder = 4
+	introCard.Size = UDim2.new(1, -4, 0, 0)
+	introCard.AutomaticSize = Enum.AutomaticSize.Y
+	introCard.BackgroundColor3 = C.card
+	introCard.BorderSizePixel = 0
+	Instance.new("UICorner", introCard).CornerRadius = UDim.new(0, 8)
+	themed(introCard, "BackgroundColor3", "card")
+	addDepth(introCard)
+	local inPad = Instance.new("UIPadding", introCard)
+	inPad.PaddingTop = UDim.new(0, 8); inPad.PaddingBottom = UDim.new(0, 8)
+	inPad.PaddingLeft = UDim.new(0, 10); inPad.PaddingRight = UDim.new(0, 10)
+	local inLay = Instance.new("UIListLayout", introCard)
+	inLay.Padding = UDim.new(0, 6); inLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local inTitle = Instance.new("TextLabel", introCard)
+	inTitle.LayoutOrder = 0; inTitle.Size = UDim2.new(1, 0, 0, 20); inTitle.BackgroundTransparency = 1
+	inTitle.Font = Enum.Font.GothamBold; inTitle.TextSize = 14; inTitle.TextColor3 = C.accent
+	inTitle.Text = "🎬 Intro de inicio"; inTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(inTitle, "TextColor3", "accent")
+
+	local inDesc = Instance.new("TextLabel", introCard)
+	inDesc.LayoutOrder = 1; inDesc.Size = UDim2.new(1, 0, 0, 16); inDesc.BackgroundTransparency = 1
+	inDesc.Font = Enum.Font.Gotham; inDesc.TextSize = 11; inDesc.TextColor3 = C.subtext
+	inDesc.Text = "Animación de bienvenida con tu logo NX + sonido (solo la primera vez que abres la herramienta)."
+	inDesc.TextXAlignment = Enum.TextXAlignment.Left
+	inDesc.TextWrapped = true
+	themed(inDesc, "TextColor3", "subtext")
+
+	-- fila: toggle (on/off) + botón "ver de nuevo" (replay para pruebas)
+	local inRow = Instance.new("Frame", introCard)
+	inRow.LayoutOrder = 2; inRow.Size = UDim2.new(1, 0, 0, 28); inRow.BackgroundTransparency = 1
+	local inRowLay = Instance.new("UIListLayout", inRow)
+	inRowLay.FillDirection = Enum.FillDirection.Horizontal
+	inRowLay.Padding = UDim.new(0, 8); inRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
+	inRowLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local inToggle = Instance.new("TextButton", inRow)
+	inToggle.LayoutOrder = 0; inToggle.Size = UDim2.new(0, 140, 0, 28)
+	inToggle.Font = Enum.Font.GothamBold; inToggle.TextSize = 13; inToggle.BorderSizePixel = 0
+	Instance.new("UICorner", inToggle).CornerRadius = UDim.new(0, 5)
+	addHoverStroke(inToggle)
+
+	local function paintInToggle()
+		local on = store.introEnabled ~= false
+		inToggle.Text = on and "Activada ✓" or "Desactivada"
+		inToggle.BackgroundColor3 = on and C.good or C.neutral
+		inToggle.TextColor3 = on and C.onAccent or C.text
+	end
+	paintInToggle()
+	onRepaint(paintInToggle)
+
+	inToggle.MouseButton1Click:Connect(function()
+		store.introEnabled = not (store.introEnabled ~= false)
+		saveStore()
+		paintInToggle()
+	end)
+
+	local inReplay = Instance.new("TextButton", inRow)
+	inReplay.LayoutOrder = 1; inReplay.Size = UDim2.new(0, 130, 0, 28)
+	inReplay.Font = Enum.Font.GothamBold; inReplay.TextSize = 13; inReplay.BorderSizePixel = 0
+	inReplay.Text = "Ver de nuevo ▶"
+	Instance.new("UICorner", inReplay).CornerRadius = UDim.new(0, 5)
+	addHoverStroke(inReplay)
+
+	local function paintInReplay()
+		inReplay.BackgroundColor3 = C.neutral
+		inReplay.TextColor3 = C.text
+	end
+	paintInReplay()
+	onRepaint(paintInReplay)
+
+	inReplay.MouseButton1Click:Connect(function()
+		if _G.NXIntro and _G.NXIntro.play then
+			pcall(_G.NXIntro.play, true)   -- true = forzar aunque ya se haya visto
+		end
 	end)
 
 	-- (La tarjeta "Signos · prueba de glifos" se quitó a pedido del usuario.)
@@ -7802,6 +7893,269 @@ end)()
 			end
 		end
 	end))
+end)()
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  ✦ NX INTRO  ·  animación de bienvenida (logo NX + sonido suave)      ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  Splash premium glass/neón que aparece SOLO la primera vez (se        ║
+-- ║  recuerda con store.introSeen). Se apaga o se re-ve desde Ajustes ›   ║
+-- ║  "🎬 Intro de inicio". API: _G.NXIntro.play(true) la fuerza,          ║
+-- ║  _G.NXIntro.reset() la vuelve a marcar como NO vista.                 ║
+-- ║  IIFE: registros aislados (no toca el límite de 200 locals).          ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+;(function()
+	local SoundService = game:GetService("SoundService")
+	local Debris       = game:GetService("Debris")
+
+	-- Logo NX = el MISMO asset del header del panel.
+	local LOGO_ID     = "rbxassetid://97974702902814"
+	-- Sonido de entrada suave/satisfactorio. Asset INTERNO de Roblox (siempre
+	-- disponible, sin moderación). Cámbialo por tu propio "rbxassetid://..." si
+	-- quieres otro sonido.
+	local INTRO_SOUND = "rbxasset://sounds/electronicpingshort.wav"
+	local SPLASH_NAME = "UtilityIntro"
+	local accent      = (C and C.accent) or Color3.fromRGB(120, 220, 255)
+
+	-- Tween local: la intro SIEMPRE anima cuando se reproduce (es algo puntual).
+	local function tw(inst, t, style, dir, props)
+		local info = TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out)
+		local x = TweenService:Create(inst, info, props)
+		x:Play()
+		return x
+	end
+
+	-- ── Ocultar / revelar los paneles (Analyzer + Lista de jugadores) ──
+	-- La intro va PRIMERO con los paneles ocultos; al final los paneles nacen
+	-- del círculo con un "pop".
+	local function setListaEnabled(on)
+		pcall(function()
+			local lista = playerGui:FindFirstChild("ListaJugadoresModerna")
+			if lista then lista.Enabled = on end
+		end)
+	end
+	local function hidePanels()
+		pcall(function() gui.Enabled = false end)
+		-- la Lista se crea DESPUÉS de este bloque; task.defer la oculta sin parpadeo
+		task.defer(setListaEnabled, false)
+	end
+	local function popIn(frame)
+		if not frame then return end
+		pcall(function()
+			local us = frame:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", frame)
+			us.Scale = 0.9
+			TweenService:Create(us, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end)
+	end
+	local function revealPanels()
+		-- panel principal (con su "pop" de entrada)
+		pcall(function()
+			gui.Enabled = true
+			if NXWin and NXWin.playOpenAnim then NXWin.playOpenAnim() end
+		end)
+		-- panel de la Lista de jugadores (con pop)
+		setListaEnabled(true)
+		pcall(function()
+			local lista = playerGui:FindFirstChild("ListaJugadoresModerna")
+			if lista then popIn(lista:FindFirstChild("Ventana")) end
+		end)
+	end
+
+	local NXIntro = {}
+	local playing = false
+
+	function NXIntro.play()
+		if playing then return end
+		playing = true
+
+		hidePanels()   -- la intro sale SOLA primero; los paneles esperan
+		-- failsafe: pase lo que pase, los paneles vuelven (que nunca queden ocultos)
+		task.delay(6, function()
+			pcall(function() if not gui.Enabled then gui.Enabled = true end end)
+			setListaEnabled(true)
+		end)
+
+		-- limpia cualquier splash previo (re-ejecución / replay)
+		pcall(function()
+			local old = playerGui:FindFirstChild(SPLASH_NAME)
+			if old then old:Destroy() end
+		end)
+
+		task.spawn(function()
+			-- ── Capa propia, por encima de TODO (su propio ScreenGui) ──
+			local sg = Instance.new("ScreenGui")
+			sg.Name = SPLASH_NAME
+			sg.ResetOnSpawn = false
+			sg.IgnoreGuiInset = true
+			sg.DisplayOrder = 100000
+			sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+			sg.Parent = playerGui
+
+			-- (SIN fondo: la intro es SOLO el círculo flotando en el centro;
+			-- NO oscurece la pantalla.)
+
+			-- contenedor central (escala animada)
+			local center = Instance.new("Frame")
+			center.AnchorPoint = Vector2.new(0.5, 0.5)
+			center.Position = UDim2.fromScale(0.5, 0.46)
+			center.Size = UDim2.fromOffset(180, 200)
+			center.BackgroundTransparency = 1
+			center.ZIndex = 2
+			center.Parent = sg
+			local cScale = Instance.new("UIScale", center)
+			cScale.Scale = 0.6
+
+			local BASE = 124   -- diámetro del círculo
+
+			-- halo neón CIRCULAR detrás de la moneda (no gira: anillo estable, como el M7)
+			local halo = Instance.new("Frame")
+			halo.AnchorPoint = Vector2.new(0.5, 0.5)
+			halo.Position = UDim2.new(0.5, 0, 0, 70)
+			halo.Size = UDim2.fromOffset(BASE + 18, BASE + 18)
+			halo.BackgroundColor3 = accent
+			halo.BackgroundTransparency = 1
+			halo.BorderSizePixel = 0
+			halo.ZIndex = 1
+			halo.Parent = center
+			Instance.new("UICorner", halo).CornerRadius = UDim.new(1, 0)
+
+			-- la "moneda": círculo oscuro tipo badge M7 (gira en 3D)
+			local coin = Instance.new("Frame")
+			coin.AnchorPoint = Vector2.new(0.5, 0.5)
+			coin.Position = UDim2.new(0.5, 0, 0, 70)
+			coin.Size = UDim2.fromOffset(BASE, BASE)
+			coin.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+			coin.BackgroundTransparency = 1
+			coin.BorderSizePixel = 0
+			coin.ClipsDescendants = true       -- recorta el logo al círculo
+			coin.ZIndex = 2
+			coin.Parent = center
+			Instance.new("UICorner", coin).CornerRadius = UDim.new(1, 0)
+			local cStroke = Instance.new("UIStroke", coin)
+			cStroke.Color = accent
+			cStroke.Thickness = 1.5
+			cStroke.Transparency = 1
+
+			-- WORDMARK "NX" limpio (SIN la barra del logo). Centrado tipo badge M7.
+			-- (Tu imagen-logo trae la línea N/X incrustada; por eso aquí va texto.
+			--  Si algún día subes un logo SIN la línea, cámbialo por un ImageLabel
+			--  con LOGO_ID + ScaleType.Stretch y listo.)
+			local wordmark = Instance.new("TextLabel", coin)
+			wordmark.AnchorPoint = Vector2.new(0.5, 0.5)
+			wordmark.Position = UDim2.fromScale(0.5, 0.5)
+			wordmark.Size = UDim2.fromScale(0.72, 0.72)
+			wordmark.BackgroundTransparency = 1
+			wordmark.Text = "NX"
+			wordmark.Font = Enum.Font.GothamBlack
+			wordmark.TextColor3 = Color3.fromRGB(255, 255, 255)
+			wordmark.TextScaled = true
+			wordmark.TextTransparency = 1
+			wordmark.ZIndex = 3
+
+			-- tagline debajo
+			local tag = Instance.new("TextLabel")
+			tag.AnchorPoint = Vector2.new(0.5, 0)
+			tag.Position = UDim2.new(0.5, 0, 0, 142)
+			tag.Size = UDim2.fromOffset(280, 18)
+			tag.BackgroundTransparency = 1
+			tag.Font = Enum.Font.GothamMedium
+			tag.Text = "P R O F I L E   A N A L Y Z E R"
+			tag.TextSize = 12
+			tag.TextColor3 = accent
+			tag.TextTransparency = 1
+			tag.ZIndex = 3
+			tag.Parent = center
+
+			-- ── SONIDO suave (2D, local) ──
+			pcall(function()
+				local snd = Instance.new("Sound")
+				snd.SoundId = INTRO_SOUND
+				snd.Volume = 0.55
+				snd.Parent = SoundService
+				SoundService:PlayLocalSound(snd)
+				Debris:AddItem(snd, 4)
+			end)
+
+			-- ── GIRO 3D (efecto moneda alrededor del eje vertical) ──
+			-- Falso-3D suave: aplastamos el ANCHO con |cos(ángulo)|. A 90° la
+			-- moneda queda de canto (sliver) y vuelve a la cara. Easing in-out.
+			local RunService = game:GetService("RunService")
+			local SPIN_SECS, TURNS = 1.5, 2
+			local spinConn
+			local function startSpin()
+				local t0 = os.clock()
+				spinConn = RunService.RenderStepped:Connect(function()
+					local p = (os.clock() - t0) / SPIN_SECS
+					if p >= 1 then
+						coin.Size = UDim2.fromOffset(BASE, BASE)
+						wordmark.TextColor3 = Color3.fromRGB(255, 255, 255)
+						if spinConn then spinConn:Disconnect(); spinConn = nil end
+						return
+					end
+					local e = (p < 0.5) and (4 * p * p * p) or (1 - ((-2 * p + 2) ^ 3) / 2)
+					local w = math.abs(math.cos(e * TURNS * 2 * math.pi))   -- 1 = de frente, 0 = de canto
+					coin.Size = UDim2.fromOffset(math.max(BASE * w, BASE * 0.04), BASE)
+					-- sombreado 3D real: la cara se OSCURECE al ponerse de canto y brilla al volver
+					local sh = 0.30 + 0.70 * w
+					wordmark.TextColor3 = Color3.fromRGB(math.floor(255 * sh), math.floor(255 * sh), math.floor(255 * sh))
+				end)
+			end
+
+			-- ── LÍNEA DE TIEMPO (entrada) ──
+			tw(cScale, 0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+			tw(halo,   0.55, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0.72 })
+			task.wait(0.08)
+			tw(coin,    0.40, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0 })
+			tw(cStroke, 0.45, Enum.EasingStyle.Quad, nil, { Transparency = 0.18 })
+			tw(wordmark, 0.40, Enum.EasingStyle.Quad, nil, { TextTransparency = 0 })
+			tw(tag,     0.50, Enum.EasingStyle.Quad, nil, { TextTransparency = 0.12 })
+
+			-- arranca el giro cuando ya entró, y espera a que termine
+			task.wait(0.42)
+			startSpin()
+			task.wait(SPIN_SECS + 0.2)
+
+			-- ── SALIDA: del CÍRCULO nacen los paneles ──
+			if spinConn then spinConn:Disconnect(); spinConn = nil end
+			coin.Size = UDim2.fromOffset(BASE, BASE)
+
+			-- los paneles aparecen con pop justo cuando el círculo se encoge y desaparece
+			revealPanels()
+
+			tw(cScale,  0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Scale = 1.14 })
+			tw(cStroke, 0.40, Enum.EasingStyle.Quad, nil, { Transparency = 1 })
+			tw(wordmark, 0.40, Enum.EasingStyle.Quad, nil, { TextTransparency = 1 })
+			tw(coin,    0.40, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 1 })
+			tw(tag,     0.35, Enum.EasingStyle.Quad, nil, { TextTransparency = 1 })
+			tw(halo,    0.40, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 1 })
+
+			task.wait(0.5)
+			if spinConn then spinConn:Disconnect(); spinConn = nil end
+			pcall(function() sg:Destroy() end)
+			playing = false
+		end)
+	end
+
+	function NXIntro.reset()
+		store.introSeen = false
+		pcall(saveStore)
+	end
+	function NXIntro.setEnabled(on)
+		store.introEnabled = on and true or false
+		pcall(saveStore)
+	end
+	_G.NXIntro = NXIntro
+
+	-- ── AUTO-ARRANQUE ──
+	-- ⚠ MODO PRUEBA: con TEST_FORCE = true la intro sale en CADA ejecución
+	-- (ignora el "ya vista"). Cuando termines de probar, ponlo en false y
+	-- volverá a salir SOLO la primera vez (recordado en ProfileAnalyzer_data.json).
+	local TEST_FORCE = true
+	if (store.introEnabled ~= false) and (TEST_FORCE or store.introSeen ~= true) then
+		store.introSeen = true
+		pcall(saveStore)
+		NXIntro.play()
+	end
 end)()
 
 --[[ ==========================================================================
