@@ -7910,10 +7910,19 @@ end)()
 
 	-- Logo NX = el MISMO asset del header del panel.
 	local LOGO_ID     = "rbxassetid://97974702902814"
-	-- Sonido de entrada suave/satisfactorio. Asset INTERNO de Roblox (siempre
-	-- disponible, sin moderación). Cámbialo por tu propio "rbxassetid://..." si
-	-- quieres otro sonido.
-	local INTRO_SOUND = "rbxasset://sounds/electronicpingshort.wav"
+	-- ── SONIDO de la intro · UN solo toque, suave ──
+	-- Suena UNA sola vez al abrir la intro. Nada de doble tono (eso sonaba a
+	-- timbre). Volumen bajo = discreto y agradable. Assets INTERNOS de Roblox
+	-- (siempre disponibles, sin moderación).
+	-- 👉 Para PROBAR otro, cambia SOUND_PACK por cualquier nombre de SOUND_PACKS.
+	local SOUND_PACKS = {
+		suave    = { id = "rbxasset://sounds/button.wav",              vol = 0.22, pitch = 0.95 },
+		pop      = { id = "rbxasset://sounds/electronicpingshort.wav", vol = 0.22, pitch = 0.60 },
+		profundo = { id = "rbxasset://sounds/bass.wav",               vol = 0.26, pitch = 1.05 },
+		click    = { id = "rbxasset://sounds/clickfast.wav",          vol = 0.22, pitch = 0.95 },
+		none     = { id = "",                                          vol = 0.00, pitch = 1.00 },
+	}
+	local SOUND_PACK  = "suave"   -- ← prueba: suave · pop · profundo · click · none (silencio)
 	local SPLASH_NAME = "UtilityIntro"
 	local accent      = (C and C.accent) or Color3.fromRGB(120, 220, 255)
 
@@ -8007,7 +8016,7 @@ end)()
 
 			local BASE = 124   -- diámetro del círculo
 
-			-- halo neón CIRCULAR detrás de la moneda (no gira: anillo estable, como el M7)
+			-- halo neón CIRCULAR detrás de la moneda (gira JUNTO al disco en el efecto moneda)
 			local halo = Instance.new("Frame")
 			halo.AnchorPoint = Vector2.new(0.5, 0.5)
 			halo.Position = UDim2.new(0.5, 0, 0, 70)
@@ -8027,7 +8036,7 @@ end)()
 			coin.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
 			coin.BackgroundTransparency = 1
 			coin.BorderSizePixel = 0
-			coin.ClipsDescendants = true       -- recorta el logo al círculo
+			coin.ClipsDescendants = true       -- mantiene el disco limpio al aplastarse
 			coin.ZIndex = 2
 			coin.Parent = center
 			Instance.new("UICorner", coin).CornerRadius = UDim.new(1, 0)
@@ -8040,6 +8049,9 @@ end)()
 			-- (Tu imagen-logo trae la línea N/X incrustada; por eso aquí va texto.
 			--  Si algún día subes un logo SIN la línea, cámbialo por un ImageLabel
 			--  con LOGO_ID + ScaleType.Stretch y listo.)
+			-- VA DENTRO de la moneda (hijo de coin): así las LETRAS "NX" GIRAN en
+			-- perfecta sincronía con el disco (se aplastan junto con él, gratis).
+			-- Lo único que se queda fijo es el tagline de abajo ("PROFILE ANALYZER").
 			local wordmark = Instance.new("TextLabel", coin)
 			wordmark.AnchorPoint = Vector2.new(0.5, 0.5)
 			wordmark.Position = UDim2.fromScale(0.5, 0.5)
@@ -8066,53 +8078,76 @@ end)()
 			tag.ZIndex = 3
 			tag.Parent = center
 
-			-- ── SONIDO suave (2D, local) ──
-			pcall(function()
-				local snd = Instance.new("Sound")
-				snd.SoundId = INTRO_SOUND
-				snd.Volume = 0.55
-				snd.Parent = SoundService
-				SoundService:PlayLocalSound(snd)
-				Debris:AddItem(snd, 4)
-			end)
+			-- ── SONIDO · helper local (2D) + pack elegido ──
+			local SND = SOUND_PACKS[SOUND_PACK] or SOUND_PACKS.suave
+			local function playTone(id, vol, pitch)
+				if not id or id == "" then return end
+				pcall(function()
+					local snd = Instance.new("Sound")
+					snd.SoundId       = id
+					snd.Volume        = vol or 0.5
+					snd.PlaybackSpeed = pitch or 1
+					snd.Parent        = SoundService
+					SoundService:PlayLocalSound(snd)
+					Debris:AddItem(snd, 5)
+				end)
+			end
 
-			-- ── GIRO 3D (efecto moneda alrededor del eje vertical) ──
-			-- Falso-3D suave: aplastamos el ANCHO con |cos(ángulo)|. A 90° la
-			-- moneda queda de canto (sliver) y vuelve a la cara. Easing in-out.
+			-- ── ENTRADA "FLIP + ZOOM" · el logo CRECE desde pequeño mientras da
+			--    una VUELTA horizontal completa (eje vertical), todo en un mismo
+			--    movimiento. Easing ease-out (lo ideal para entradas: arranca con
+			--    energía y asienta suave). El "NX" va dentro de la moneda → gira y
+			--    crece con ella; disco + halo van sincronizados. El tagline NO se anima.
 			local RunService = game:GetService("RunService")
-			local SPIN_SECS, TURNS = 1.5, 2
+			local SPIN_SECS, SPINS = 1.25, 1     -- una vuelta + zoom, ágil
+			local START_SCALE = 0.35             -- tamaño inicial del logo (de aquí crece a 1)
 			local spinConn
 			local function startSpin()
 				local t0 = os.clock()
 				spinConn = RunService.RenderStepped:Connect(function()
 					local p = (os.clock() - t0) / SPIN_SECS
 					if p >= 1 then
+						cScale.Scale = 1
 						coin.Size = UDim2.fromOffset(BASE, BASE)
-						wordmark.TextColor3 = Color3.fromRGB(255, 255, 255)
+						halo.Size = UDim2.fromOffset(BASE + 18, BASE + 18)
+						coin.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+						wordmark.TextColor3   = Color3.fromRGB(255, 255, 255)
+						playTone(SND.id, SND.vol, SND.pitch)   -- SINCRONIZADO: suena justo al asentarse el logo
 						if spinConn then spinConn:Disconnect(); spinConn = nil end
 						return
 					end
-					local e = (p < 0.5) and (4 * p * p * p) or (1 - ((-2 * p + 2) ^ 3) / 2)
-					local w = math.abs(math.cos(e * TURNS * 2 * math.pi))   -- 1 = de frente, 0 = de canto
-					coin.Size = UDim2.fromOffset(math.max(BASE * w, BASE * 0.04), BASE)
-					-- sombreado 3D real: la cara se OSCURECE al ponerse de canto y brilla al volver
-					local sh = 0.30 + 0.70 * w
-					wordmark.TextColor3 = Color3.fromRGB(math.floor(255 * sh), math.floor(255 * sh), math.floor(255 * sh))
+					-- ease-out cúbico: rápido al entrar, suave al asentar
+					local s = 1 - (1 - p) ^ 3
+					-- ZOOM: el logo crece de START_SCALE a 1 (cScale escala todo el conjunto)
+					cScale.Scale = START_SCALE + (1 - START_SCALE) * s
+					-- FLIP horizontal: una vuelta (escorzo de ancho con |cos|)
+					local face = math.cos(s * SPINS * 2 * math.pi)   -- +1 cara · 0 canto · -1 dorso
+					local w    = math.abs(face)
+					local n    = (face + 1) * 0.5
+					coin.Size = UDim2.fromOffset(math.max(BASE * w, BASE * 0.03), BASE)
+					halo.Size = UDim2.fromOffset(math.max((BASE + 18) * w, (BASE + 18) * 0.03), BASE + 18)
+					-- sombreado cara/dorso → la vuelta se siente real mientras crece
+					local sh = 0.18 + 0.82 * n
+					coin.BackgroundColor3 = Color3.fromRGB(math.floor(14 * sh), math.floor(14 * sh), math.floor(18 * sh))
+					wordmark.TextColor3   = Color3.fromRGB(math.floor(255 * sh), math.floor(255 * sh), math.floor(255 * sh))
 				end)
 			end
 
-			-- ── LÍNEA DE TIEMPO (entrada) ──
-			tw(cScale, 0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-			tw(halo,   0.55, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0.72 })
-			task.wait(0.08)
-			tw(coin,    0.40, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0 })
-			tw(cStroke, 0.45, Enum.EasingStyle.Quad, nil, { Transparency = 0.18 })
-			tw(wordmark, 0.40, Enum.EasingStyle.Quad, nil, { TextTransparency = 0 })
-			tw(tag,     0.50, Enum.EasingStyle.Quad, nil, { TextTransparency = 0.12 })
+			-- ── LÍNEA DE TIEMPO · entrada FLIP + ZOOM ──
+			cScale.Scale = START_SCALE                 -- arranca pequeño
+			-- el logo se MATERIALIZA rápido mientras ya crece y gira
+			tw(halo,    0.30, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0.72 })
+			tw(coin,    0.28, Enum.EasingStyle.Quad, nil, { BackgroundTransparency = 0 })
+			tw(cStroke, 0.32, Enum.EasingStyle.Quad, nil, { Transparency = 0.18 })
+			tw(wordmark,0.28, Enum.EasingStyle.Quad, nil, { TextTransparency = 0 })
 
-			-- arranca el giro cuando ya entró, y espera a que termine
-			task.wait(0.42)
-			startSpin()
+			startSpin()                                 -- flip + zoom · el sonido suena al aterrizar (ver driver)
+
+			-- el tagline entra SOLO al final, cuando el logo ya se asienta (nunca gira)
+			task.delay(SPIN_SECS * 0.72, function()
+				tw(tag, 0.45, Enum.EasingStyle.Quad, nil, { TextTransparency = 0.12 })
+			end)
+
 			task.wait(SPIN_SECS + 0.2)
 
 			-- ── SALIDA: del CÍRCULO nacen los paneles ──
