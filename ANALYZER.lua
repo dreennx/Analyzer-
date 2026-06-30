@@ -172,26 +172,38 @@ local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
 
-local store = { theme = "negro", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false }
+-- DEFAULT de primera vez: tema "tor" (morado) + intro retirada.
+-- (Nota: en cliente/executor NO existe DataStore — eso es solo servidor;
+--  la persistencia correcta es por archivo, que es lo que hacemos aquí.)
+local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = false, introSeen = true }
 
+-- Guardado ROBUSTO: escribe el archivo principal + una COPIA DE RESPALDO.
+-- Si el principal se corrompe, loadStore() recupera del backup. Falla en
+-- silencio si el executor no tiene sistema de archivos.
+local BACKUP_FILE = "ProfileAnalyzer_data.bak.json"
 local function saveStore()
 	if not hasFS then return end
-	pcall(function() writefile(SAVE_FILE, HttpService:JSONEncode(store)) end)
+	pcall(function()
+		local json = HttpService:JSONEncode(store)
+		writefile(SAVE_FILE, json)
+		writefile(BACKUP_FILE, json)
+	end)
 end
 
 local function loadStore()
 	if not hasFS then return end
 	pcall(function()
-		if isfile(SAVE_FILE) then
-			local ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(SAVE_FILE)) end)
-			if ok and type(decoded) == "table" then
-				store.theme = decoded.theme or "negro"
-				if type(decoded.headTags) == "boolean" then store.headTags = decoded.headTags end
-				if type(decoded.animations) == "boolean" then store.animations = decoded.animations end
-				if type(decoded.ownTag) == "boolean" then store.ownTag = decoded.ownTag end
-				if type(decoded.introEnabled) == "boolean" then store.introEnabled = decoded.introEnabled end
-				if type(decoded.introSeen) == "boolean" then store.introSeen = decoded.introSeen end
-			end
+		local raw
+		if isfile(SAVE_FILE) then raw = readfile(SAVE_FILE) end
+		local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+		-- principal vacío/corrupto → intenta el respaldo
+		if (not ok or type(decoded) ~= "table") and isfile(BACKUP_FILE) then
+			ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(BACKUP_FILE)) end)
+		end
+		if ok and type(decoded) == "table" then
+			-- Mezcla GENÉRICA: cualquier clave guardada pisa el default. Así las
+			-- futuras configuraciones se persisten solas sin tocar este loader.
+			for k, v in pairs(decoded) do store[k] = v end
 		end
 	end)
 end
@@ -1424,12 +1436,10 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = playerGui
 
--- INTRO: si la animación de bienvenida va a salir, ocultamos el panel desde el
--- arranque para que NO se vea antes que la intro. La intro lo revela al final
--- (bloque "NX INTRO" → _G.NXIntro). Failsafe interno: nunca queda oculto.
-if (store.introEnabled ~= false) and (store.introSeen ~= true) then
-	gui.Enabled = false
-end
+-- INTRO RETIRADA (a pedido): el panel arranca SIEMPRE visible. Antes se ocultaba
+-- aquí para que el splash de bienvenida saliera primero; ya no hay splash, así que
+-- no ocultamos nada (si lo hiciéramos, el panel se quedaría oculto sin nadie que
+-- lo revele).
 
 -- ====================== SISTEMA DE CONEXIONES ======================
 local connections = {}
@@ -1774,17 +1784,38 @@ sbPad.PaddingRight = UDim.new(0, 8)
 themed(searchBox, "BackgroundColor3", "input")
 themed(searchBox, "TextColor3", "text")
 
--- Candado a la izquierda, look de barra de direcciones de navegador.
-local lockGlyph = Instance.new("TextLabel", searchFrame)
+-- Icono LUPA (buscar) dibujado a la izquierda: aro + mango. Vectorial, siempre
+-- renderiza (nada de glifos/tofu) y se tiñe con el tema.
+local lockGlyph = Instance.new("Frame", searchFrame)
+lockGlyph.Name = "SearchIcon"
 lockGlyph.Size = UDim2.new(0, 16, 0, 28)
 lockGlyph.Position = UDim2.new(0, 7, 0, 0)
 lockGlyph.BackgroundTransparency = 1
-lockGlyph.Text = "🔒"
-lockGlyph.Font = Enum.Font.Gotham
-lockGlyph.TextSize = 11
-lockGlyph.TextColor3 = C.subtext
 lockGlyph.ZIndex = 2
-themed(lockGlyph, "TextColor3", "subtext")
+do
+	local ring = Instance.new("Frame", lockGlyph)
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.new(0.42, 0, 0.5, -1)
+	ring.Size = UDim2.fromOffset(10, 10)
+	ring.BackgroundTransparency = 1
+	ring.BorderSizePixel = 0
+	ring.ZIndex = 2
+	Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+	local rs = Instance.new("UIStroke", ring)
+	rs.Thickness = 1.6
+	rs.Color = C.subtext
+	themed(rs, "Color", "subtext")
+	local handle = Instance.new("Frame", lockGlyph)
+	handle.AnchorPoint = Vector2.new(0.5, 0.5)
+	handle.Position = UDim2.new(0.74, 0, 0.78, -1)
+	handle.Size = UDim2.fromOffset(5, 1.8)
+	handle.Rotation = 45
+	handle.BorderSizePixel = 0
+	handle.BackgroundColor3 = C.subtext
+	handle.ZIndex = 2
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
+	themed(handle, "BackgroundColor3", "subtext")
+end
 
 local SUG_MAX = 5
 local suggestionFrame = Instance.new("Frame", searchFrame)
@@ -7474,8 +7505,13 @@ end)()
 			end
 			tip.Text = text
 			tip.Visible = true
+			tip.AnchorPoint = Vector2.new(0.5, 0)              -- centrado bajo el icono
 			local ap = obj.AbsolutePosition
-			tip.Position = UDim2.fromOffset(ap.X - 40, ap.Y + obj.AbsoluteSize.Y + 6)
+			local cam = workspace.CurrentCamera
+			local vpX = (cam and cam.ViewportSize.X) or 1280
+			local cx = math.clamp(ap.X + obj.AbsoluteSize.X / 2, 70, vpX - 70)   -- no se sale por los lados
+			-- SIEMPRE debajo del icono (si saliera arriba, se cortaría y no se vería)
+			tip.Position = UDim2.fromOffset(cx, ap.Y + obj.AbsoluteSize.Y + 6)
 		end))
 		track(obj.MouseLeave:Connect(function()
 			if tip then tip.Visible = false end
@@ -7489,7 +7525,8 @@ end)()
 		badge.AnchorPoint = Vector2.new(1, 0.5)
 		badge.Position = UDim2.new(1, -12, 0.5, 0)        -- esquina DERECHA del header
 		badge.Size = UDim2.fromOffset(30, 20)
-		badge.BackgroundColor3 = Color3.fromRGB(10, 10, 12)  -- fondo negro
+		badge.BackgroundColor3 = C.card                      -- fondo SINCRONIZADO con el tema
+		themed(badge, "BackgroundColor3", "card")
 		badge.BackgroundTransparency = 0.1
 		badge.ZIndex = 4
 		badge.Parent = header
@@ -7501,7 +7538,7 @@ end)()
 		bl.Size = UDim2.fromScale(1, 1)
 		bl.Font = Enum.Font.GothamBold
 		bl.Text = "NX"
-		bl.TextSize = 12
+		bl.TextSize = 10
 		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco (respaldo)
 		bl.ZIndex = 5
 		-- Logo NX subido (rbxassetid). Mientras Roblox MODERA el asset, la imagen
@@ -7629,7 +7666,8 @@ end)()
 		hud.Position = UDim2.new(1, -12, 0, 10)            -- esquina superior DERECHA
 		hud.Size = UDim2.fromOffset(60, 40)
 		hud.AutomaticSize = Enum.AutomaticSize.X
-		hud.BackgroundColor3 = Color3.fromRGB(16, 16, 20)   -- glass OSCURO: legible sobre cualquier fondo de juego
+		hud.BackgroundColor3 = C.bg                          -- fondo SINCRONIZADO con el tema (cambia al cambiar la UI)
+		themed(hud, "BackgroundColor3", "bg")
 		hud.BackgroundTransparency = 0.1
 		hud.BorderSizePixel = 0
 		hud.Parent = gui
@@ -7647,8 +7685,8 @@ end)()
 		hp.PaddingTop = UDim.new(0, 5); hp.PaddingBottom = UDim.new(0, 5)
 
 		local order = 0
-		-- celda = icono (emoji) + valor
-		local function cell(emoji, text, valueColor)
+		-- celda = icono (emoji O dibujo vectorial vía drawFn) + valor
+		local function cell(emoji, text, valueColor, drawFn)
 			order += 1
 			local holder = Instance.new("Frame", hud)
 			holder.BackgroundTransparency = 1
@@ -7664,11 +7702,18 @@ end)()
 			ic.AutomaticSize = Enum.AutomaticSize.X
 			ic.Size = UDim2.fromOffset(0, 24)
 			ic.Font = Enum.Font.GothamBold
-			ic.Text = emoji
 			ic.TextSize = 15
 			ic.TextColor3 = C.accent
 			ic.LayoutOrder = 1
 			themed(ic, "TextColor3", "accent")
+			if drawFn then
+				ic.Text = ""
+				ic.AutomaticSize = Enum.AutomaticSize.None
+				ic.Size = UDim2.fromOffset(16, 16)
+				pcall(drawFn, ic)
+			else
+				ic.Text = emoji
+			end
 			local v = Instance.new("TextLabel", holder)
 			v.BackgroundTransparency = 1
 			v.AutomaticSize = Enum.AutomaticSize.X
@@ -7690,14 +7735,56 @@ end)()
 			d.LayoutOrder = order
 		end
 
+		-- ICONO FPS dibujado: 3 barritas tipo gráfico (acento, temable).
+		local function drawBars(parent)
+			local alturas = { 6, 10, 14 }
+			for i = 1, 3 do
+				local bar = Instance.new("Frame", parent)
+				bar.AnchorPoint = Vector2.new(0, 1)
+				bar.Position = UDim2.new(0, (i - 1) * 5 + 1, 1, -1)
+				bar.Size = UDim2.fromOffset(3, alturas[i])
+				bar.BorderSizePixel = 0
+				bar.BackgroundColor3 = C.accent
+				themed(bar, "BackgroundColor3", "accent")
+				Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 1)
+			end
+		end
+		-- ICONO DISCORD dibujado: burbuja de chat blanca con 3 puntitos blurple.
+		local function drawBubble(parent)
+			local body = Instance.new("Frame", parent)
+			body.AnchorPoint = Vector2.new(0.5, 0.5)
+			body.Position = UDim2.new(0.5, 0, 0.42, 0)
+			body.Size = UDim2.fromScale(0.78, 0.56)
+			body.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			body.BorderSizePixel = 0
+			Instance.new("UICorner", body).CornerRadius = UDim.new(0.42, 0)
+			local tail = Instance.new("Frame", parent)
+			tail.AnchorPoint = Vector2.new(0.5, 0.5)
+			tail.Position = UDim2.new(0.38, 0, 0.7, 0)
+			tail.Size = UDim2.fromScale(0.18, 0.18)
+			tail.Rotation = 45
+			tail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			tail.BorderSizePixel = 0
+			for i = 1, 3 do
+				local dot = Instance.new("Frame", body)
+				dot.AnchorPoint = Vector2.new(0.5, 0.5)
+				dot.Position = UDim2.new(0.27 + (i - 1) * 0.23, 0, 0.5, 0)
+				dot.Size = UDim2.fromScale(0.14, 0.2)
+				dot.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+				dot.BorderSizePixel = 0
+				Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+			end
+		end
+
 		playersLabel = cell("👥", "—/—", Color3.fromRGB(236, 238, 242))
 		divider()
 		pingLabel    = cell("🕐", "— ms", Color3.fromRGB(236, 238, 242))
 		divider()
-		fpsLabel     = cell("📊", "— fps", Color3.fromRGB(120, 230, 150))
+		fpsLabel     = cell(nil, "— fps", Color3.fromRGB(120, 230, 150), drawBars)
 
-		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid) o emoji
-		local function iconButton(emoji, imageId, onClick, bgColor)
+		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid), dibujo
+		-- vectorial (drawFn) o emoji. Prioridad: imagen > dibujo > emoji.
+		local function iconButton(emoji, imageId, onClick, bgColor, drawFn)
 			order += 1
 			local b = Instance.new("TextButton", hud)
 			b.Size = UDim2.fromOffset(28, 28)
@@ -7719,6 +7806,13 @@ end)()
 				content.Position = UDim2.fromScale(0.5, 0.5)
 				content.Size = UDim2.fromScale(0.64, 0.64)
 				content.Image = imageId
+			elseif drawFn then
+				content = Instance.new("Frame", b)
+				content.BackgroundTransparency = 1
+				content.AnchorPoint = Vector2.new(0.5, 0.5)
+				content.Position = UDim2.fromScale(0.5, 0.5)
+				content.Size = UDim2.fromScale(0.82, 0.82)
+				pcall(drawFn, content)
 			else
 				content = Instance.new("TextLabel", b)
 				content.BackgroundTransparency = 1
@@ -7759,7 +7853,7 @@ end)()
 				end
 			end)
 		end
-		local discBtn = iconButton("💬", DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242))  -- blurple Discord
+		local discBtn = iconButton(nil, DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242), drawBubble)  -- blurple Discord
 		attachTip(discBtn, "Discord NX")
 
 		-- OCULTAR / MOSTRAR **SOLO TU PROPIO TAG** (rápido, desde la barra). Persiste.
@@ -7900,6 +7994,227 @@ end)()
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  ✦ PRISM TOPBAR ULTRA · cabecera premium (logo · divisiones · título) ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  Capa ADITIVA y FINAL: corre DESPUÉS de PRISM LOOK + PRISM HUD, así    ║
+-- ║  manda sobre la geometría del título. Arregla que el texto se SALGA    ║
+-- ║  o se corte ilegible (título adaptativo full→corto→mini midiendo el    ║
+-- ║  ancho REAL), añade un LOGO genérico (gema, siempre renderiza), pone   ║
+-- ║  DIVISIONES en la barra, un borde neón sobre el título y un brillo     ║
+-- ║  SMOOTH que recorre la cabecera. Todo temable (themed/onRepaint),      ║
+-- ║  respeta Animaciones (ANIM) y se autolimpia con track(). IIFE: scope   ║
+-- ║  propio, no suma locales al chunk (no toca el límite de 200 de Luau).  ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+;(function()
+	local RunService  = game:GetService("RunService")
+	local TextService = game:GetService("TextService")
+
+	-- Mezclas de color: todo el neón se DERIVA de C.accent (respeta el tema).
+	local function lerp(a, b, t) return a + (b - a) * t end
+	local function lighten(c, f) return Color3.new(lerp(c.R,1,f), lerp(c.G,1,f), lerp(c.B,1,f)) end
+	local function darken(c, f)  return Color3.new(lerp(c.R,0,f), lerp(c.G,0,f), lerp(c.B,0,f)) end
+
+	-- ── 1) BRILLO SUPERIOR (specular): finísima línea clara arriba = cristal.
+	pcall(function()
+		local top = Instance.new("Frame", header)
+		top.Name = "TopSpecular"
+		top.Size = UDim2.new(1, -24, 0, 1)
+		top.Position = UDim2.new(0, 12, 0, 1)
+		top.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		top.BackgroundTransparency = 0.55
+		top.BorderSizePixel = 0
+		top.ZIndex = 3
+		local g = Instance.new("UIGradient", top)
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+	end)
+
+	-- ── 2) DIVISIONES verticales (atenuadas en los extremos), tono del tema.
+	local function vdivider(name, pos)
+		local d = Instance.new("Frame", header)
+		d.Name = name
+		d.AnchorPoint = Vector2.new(0.5, 0.5)
+		d.Position = pos
+		d.Size = UDim2.fromOffset(1, 18)
+		d.BackgroundColor3 = C.accent
+		d.BackgroundTransparency = 0.5
+		d.BorderSizePixel = 0
+		d.ZIndex = 3
+		themed(d, "BackgroundColor3", "accent")
+		local g = Instance.new("UIGradient", d)
+		g.Rotation = 90
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0.15),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		return d
+	end
+	vdivider("DivLeft",  UDim2.new(0, 74, 0.5, 0))     -- tras los semáforos
+	vdivider("DivRight", UDim2.new(1, -146, 0.5, 0))   -- antes de los controles
+
+	-- ── 3) LOGO genérico (gema/prisma): SIEMPRE renderiza, no depende de un
+	-- asset moderado. Va entre la división izquierda y el título.
+	local gemGrad, gemStroke
+	pcall(function()
+		local gem = Instance.new("Frame", header)
+		gem.Name = "NXGem"
+		gem.AnchorPoint = Vector2.new(0.5, 0.5)
+		gem.Position = UDim2.new(0, 90, 0.5, 0)
+		gem.Size = UDim2.fromOffset(15, 15)
+		gem.Rotation = 45
+		gem.BackgroundColor3 = C.accent
+		gem.BorderSizePixel = 0
+		gem.ZIndex = 3
+		themed(gem, "BackgroundColor3", "accent")
+		Instance.new("UICorner", gem).CornerRadius = UDim.new(0, 3)
+		gemGrad = Instance.new("UIGradient", gem)
+		gemGrad.Rotation = 90
+		gemGrad.Color = ColorSequence.new(lighten(C.accent, 0.45), darken(C.accent, 0.12))
+		gemStroke = Instance.new("UIStroke", gem)
+		gemStroke.Thickness = 1.2
+		gemStroke.Color = lighten(C.accent, 0.55)
+		gemStroke.Transparency = 0.15
+		-- destello interior (faceta)
+		local spark = Instance.new("Frame", gem)
+		spark.AnchorPoint = Vector2.new(0.5, 0.5)
+		spark.Position = UDim2.fromScale(0.5, 0.5)
+		spark.Size = UDim2.fromScale(0.42, 0.42)
+		spark.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		spark.BackgroundTransparency = 0.35
+		spark.BorderSizePixel = 0
+		spark.ZIndex = 4
+		Instance.new("UICorner", spark).CornerRadius = UDim.new(0, 2)
+	end)
+
+	-- ── 4) TÍTULO adaptativo: nunca se sale ni se corta ilegible. Mide el
+	-- ancho REAL disponible y elige el texto MÁS LARGO que quepa entero.
+	local FORMS = { "Roblox Profile Analyzer", "Profile Analyzer", "Analyzer", "NX" }
+	title.Position       = UDim2.new(0, 106, 0, 0)
+	title.Size           = UDim2.new(1, -258, 1, 0)   -- 106 izq + 152 der (controles)
+	title.TextTruncate   = Enum.TextTruncate.AtEnd
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	local function widthOf(s)
+		local ok, sz = pcall(function()
+			return TextService:GetTextSize(s, title.TextSize, title.Font, Vector2.new(9999, 100)).X
+		end)
+		return ok and sz or (#s * 9)
+	end
+	local function fitTitle()
+		local avail = title.AbsoluteSize.X - 4
+		local chosen = FORMS[#FORMS]
+		for _, t in ipairs(FORMS) do
+			if widthOf(t) <= avail then chosen = t; break end
+		end
+		if title.Text ~= chosen then title.Text = chosen end
+		local shine = title.Parent:FindFirstChild("TitleShine")   -- el barrido blanco sigue el mismo texto
+		if shine then shine.Text = chosen end
+	end
+	track(title:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() pcall(fitTitle) end))
+	task.defer(function() pcall(fitTitle) end)
+
+	-- Baja el BRILLO del barrido blanco del título (legibilidad: el destello
+	-- blanco era muy fuerte y costaba leer el título).
+	pcall(function()
+		local shine = title.Parent:FindFirstChild("TitleShine")
+		if shine then shine.TextTransparency = 0.6 end
+	end)
+
+	-- ── 5) BORDE NEÓN sobre el título (premium) + respiración suave (smooth).
+	-- Brillo REBAJADO a pedido: stroke fino y bastante transparente = se lee mejor.
+	local titleStroke
+	pcall(function()
+		titleStroke = Instance.new("UIStroke", title)
+		titleStroke.Thickness = 1
+		titleStroke.Color = lighten(C.accent, 0.1)
+		titleStroke.Transparency = 0.72
+		titleStroke.LineJoinMode = Enum.LineJoinMode.Round
+	end)
+
+	-- ── 6) BRILLO SMOOTH que recorre la base de la cabecera (escáner sutil).
+	local sheen, sheenGrad
+	pcall(function()
+		sheen = Instance.new("Frame", header)
+		sheen.Name = "HeaderSheen"
+		sheen.Size = UDim2.new(1, 0, 0, 2)
+		sheen.Position = UDim2.new(0, 0, 1, -2)
+		sheen.BackgroundColor3 = C.accent
+		sheen.BackgroundTransparency = 0.4
+		sheen.BorderSizePixel = 0
+		sheen.ZIndex = 3
+		themed(sheen, "BackgroundColor3", "accent")
+		sheenGrad = Instance.new("UIGradient", sheen)
+		sheenGrad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.00, 1),
+			NumberSequenceKeypoint.new(0.42, 1),
+			NumberSequenceKeypoint.new(0.50, 0.45),
+			NumberSequenceKeypoint.new(0.58, 1),
+			NumberSequenceKeypoint.new(1.00, 1),
+		})
+		sheenGrad.Offset = Vector2.new(-1, 0)
+	end)
+
+	-- ── 7) LATIDO: barre el escáner y respira el borde del título. Solo con la
+	-- GUI visible y con las animaciones activas (si las apagas, se queda quieto).
+	local t = 0
+	track(RunService.Heartbeat:Connect(function(dt)
+		if not gui.Enabled or not ANIM.enabled then return end
+		t += dt
+		if sheenGrad then
+			local p = (t * 0.30) % 2          -- 0..2 → barre de -1 a 1 y vuelve
+			sheenGrad.Offset = Vector2.new(p - 1, 0)
+		end
+		if titleStroke then
+			titleStroke.Transparency = 0.7 + 0.08 * math.sin(t * 1.4)   -- respiración muy suave y tenue
+		end
+	end))
+
+	-- ── 8) Sincronía con el TEMA EN VIVO (recalcula degradados de acento).
+	onRepaint(function()
+		if gemGrad     then pcall(function() gemGrad.Color     = ColorSequence.new(lighten(C.accent,0.45), darken(C.accent,0.12)) end) end
+		if gemStroke   then pcall(function() gemStroke.Color   = lighten(C.accent, 0.55) end) end
+		if titleStroke then pcall(function() titleStroke.Color = lighten(C.accent, 0.1)  end) end
+	end)
+
+	-- ── 9) HUD: subida un poco para aprovechar el espacio, sin pegarla al borde.
+	pcall(function()
+		local hud = gui:FindFirstChild("PrismHUD")
+		if hud then hud.Position = UDim2.new(1, -16, 0, 28) end
+	end)
+
+	-- ── 10) BOTONES (panel principal): esquinas redondeadas garantizadas +
+	-- micro-interacción hover/click. Solo UIScale → NO altera el layout ni pelea
+	-- con los colores de tema de cada botón. Idempotente (atributo NXPolished).
+	local function polishButton(b)
+		if b:GetAttribute("NXPolished") then return end
+		b:SetAttribute("NXPolished", true)
+		if not b:FindFirstChildOfClass("UICorner") then
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+		end
+		local sc = b:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", b)
+		local function to(scale, dur)
+			if ANIM.enabled then motionTween(sc, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = scale })
+			else sc.Scale = scale end
+		end
+		track(b.MouseEnter:Connect(function()        to(1.035, 0.12) end))
+		track(b.MouseLeave:Connect(function()        to(1.0,   0.14) end))
+		track(b.MouseButton1Down:Connect(function()  to(0.965, 0.08) end))
+		track(b.MouseButton1Up:Connect(function()    to(1.02,  0.10) end))
+	end
+	pcall(function()
+		for _, d in ipairs(main:GetDescendants()) do
+			if d:IsA("TextButton") then pcall(polishButton, d) end
+		end
+		track(main.DescendantAdded:Connect(function(d)
+			if d:IsA("TextButton") then task.defer(function() pcall(polishButton, d) end) end
+		end))
+	end)
+end)()
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
 -- ║  ✦ NX INTRO  ·  animación de bienvenida (logo NX + sonido suave)      ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  Splash premium glass/neón que aparece SOLO la primera vez (se        ║
@@ -7976,8 +8291,10 @@ end)()
 
 	local NXIntro = {}
 	local playing = false
+	local INTRO_REMOVED = true   -- intro de inicio RETIRADA por completo (a pedido)
 
 	function NXIntro.play()
+		if INTRO_REMOVED then return end   -- ya no se reproduce nunca (ni manual)
 		if playing then return end
 		playing = true
 
@@ -8189,8 +8506,8 @@ end)()
 	-- ⚠ MODO PRUEBA: con TEST_FORCE = true la intro sale en CADA ejecución
 	-- (ignora el "ya vista"). Cuando termines de probar, ponlo en false y
 	-- volverá a salir SOLO la primera vez (recordado en ProfileAnalyzer_data.json).
-	local TEST_FORCE = true
-	if (store.introEnabled ~= false) and (TEST_FORCE or store.introSeen ~= true) then
+	-- AUTO-ARRANQUE RETIRADO: la intro ya no sale nunca al iniciar.
+	if (not INTRO_REMOVED) and (store.introEnabled ~= false) and (store.introSeen ~= true) then
 		store.introSeen = true
 		pcall(saveStore)
 		NXIntro.play()
@@ -8320,6 +8637,21 @@ end)()
 		if not body then return nil end
 		local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
 		return ok and decoded or nil
+	end
+
+	-- POST JSON (pa' resolver el username EXACTO). El endpoint usernames/users es
+	-- de lectura y NO necesita CSRF/sesión → encuentra nombres exactos que el
+	-- buscador difuso (users/search) a veces no devuelve.
+	local function apiPost(url, bodyTbl)
+		if not httpRequest then return nil end
+		local ok, res = pcall(httpRequest, {
+			Url = url, Method = "POST",
+			Headers = { ["Content-Type"] = "application/json" },
+			Body = HttpService:JSONEncode(bodyTbl),
+		})
+		if not (ok and res and res.Body) then return nil end
+		local ok2, decoded = pcall(function() return HttpService:JSONDecode(res.Body) end)
+		return ok2 and decoded or nil
 	end
 
 	-- ====================== CACHÉ DE AVATARES (carga en segundo plano) ======================
@@ -8523,15 +8855,35 @@ end)()
 	padBusqueda.PaddingLeft = UDim.new(0, 30)
 	padBusqueda.PaddingRight = UDim.new(0, 8)
 
-	local lockGlyph = Instance.new("TextLabel", cajaBusqueda)
+	-- Icono LUPA dibujado (aro + mango), temable. Antes era un label vacío.
+	local lockGlyph = Instance.new("Frame", cajaBusqueda)
+	lockGlyph.Name = "SearchIcon"
 	lockGlyph.Size = UDim2.new(0, 16, 0, 16)
 	lockGlyph.Position = UDim2.new(0, 9, 0.5, -8)
 	lockGlyph.BackgroundTransparency = 1
-	lockGlyph.Text = ""
-	lockGlyph.Font = Enum.Font.Gotham
-	lockGlyph.TextSize = 11
 	lockGlyph.ZIndex = 2
-	pthemed(lockGlyph, "TextColor3", "subtext")
+	do
+		local ring = Instance.new("Frame", lockGlyph)
+		ring.AnchorPoint = Vector2.new(0.5, 0.5)
+		ring.Position = UDim2.new(0.42, 0, 0.42, 0)
+		ring.Size = UDim2.fromOffset(10, 10)
+		ring.BackgroundTransparency = 1
+		ring.BorderSizePixel = 0
+		ring.ZIndex = 2
+		Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+		local rs = Instance.new("UIStroke", ring)
+		rs.Thickness = 1.6
+		pthemed(rs, "Color", "subtext")
+		local handle = Instance.new("Frame", lockGlyph)
+		handle.AnchorPoint = Vector2.new(0.5, 0.5)
+		handle.Position = UDim2.new(0.72, 0, 0.72, 0)
+		handle.Size = UDim2.fromOffset(5, 1.8)
+		handle.Rotation = 45
+		handle.BorderSizePixel = 0
+		handle.ZIndex = 2
+		Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
+		pthemed(handle, "BackgroundColor3", "subtext")
+	end
 
 	local strokeBusqueda = Instance.new("UIStroke", cajaBusqueda)
 	strokeBusqueda.Thickness = 1
@@ -8726,7 +9078,10 @@ end)()
 		local ultimaSeccion = nil
 		for _, plr in ipairs(jugadoresVisibles) do
 			local datos = tarjetas[plr]
-			local seccion = obtenerSeccion(datos.displayName)
+			-- Al BUSCAR, agrupamos a los del servidor bajo un único header claro
+			-- ("En este servidor"), bien dividido del bloque global "🌐 Roblox".
+			-- Sin filtro, se mantienen las secciones alfabéticas de siempre.
+			local seccion = hayFiltro and "👥 En este servidor" or obtenerSeccion(datos.displayName)
 			if seccion ~= ultimaSeccion then
 				local header = Instance.new("Frame", scroll)
 				header.Name = "Seccion_" .. seccion
@@ -8988,43 +9343,65 @@ end)()
 		hiloGlobal = task.delay(0.45, function()
 			hiloGlobal = nil
 			if myId ~= busquedaGlobalId then return end
+
+			-- jugadores del servidor → se excluyen de "Roblox" (ya salen arriba)
+			local enServidor = {}
+			for plr, _ in pairs(tarjetas) do enServidor[plr.UserId] = true end
+
+			-- acumulador con dedupe; marcamos los EXACTOS pa' subirlos arriba
+			local resultados, vistos = {}, {}
+			local function add(u, exacto)
+				local id = u and u.id
+				if not id or enServidor[id] or vistos[id] then return end
+				vistos[id] = true
+				table.insert(resultados, {
+					id = id,
+					name = u.name or u.requestedUsername or "?",
+					displayName = u.displayName or u.name or "?",
+					exacto = exacto and true or false,
+				})
+			end
+
+			-- 1) EXACTO por username (POST, sin sesión): encuentra el nombre tal cual
+			local exactData = apiPost("https://users.roblox.com/v1/usernames/users", {
+				usernames = { texto }, excludeBannedUsers = false,
+			})
+			if myId ~= busquedaGlobalId then return end
+			if exactData and type(exactData.data) == "table" then
+				for _, u in ipairs(exactData.data) do add(u, true) end
+			end
+
+			-- 2) DIFUSO por keyword (GET): coincidencias parciales en todo Roblox
 			local url = "https://users.roblox.com/v1/users/search?keyword="
 				.. HttpService:UrlEncode(texto) .. "&limit=" .. GLOBAL_MAX
 			local data = apiGet(url)
 			if myId ~= busquedaGlobalId then return end
-
-			limpiarGlobales()
-			local lista = (data and type(data.data) == "table") and data.data or {}
-
-			local enServidor = {}
-			for plr, _ in pairs(tarjetas) do enServidor[plr.UserId] = true end
-
-			local filtrados = {}
-			for _, u in ipairs(lista) do
-				if u.id and not enServidor[u.id] then
-					table.insert(filtrados, u)
-				end
+			if data and type(data.data) == "table" then
+				for _, u in ipairs(data.data) do add(u, false) end
 			end
 
-			if #filtrados == 0 then
-				if not data then
+			-- exactos primero, luego el resto (orden estable)
+			table.sort(resultados, function(a, b)
+				if a.exacto ~= b.exacto then return a.exacto end
+				return false
+			end)
+
+			limpiarGlobales()
+			if #resultados == 0 then
+				if not exactData and not data then
 					crearHeaderGlobal("🌐 Roblox — sin conexión a la API")
 				else
 					crearHeaderGlobal("🌐 Roblox — sin resultados")
 				end
 				numGlobales = 0
 			else
-				crearHeaderGlobal("🌐 Roblox (" .. #filtrados .. ")")
+				crearHeaderGlobal("🌐 Roblox (" .. #resultados .. ")")
 				local orden = BASE_ORDEN_GLOBAL + 1
-				for _, u in ipairs(filtrados) do
-					crearTarjetaGlobal({
-						id = u.id,
-						name = u.name or "?",
-						displayName = u.displayName or u.name or "?",
-					}, orden)
+				for _, u in ipairs(resultados) do
+					crearTarjetaGlobal(u, orden)
 					orden = orden + 1
 				end
-				numGlobales = #filtrados
+				numGlobales = #resultados
 			end
 			actualizarSinResultados()
 		end)
