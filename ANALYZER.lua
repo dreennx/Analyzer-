@@ -6061,8 +6061,8 @@ do
     -- Anything the JSON DOES specify always wins over the preset.
     --==========================================================================
     local ROLE_PRESETS = {
-    ["OWNER"]                = { color = Color3.fromRGB(255, 215, 90),  icon = "👑", priority = 100, animation = "elite_gold"     },
-    ["OWNER'S ASSISTANT"]    = { color = Color3.fromRGB(200, 160, 255), icon = "👑", priority = 95,  animation = "elite_platinum" },
+    ["OWNER"]                = { color = Color3.fromRGB(255, 215, 90),  icon = "",  priority = 100, animation = "elite_gold"     },
+    ["OWNER'S ASSISTANT"]    = { color = Color3.fromRGB(200, 160, 255), icon = "⭐", priority = 95,  animation = "elite_platinum" },
     ["SUPPORT SPECIALIST"]   = { color = Color3.fromRGB(90, 230, 150),  icon = "⌘",  priority = 90,  animation = "luxe"           },
     ["UI DESIGNER"]          = { color = Color3.fromRGB(120, 230, 160), icon = "🎨", priority = 85,  animation = "gradient"       },
     ["CYBER SECURITY"]       = { color = Color3.fromRGB(90, 160, 255),  icon = "🛡️", priority = 80,  animation = "elite_cyber"    },
