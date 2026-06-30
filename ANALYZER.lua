@@ -523,7 +523,8 @@ local function getNXTag(userId)
 	if type(entry) ~= "table" then return nil end
 	local tagText = entry.tag or entry.text or ""
 	if tagText == "" and (entry.icon == nil or entry.icon == "") then return nil end
-	return { tag = tagText, icon = entry.icon or "", color = nxColor(entry.color) }
+	local _icon = tostring(entry.icon or ""):gsub("👑", "")   -- NX: mata corona emoji
+	return { tag = tagText, icon = _icon, color = nxColor(entry.color) }
 end
 
 loadNXTags()      -- precarga al iniciar (no bloquea: corre en segundo plano)
@@ -619,7 +620,9 @@ do
 			   or imgNormalize(role.iconImage) or imgNormalize(nxAsset(role.iconAsset))
 			if img then imgPreload(img) end
 		end
-		local tagText, icon = raw.tag or "", raw.icon or role.icon or ""
+		if img and tostring(img):find("98710143344488", 1, true) then img = nil end  -- NX: mata imagen-corona
+		local tagText = raw.tag or ""
+		local icon = tostring(raw.icon or role.icon or ""):gsub("👑", "")             -- NX: mata corona emoji
 		if tagText == "" and icon == "" and not img then return nil end
 		return {
 			tag = tagText, discordRole = raw.discordRole or role.discordRole,
@@ -5953,7 +5956,7 @@ print(("[Profile Analyzer v3.5.0] Cargado correctamente. Executor: %s"):format(E
       -- quick local test without touching GitHub:
       _G.NXHeadTags.SetLocalOverride(
           game.Players.LocalPlayer.UserId,
-          { tag = "NX OWNER", icon = "👑", color = "gold", animation = "rainbow" }
+          { tag = "NX OWNER", icon = "", color = "gold", animation = "rainbow" }
       )
 
   Drop this in as its own LocalScript, OR paste the whole `do ... end`
@@ -6184,8 +6187,9 @@ do
         local preset    = ROLE_PRESETS[normalizeRole(roleName)] or {}
 
         local color     = resolveColor(raw.color, preset.color or Color3.fromRGB(255, 255, 255))
-        local icon      = raw.icon or preset.icon or ""
+        local icon      = tostring(raw.icon or preset.icon or ""):gsub("👑", "")          -- NX: mata corona emoji
         local iconImage = normalizeImage(raw.iconImage or raw.image or preset.iconImage)  -- NUEVO
+        if iconImage and tostring(iconImage):find("98710143344488", 1, true) then iconImage = nil end  -- NX: mata imagen-corona
         local animation = preset.animation or raw.animation or CONFIG.DEFAULT_ANIMATION
         animation       = string.lower(tostring(animation))
         local priority  = tonumber(raw.priority) or preset.priority or 0
