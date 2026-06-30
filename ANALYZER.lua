@@ -175,7 +175,7 @@ local hasFS = (type(writefile) == "function")
 -- DEFAULT de primera vez: tema "tor" (morado) + intro retirada.
 -- (Nota: en cliente/executor NO existe DataStore — eso es solo servidor;
 --  la persistencia correcta es por archivo, que es lo que hacemos aquí.)
-local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = false, introSeen = true }
+local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false }
 
 -- Guardado ROBUSTO: escribe el archivo principal + una COPIA DE RESPALDO.
 -- Si el principal se corrompe, loadStore() recupera del backup. Falla en
@@ -1436,10 +1436,12 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = playerGui
 
--- INTRO RETIRADA (a pedido): el panel arranca SIEMPRE visible. Antes se ocultaba
--- aquí para que el splash de bienvenida saliera primero; ya no hay splash, así que
--- no ocultamos nada (si lo hiciéramos, el panel se quedaría oculto sin nadie que
--- lo revele).
+-- INTRO: si la animación de bienvenida va a salir, ocultamos el panel desde el
+-- arranque para que NO se vea antes que la intro. La intro lo revela al final
+-- (bloque "NX INTRO" → _G.NXIntro). Failsafe interno: nunca queda oculto.
+if (store.introEnabled ~= false) and (store.introSeen ~= true) then
+	gui.Enabled = false
+end
 
 -- ====================== SISTEMA DE CONEXIONES ======================
 local connections = {}
@@ -7538,7 +7540,7 @@ end)()
 		bl.Size = UDim2.fromScale(1, 1)
 		bl.Font = Enum.Font.GothamBold
 		bl.Text = "NX"
-		bl.TextSize = 10
+		bl.TextSize = 12
 		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco (respaldo)
 		bl.ZIndex = 5
 		-- Logo NX subido (rbxassetid). Mientras Roblox MODERA el asset, la imagen
@@ -8291,10 +8293,10 @@ end)()
 
 	local NXIntro = {}
 	local playing = false
-	local INTRO_REMOVED = true   -- intro de inicio RETIRADA por completo (a pedido)
+	local INTRO_REMOVED = false   -- ← interruptor: true = apaga la intro; false = ENCENDIDA
 
 	function NXIntro.play()
-		if INTRO_REMOVED then return end   -- ya no se reproduce nunca (ni manual)
+		if INTRO_REMOVED then return end   -- si está apagada, no hace nada
 		if playing then return end
 		playing = true
 
