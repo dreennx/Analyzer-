@@ -331,11 +331,20 @@ local repaintExtra = {}  -- funciones extra a llamar en cada repaint (casos espe
 local function onRepaint(fn) table.insert(repaintExtra, fn) end
 
 local function repaint()
-	for _, e in ipairs(roleMap) do
+	-- Compacta el registro EN SITIO: descarta los entries cuya instancia ya se
+	-- destruyó (inst == nil, lo pone el Destroying de themed()). Antes se
+	-- quedaban para siempre y repaint() recorría miles de entries muertos en
+	-- sesiones largas (cada cambio de perfil recrea toda la UI).
+	local n = 0
+	for i = 1, #roleMap do
+		local e = roleMap[i]
 		if e.inst then
+			n = n + 1
+			roleMap[n] = e
 			pcall(function() e.inst[e.prop] = C[e.role] end)
 		end
 	end
+	for i = #roleMap, n + 1, -1 do roleMap[i] = nil end
 	for _, fn in ipairs(repaintExtra) do pcall(fn) end
 end
 
@@ -547,7 +556,12 @@ loadNXTags()      -- precarga al iniciar (no bloquea: corre en segundo plano)
 -- _G.NXResolve y reasigna el local getNXTag a un dispatcher (v2 -> legacy).
 -- Reversible: _G.NXV2.setEnabled(false) vuelve a legacy; borrar el bloque revierte.
 do
+	-- Si una instancia anterior del script sigue viva (re-ejecución), corta su
+	-- bucle de refresco: usaba `while true` y no moría nunca, así que cada
+	-- re-ejecución dejaba un loop HTTP inmortal más acumulándose.
+	if _G.NXV2 and _G.NXV2.stop then pcall(_G.NXV2.stop) end
 	local NX_V2 = { enabled = true, images = false }   -- images OFF: assets aún no válidos
+	local alive = true
 	local BASE  = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/v2/"
 	local TTL, RETRY = 300, 15
 
@@ -568,7 +582,7 @@ do
 	end
 	local function dget(f) return store[f] end
 	task.spawn(function()
-		while true do
+		while alive do
 			if NX_V2.enabled then
 				for _, f in ipairs({ "roles.json", "tags.json" }) do
 					if not store[f] then fetch(f)
@@ -654,6 +668,7 @@ do
 		pending = function() return not (dget("roles.json") and dget("tags.json")) end,
 		setEnabled = function(on) NX_V2.enabled = on and true or false; _G.NXV2.enabled = NX_V2.enabled end,
 		setImages = function(on) NX_V2.images = on and true or false; _G.NXV2.images = NX_V2.images end,
+		stop = function() alive = false end,   -- corta el bucle de refresco (cleanup / re-ejecución)
 	}
 	_G.NXAsset = nxAsset
 	_G.NXResolve = resolveV2
@@ -867,12 +882,22 @@ local function getUserIdByName(name)
 end
 
 local avatarCache = {}
+local avatarCacheOrder = {}
+local AVATAR_CACHE_MAX = 60
 local function getAvatar(userId)
 	if avatarCache[userId] then return avatarCache[userId] end
 	local ok, thumb = pcall(function()
 		return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
 	end)
 	local img = (ok and thumb ~= "" and thumb) or "rbxassetid://0"
+	-- Evicción FIFO: sin tope, en sesiones largas (Explorador de amigos saltando
+	-- de cuenta en cuenta) se acumulan cientos de thumbnails sin liberarse nunca.
+	-- El string ya guardado en data.AvatarUrl sigue válido aunque se desaloje.
+	avatarCacheOrder[#avatarCacheOrder + 1] = userId
+	if #avatarCacheOrder > AVATAR_CACHE_MAX then
+		local oldest = table.remove(avatarCacheOrder, 1)
+		if oldest ~= userId then avatarCache[oldest] = nil end
+	end
 	avatarCache[userId] = img
 	return img
 end
@@ -1455,6 +1480,9 @@ local function cleanupAll()
 		pcall(function() c:Disconnect() end)
 	end
 	table.clear(connections)
+	-- Corta el bucle de refresco de NX V2: no es una RBXScriptConnection, así que
+	-- track()/Disconnect no lo cubre. Sin esto seguiría pidiendo HTTP tras cerrar.
+	pcall(function() if _G.NXV2 and _G.NXV2.stop then _G.NXV2.stop() end end)
 end
 
 track(gui.AncestryChanged:Connect(function(_, newParent)
@@ -2088,11 +2116,17 @@ local function openURL(url)
 	-- SOLO dentro de un hilo aparte y desechable: al morir el hilo se va la
 	-- identidad elevada, así el hilo principal NUNCA queda elevado y no se
 	-- rompe el chat de Roblox (ese era el bug por el que se quitó antes).
-	local ok = false
+	local ok, done = false, false
 	task.spawn(function()
 		pcall(function() if setthreadidentity then setthreadidentity(8) end end)
 		ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
+		done = true
 	end)
+	-- Esperar a que el hilo desechable termine antes de leer 'ok'. Antes se leía
+	-- de inmediato (el spawn aún no había corrido) → SIEMPRE false, así que el
+	-- navegador nativo nunca reportaba éxito y siempre caía a los fallbacks.
+	local t0 = os.clock()
+	while not done and (os.clock() - t0) < 1 do task.wait() end
 	if ok then return true end
 	local candidates = {
 		rawget(_G, "open_url"), rawget(_G, "openurl"), rawget(_G, "openUrl"), rawget(_G, "OpenURL"),
@@ -6796,7 +6830,7 @@ Animations.luxe = {
             circleIcon = Instance.new("ImageLabel")
             circleIcon.BackgroundTransparency = 1
             circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
-            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
+            circleIcon.Size                   = UDim2.fromScale(0.60, 0.60)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.ScaleType              = Enum.ScaleType.Fit
@@ -8508,8 +8542,10 @@ end)()
 	-- ⚠ MODO PRUEBA: con TEST_FORCE = true la intro sale en CADA ejecución
 	-- (ignora el "ya vista"). Cuando termines de probar, ponlo en false y
 	-- volverá a salir SOLO la primera vez (recordado en ProfileAnalyzer_data.json).
-	-- AUTO-ARRANQUE RETIRADO: la intro ya no sale nunca al iniciar.
-	if (not INTRO_REMOVED) and (store.introEnabled ~= false) and (store.introSeen ~= true) then
+	-- AUTO-ARRANQUE de la intro. TEST_FORCE = true → sale en CADA ejecución.
+	-- Ponlo en false y saldrá SOLO la primera vez (recordado en el guardado).
+	local TEST_FORCE = true
+	if (not INTRO_REMOVED) and (store.introEnabled ~= false) and (TEST_FORCE or store.introSeen ~= true) then
 		store.introSeen = true
 		pcall(saveStore)
 		NXIntro.play()
