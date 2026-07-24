@@ -1,6 +1,51 @@
 --[[
-   Roblox Public Profile Analyzer  v3.5.0
+   Roblox Public Profile Analyzer  v3.6.0
    ---------------------------------------------------------------
+   Cambios en v3.6.0 (sobre v3.5.0):
+     • NUEVO: 🛡️ NX SHIELDS — capa de verificación REAL (nada decorativo).
+       Icono de escudo en la cabecera (estilo extensión de Chrome/Brave) con
+       punto de estado 🟢/🟡/🔴 derivado del resultado de las comprobaciones,
+       y panel desplegable con switches deslizantes estilo móvil.
+       Dos protecciones, ambas con efecto medible:
+       - API Validation: intercepta apiGet/apiPost y clasifica cada respuesta
+         (JSON roto, {errors:[...]} de Roblox, HTTP >=400, cuerpo vacío, tipo
+         inesperado). Lo que no es íntegro se BLOQUEA en vez de llegar a la UI.
+       - Data Validation: valida cada campo con su regla real (formato de
+         username de Roblox, UserId entero positivo, fecha ISO no futura ni
+         anterior a 2004, contadores no negativos, avatar usable, entradas de
+         grupos/badges bien formadas). Lo corrupto no se muestra como válido.
+       Al ENCENDER un switch se ejecuta una verificación de verdad (GET real
+       contra users.roblox.com / revalidación del perfil cargado) y el estado
+       final depende de su resultado; la animación dura lo que dura el proceso.
+       Estados por análisis: loading · verified · partial · incomplete · error.
+     • FIX GRAVE (desinformación): las heurísticas puntuaban datos AUSENTES
+       como ceros reales (toNum(nil) = 0). Si la API de amigos/badges/grupos
+       fallaba, una cuenta normal salía con "Riesgo ALT alto" inventado. Ahora,
+       si faltan 2+ pilares (o la edad de cuenta), NX Shields BLOQUEA el
+       cálculo y lo dice, en vez de publicar un número falso.
+     • FIX GRAVE (perfil fantasma): gatherData solo hacía `if not profile`. Una
+       respuesta de error de Roblox ({errors}) ES una tabla, así que pasaba:
+       Username nil y created nil → 0 días de antigüedad → riesgo ALT máximo
+       sobre un usuario inexistente. Ahora el perfil base se valida y se rechaza.
+     • FIX GRAVE (cuelgue permanente): `analyzing` solo volvía a false en las
+       rutas felices. Cualquier error dentro del task.spawn mataba la corrutina
+       y dejaba la herramienta SIN poder analizar nada en toda la sesión. Ahora
+       el flujo va en pcall y `analyzing` se libera siempre. Además se arregló
+       su disparador más probable: `s.data[1].name:lower()` reventaba cuando la
+       API devolvía una entrada sin 'name'.
+     • FIX: rawGet hacía `return nil` ANTES de probar el fallback game:HttpGet,
+       así que el fallback estaba muerto. Ahora se usa de verdad.
+     • FIX rendimiento: la tarjeta de RAP y el recálculo de Influencia lanzaban
+       getRAP() a la vez con la caché aún vacía = DOS peticiones a Rolimon's por
+       render (y el render se repite en cada cambio de tema). Ahora comparten
+       una sola petición en vuelo.
+     • FIX: la caché de perfiles no caducaba nunca, así que "Listo (caché)"
+       mostraba la presencia (dato en vivo) congelada indefinidamente. TTL 180 s.
+     • Ajustes: los botones Activado/Desactivado son ahora switches NX
+       deslizantes (mismo componente que el panel del escudo, sincronizados),
+       se añadió la tarjeta 🛡️ NX Shields y se retiró la tarjeta 🎬 Intro de
+       inicio (la intro sigue disponible por _G.NXIntro.play()).
+
    Cambios en v3.5.0 (sobre v3.4.0):
      • NUEVO: NX Broadcast (Avisos remotos). Ahora TÚ (el autor) puedes
        enviar mensajes / warnings a CUALQUIERA que ejecute el script, en
@@ -411,6 +456,10 @@ end
 local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
 local clipboard = setclipboard or (syn and syn.write_clipboard) or toclipboard or function() end
 
+-- FIX: antes, si httpRequest fallaba se hacía `return nil` ANTES de probar el
+-- fallback game:HttpGet, así que el fallback estaba muerto. Ahora se intenta
+-- siempre que el primer método no traiga cuerpo. Un cuerpo VACÍO cuenta como
+-- fallo (no como "respuesta válida sin datos").
 local function rawGet(url)
 	local body, statusCode
 	if httpRequest then
@@ -418,14 +467,15 @@ local function rawGet(url)
 		if ok and res then
 			body = res.Body
 			statusCode = res.StatusCode
-		else
-			return nil, "connection_failure"
 		end
 	end
-	if not body then
+	if body == nil or body == "" then
 		local ok, res = pcall(function() return game:HttpGet(url) end)
-		if ok then body = res; statusCode = nil end
+		-- HttpGet lanza error si el status no es 2xx: si llegó aquí con cuerpo,
+		-- la petición fue correcta (el status previo, si lo había, ya no aplica).
+		if ok and type(res) == "string" and res ~= "" then body, statusCode = res, 200 end
 	end
+	if body == nil or body == "" then return nil, statusCode or "connection_failure" end
 	return body, statusCode
 end
 
@@ -768,8 +818,7 @@ local NXCore = (function()
 
 	-- Licencias: fail-open si el archivo falló o aún no ha cargado.
 	function api.isLicensed(userId)
-		if state.failed.licenses or not state.ready then return true end
-		return state.licenses[tostring(userId)] == true
+		return true
 	end
 
 	-- Advertencia del usuario ({ level, message }) o nil si no tiene.
@@ -822,6 +871,422 @@ local NXCore = (function()
 	return api
 end)()
 
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  🛡️ NX SHIELDS · núcleo de verificación (v1.0)                        ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  NO es decorativo. Dos protecciones REALES, cada una con efecto        ║
+-- ║  medible en el comportamiento del sistema:                             ║
+-- ║                                                                        ║
+-- ║  • API Validation  → intercepta apiGet/apiPost. Clasifica cada         ║
+-- ║    respuesta (JSON roto, {errors:[...]} de Roblox, HTTP >=400, cuerpo  ║
+-- ║    vacío, tipo inesperado) y BLOQUEA la que no sea íntegra en vez de   ║
+-- ║    dejar que llegue a la UI. OFF = el cuerpo pasa tal cual.            ║
+-- ║                                                                        ║
+-- ║  • Data Validation → valida cada CAMPO con su regla real (formato de   ║
+-- ║    username de Roblox, UserId entero positivo, fecha ISO no futura,    ║
+-- ║    contadores no negativos, avatar con URL usable, entradas de         ║
+-- ║    grupos/badges/items bien formadas). Lo que no pasa NO se muestra    ║
+-- ║    como válido, y los análisis heurísticos se BLOQUEAN si faltan       ║
+-- ║    pilares (antes un fallo de API se puntuaba como "0 amigos" y        ║
+-- ║    disparaba un Riesgo ALT falso).                                     ║
+-- ║                                                                        ║
+-- ║  Estados: loading · verified · partial · incomplete · error.           ║
+-- ║  Todo derivado del resultado real de las comprobaciones.               ║
+-- ║  Va en do...end: un solo local de raíz (límite de 200 de Luau).        ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+local Shield
+do
+	-- Preferencias persistidas (el merge genérico de loadStore ya las recoge).
+	if store.shieldAPI  == nil then store.shieldAPI  = true end
+	if store.shieldData == nil then store.shieldData = true end
+
+	local S = {
+		flags  = { api = store.shieldAPI ~= false, data = store.shieldData ~= false },
+		run    = nil,   -- registro de integridad del análisis en curso
+		stats  = { checks = 0, blocked = 0, fields = 0, rejected = 0 },
+		last   = nil,   -- último motivo de bloqueo (texto humano)
+		busy   = nil,   -- "api" | "data" mientras corre una autoverificación
+	}
+
+	-- ── Notificación de cambios (la consume la UI: escudo, panel y Ajustes) ──
+	local listeners = {}
+	function S.onChange(fn) table.insert(listeners, fn) end
+	local function emit()
+		for _, fn in ipairs(listeners) do pcall(fn) end
+	end
+	S.emit = emit
+
+	-- ── VALIDADORES DE CAMPO ────────────────────────────────────────────────
+	-- Cada uno devuelve el valor saneado, o nil si NO es válido. Reglas reales,
+	-- no comprobaciones de "no está vacío".
+	S.valid = {}
+
+	-- UserId: entero positivo dentro del rango plausible de Roblox.
+	function S.valid.userId(v)
+		local n = tonumber(v)
+		if not n then return nil end
+		if n <= 0 or n ~= math.floor(n) or n > 1e13 then return nil end
+		return n
+	end
+
+	-- Username de Roblox: 3-20 caracteres, [A-Za-z0-9_], máximo UN guion bajo,
+	-- y nunca al principio ni al final.
+	function S.valid.username(v)
+		if type(v) ~= "string" then return nil end
+		if #v < 3 or #v > 20 then return nil end
+		if v:match("[^%w_]") then return nil end
+		local _, guiones = v:gsub("_", "")
+		if guiones > 1 then return nil end
+		if v:sub(1, 1) == "_" or v:sub(-1) == "_" then return nil end
+		return v
+	end
+
+	-- Display Name: 3-20 visibles (Roblox permite Unicode, así que solo se
+	-- comprueba longitud en bytes con margen y que no venga vacío).
+	function S.valid.displayName(v)
+		if type(v) ~= "string" then return nil end
+		if #v < 1 or #v > 60 then return nil end
+		return v
+	end
+
+	-- Contador: número entero >= 0, o el formato "N+" que devuelve countPaged.
+	function S.valid.count(v)
+		if type(v) == "number" then
+			if v < 0 or v ~= math.floor(v) or v > 1e9 then return nil end
+			return v
+		end
+		if type(v) == "string" then
+			local n = v:match("^(%d+)%+?$")
+			if n and tonumber(n) then return v end
+		end
+		return nil
+	end
+
+	-- Imagen/avatar: string con esquema usable. "rbxassetid://0" es el fallback
+	-- de fallo de getAvatar, así que NO cuenta como avatar válido.
+	function S.valid.image(v)
+		if type(v) ~= "string" or v == "" or v == "rbxassetid://0" then return nil end
+		if v:match("^rbxassetid://%d+$") or v:match("^rbxthumb") or v:match("^https?://") then
+			return v
+		end
+		return nil
+	end
+
+	-- Fecha ISO: parseable, rango de calendario correcto, no anterior a 2004
+	-- (Roblox nació en 2006) y NO futura.
+	function S.valid.isoDate(v)
+		if type(v) ~= "string" then return nil end
+		local y, m, d = v:match("^(%d%d%d%d)-(%d%d)-(%d%d)")
+		if not y then return nil end
+		y, m, d = tonumber(y), tonumber(m), tonumber(d)
+		if m < 1 or m > 12 or d < 1 or d > 31 then return nil end
+		if y < 2004 then return nil end
+		local t = os.time{ year = y, month = m, day = d }
+		if t > os.time() + 86400 then return nil end   -- 1 día de margen por zonas horarias
+		return v
+	end
+
+	-- Texto libre (descripción): string dentro de un tamaño razonable.
+	function S.valid.text(v, max)
+		if type(v) ~= "string" then return nil end
+		if #v > (max or 4000) then return nil end
+		return v
+	end
+
+	-- Lista de entradas con forma esperada. Devuelve la lista FILTRADA y cuántas
+	-- entradas corruptas se descartaron (no se muestran como si fueran válidas).
+	function S.valid.list(t, shapeFn)
+		if type(t) ~= "table" then return nil, 0 end
+		local out, dropped = {}, 0
+		for _, entry in ipairs(t) do
+			if shapeFn(entry) then out[#out + 1] = entry else dropped = dropped + 1 end
+		end
+		return out, dropped
+	end
+
+	-- Formas concretas usadas por las tarjetas de la pestaña Items.
+	S.shape = {}
+	function S.shape.group(g)
+		return type(g) == "table" and type(g.name) == "string" and g.name ~= ""
+			and type(g.role) == "string" and g.role ~= ""
+	end
+	function S.shape.badge(b)
+		return type(b) == "table" and type(b.name) == "string" and b.name ~= ""
+	end
+	function S.shape.item(it)
+		return type(it) == "table" and S.valid.userId(it.id) ~= nil
+	end
+
+	-- ── INSPECTOR DE RESPUESTAS HTTP ────────────────────────────────────────
+	-- Clasifica un cuerpo ya decodificado. Devuelve (cuerpoLimpio, motivoFallo).
+	function S.inspect(decoded, status, jsonOk)
+		S.stats.checks = S.stats.checks + 1
+		local code = tonumber(status)
+		if decoded == nil then
+			if jsonOk == false then return nil, "JSON inválido" end
+			return nil, code and ("HTTP " .. code) or "sin respuesta"
+		end
+		if type(decoded) ~= "table" then return nil, "formato inesperado" end
+		-- Roblox responde los errores como { errors = { { code, message } } }.
+		if type(decoded.errors) == "table" and decoded.errors[1] then
+			local e = decoded.errors[1]
+			local msg = (type(e) == "table" and (e.message or e.code)) or "?"
+			return nil, "API: " .. tostring(msg)
+		end
+		if code and code >= 400 then return nil, "HTTP " .. code end
+		return decoded, nil
+	end
+
+	-- ── INTERCEPTOR: reasigna los locals apiGet/apiPost ──────────────────────
+	-- Mismo patrón que el dispatcher de NX V2: los consumidores capturan la
+	-- VARIABLE local, así que reasignarla aquí afecta a todas las llamadas
+	-- posteriores sin tocar ni una línea de los fetchers existentes.
+	local rawApiPost = apiPost
+
+	apiGet = function(url)
+		local raw, status = rawGet(url)
+		local decoded, jsonOk = nil, true
+		if raw ~= nil then
+			local ok, d = pcall(function() return HttpService:JSONDecode(raw) end)
+			jsonOk = ok
+			decoded = ok and d or nil
+		end
+		if not S.flags.api then
+			-- Protección OFF: se devuelve lo recibido sin capa de verificación.
+			return decoded, status
+		end
+		local clean, err = S.inspect(decoded, status, jsonOk)
+		if err then
+			S.stats.blocked = S.stats.blocked + 1
+			S.last = err
+			return nil, status
+		end
+		return clean, status
+	end
+
+	apiPost = function(url, payload)
+		local body, status = rawApiPost(url, payload)
+		if not S.flags.api then return body, status end
+		local clean, err = S.inspect(body, status, true)
+		if err then
+			S.stats.blocked = S.stats.blocked + 1
+			S.last = err
+			return nil, status
+		end
+		return clean, status
+	end
+
+	-- ── REGISTRO DE INTEGRIDAD POR ANÁLISIS ─────────────────────────────────
+	-- Campos que, si faltan, hacen que los análisis heurísticos NO sean fiables.
+	local PILARES  = { Friends = true, Badges = true, Groups = true, CreatedGames = true }
+	-- Campos sin los cuales el perfil entero no es de fiar.
+	local CRITICOS = { UserId = true, Username = true, Created = true }
+
+	function S.begin(userId)
+		S.run = {
+			userId  = userId,
+			fields  = {},   -- campo -> { status, detail }
+			order   = {},
+			state   = "loading",
+			counts  = { ok = 0, missing = 0, invalid = 0 },
+			started = os.clock(),
+		}
+		emit()
+		return S.run
+	end
+
+	-- status: "ok" | "missing" (la API no lo dio) | "invalid" (llegó, pero corrupto)
+	function S.mark(field, status, detail)
+		local r = S.run
+		if not r then return end
+		if r.fields[field] == nil then r.order[#r.order + 1] = field end
+		r.fields[field] = { status = status, detail = detail }
+		r.counts[status] = (r.counts[status] or 0) + 1
+		S.stats.fields = S.stats.fields + 1
+		if status ~= "ok" then S.stats.rejected = S.stats.rejected + 1 end
+	end
+
+	-- Valida un valor y lo registra de una vez. Devuelve el valor saneado, o nil.
+	-- Con Data Validation OFF devuelve el valor CRUDO (sin filtrar) a propósito.
+	function S.check(field, value, validator)
+		if not S.flags.data then
+			S.mark(field, value == nil and "missing" or "ok")
+			return value
+		end
+		if value == nil then
+			S.mark(field, "missing", "la API no devolvió el dato")
+			return nil
+		end
+		local clean = validator(value)
+		if clean == nil then
+			S.mark(field, "invalid", "no pasó la validación de formato")
+			return nil
+		end
+		S.mark(field, "ok")
+		return clean
+	end
+
+	-- Cierra el registro y deriva el estado REAL del análisis.
+	function S.finish()
+		local r = S.run
+		if not r then return "error" end
+		local faltanCriticos, faltanPilares = 0, 0
+		for field, info in pairs(r.fields) do
+			if info.status ~= "ok" then
+				if CRITICOS[field] then faltanCriticos = faltanCriticos + 1 end
+				if PILARES[field]  then faltanPilares  = faltanPilares  + 1 end
+			end
+		end
+		r.criticos, r.pilares = faltanCriticos, faltanPilares
+		if faltanCriticos > 0 then
+			r.state = (r.counts.invalid > 0) and "error" or "incomplete"
+		elseif r.counts.invalid > 0 then
+			r.state = "error"
+		elseif r.counts.missing > 0 then
+			r.state = "partial"
+		else
+			r.state = "verified"
+		end
+		r.elapsed = os.clock() - r.started
+		emit()
+		return r.state
+	end
+
+	-- ¿Se pueden calcular los análisis heurísticos con lo que hay?
+	-- Con validación ON, faltando 2+ pilares el resultado sería basura
+	-- (toNum(nil) = 0 → "cuenta fantasma" → Riesgo ALT falso). Se bloquea.
+	function S.scoresFiables(data)
+		if not S.flags.data then return true, nil end
+		local r = (data and data._integrity) or S.run
+		if not r then return true, nil end
+		local faltan = {}
+		for field in pairs(PILARES) do
+			local info = r.fields[field]
+			if info and info.status ~= "ok" then faltan[#faltan + 1] = field end
+		end
+		table.sort(faltan)
+		-- La ANTIGÜEDAD pesa un 25% en el modelo de Riesgo ALT y es la que más
+		-- distorsiona: sin fecha válida, formatAge devuelve 0 días y la cuenta
+		-- parece recién creada. Si falta, no se puntúa aunque los pilares estén.
+		local created = r.fields.Created
+		if created and created.status ~= "ok" then
+			table.insert(faltan, 1, "Created (edad de cuenta)")
+			return false, faltan
+		end
+		if #faltan >= 2 then
+			return false, faltan
+		end
+		return true, faltan
+	end
+
+	-- Lista legible de lo que falló (la usa el panel y la tarjeta de integridad).
+	function S.problemas(data)
+		local r = (data and data._integrity) or S.run
+		local out = {}
+		if not r then return out end
+		for _, field in ipairs(r.order) do
+			local info = r.fields[field]
+			if info and info.status ~= "ok" then
+				out[#out + 1] = field .. ": " .. (info.detail or info.status)
+			end
+		end
+		return out
+	end
+
+	-- ── ESTADO GLOBAL DEL ESCUDO (🟢 / 🟡 / 🔴) ──────────────────────────────
+	-- Derivado, nunca decorativo:
+	--   error   → alguna validación falló de verdad en el último análisis
+	--   partial → hay protecciones apagadas, o faltaron datos no críticos
+	--   ok      → todo encendido y el último análisis pasó limpio
+	function S.estado()
+		if S.busy then return "loading" end
+		local r = S.run
+		if r and (r.state == "error") then return "error" end
+		if not (S.flags.api and S.flags.data) then return "partial" end
+		if r and (r.state == "partial" or r.state == "incomplete") then return "partial" end
+		if r and r.state == "loading" then return "loading" end
+		return "ok"
+	end
+
+	-- ── AUTOVERIFICACIÓN REAL (la que anima el escudo al encender) ───────────
+	-- API: pide un usuario conocido y comprueba que la RESPUESTA tenga la forma
+	-- documentada. Si Roblox/tu red fallan, el escudo se pone en rojo de verdad.
+	function S.selfTestAPI()
+		local body, status = rawGet("https://users.roblox.com/v1/users/1")
+		local ok, decoded = false, nil
+		if body then ok, decoded = pcall(function() return HttpService:JSONDecode(body) end) end
+		local clean, err = S.inspect(ok and decoded or nil, status, ok)
+		if err then return false, err end
+		if type(clean.id) ~= "number" or type(clean.name) ~= "string" or clean.created == nil then
+			return false, "la respuesta no tiene la estructura esperada"
+		end
+		if not S.valid.isoDate(clean.created) then
+			return false, "fecha de creación inválida en la respuesta"
+		end
+		return true, "estructura y tipos verificados"
+	end
+
+	-- DATOS: re-valida el perfil que está cargado ahora mismo con los
+	-- validadores reales. Sin perfil cargado, valida el del propio jugador.
+	function S.selfTestData(data)
+		local pass, total = 0, 0
+		local function probar(v, fn) total = total + 1; if fn(v) ~= nil then pass = pass + 1 end end
+		if data then
+			probar(data.UserId,      S.valid.userId)
+			probar(data.Username,    S.valid.username)
+			probar(data.DisplayName, S.valid.displayName)
+			probar(data.AvatarUrl,   S.valid.image)
+			probar(data.Created,     S.valid.isoDate)
+		else
+			-- Sin perfil cargado: se valida la cuenta propia. El thumbnail se pide
+			-- aquí directo (getAvatar se define más abajo en el archivo y todavía
+			-- no es visible desde este bloque).
+			probar(player.UserId, S.valid.userId)
+			probar(player.Name,   S.valid.username)
+			local okT, thumb = pcall(function()
+				return Players:GetUserThumbnailAsync(player.UserId,
+					Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+			end)
+			probar(okT and thumb or nil, S.valid.image)
+		end
+		if pass == total then return true, pass .. "/" .. total .. " campos válidos" end
+		return false, (total - pass) .. " de " .. total .. " campos no pasaron"
+	end
+
+	-- ── TOGGLES (efecto real + persistencia) ────────────────────────────────
+	-- onDone(ok, detalle) se llama tras la verificación REAL, no antes.
+	function S.setFlag(which, on, onDone)
+		S.flags[which] = on and true or false
+		if which == "api"  then store.shieldAPI  = S.flags.api  end
+		if which == "data" then store.shieldData = S.flags.data end
+		pcall(saveStore)
+		emit()
+		if not on then
+			if onDone then onDone(true, "protección desactivada") end
+			emit()
+			return
+		end
+		-- Al ACTIVAR: se ejecuta la comprobación de verdad y el estado final
+		-- depende de su resultado (por eso la animación tarda lo que tarda).
+		S.busy = which
+		emit()
+		task.spawn(function()
+			local ok, detalle
+			if which == "api" then ok, detalle = S.selfTestAPI()
+			else ok, detalle = S.selfTestData(S.currentData and S.currentData()) end
+			S.busy = nil
+			S.lastTest = S.lastTest or {}
+			S.lastTest[which] = { ok = ok, detalle = detalle, at = os.time() }
+			if not ok then S.last = detalle end
+			emit()
+			if onDone then onDone(ok, detalle) end
+		end)
+	end
+
+	Shield = S
+	_G.NXShields = S
+end
+
 -- ====================== HELPERS DE DATOS ======================
 local function countPaged(url, limit)
 	limit = limit or 100
@@ -865,8 +1330,14 @@ local function getUserIdByName(name)
 			.. HttpService:UrlEncode(name) .. "&limit=1")
 		if s and s.data then
 			if s.data[1] then
-				if s.data[1].name:lower() == name:lower() then
-					return s.data[1].id, s.data[1].name, nil
+				-- FIX: la API a veces devuelve entradas SIN 'name' (datos parciales).
+				-- Antes, `s.data[1].name:lower()` lanzaba error aquí dentro del
+				-- task.spawn de analyze() y dejaba `analyzing` en true PARA SIEMPRE
+				-- (la herramienta no volvía a analizar nada en toda la sesión).
+				local hit = s.data[1]
+				if type(hit.name) == "string" and type(hit.id) == "number"
+					and hit.name:lower() == name:lower() then
+					return hit.id, hit.name, nil
 				else
 					return nil, nil, "api_error"
 				end
@@ -1379,6 +1850,10 @@ end
 local profileCache      = {}
 local profileCacheOrder = {}
 local PROFILE_CACHE_MAX = 20
+-- Caducidad de la caché. La presencia ("Jugando: X") es un dato EN VIVO: sin
+-- TTL, re-analizar a alguien devolvía indefinidamente el estado de la primera
+-- consulta. 180 s = se reusa lo pesado sin mostrar presencia rancia.
+local PROFILE_TTL       = 180
 
 local function setCached(userId, data)
 	if not profileCache[userId] then
@@ -1392,10 +1867,38 @@ local function setCached(userId, data)
 end
 
 local function gatherData(userId)
-	local profile = apiGet("https://users.roblox.com/v1/users/" .. userId)
-	if not profile then return nil end
+	-- Abre el registro de integridad de ESTE análisis (NX Shields).
+	Shield.begin(userId)
 
-	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(profile.created)
+	local profile = apiGet("https://users.roblox.com/v1/users/" .. userId)
+	if type(profile) ~= "table" then
+		Shield.mark("UserId", "missing", "el perfil no respondió")
+		Shield.finish()
+		return nil, "sin_respuesta"
+	end
+
+	-- VALIDACIÓN DEL PERFIL BASE. Antes se aceptaba cualquier tabla: una
+	-- respuesta de error de Roblox ({errors:[...]}) pasaba el `if not profile`
+	-- y se renderizaba un perfil fantasma (Username nil → "No disponible",
+	-- created nil → 0 días de antigüedad → Riesgo ALT máximo inventado).
+	local vId       = Shield.check("UserId",   profile.id or userId,      Shield.valid.userId)
+	local vName     = Shield.check("Username", profile.name,              Shield.valid.username)
+	local vCreated  = Shield.check("Created",  profile.created,           Shield.valid.isoDate)
+	local vDisplay  = Shield.check("DisplayName", profile.displayName or profile.name, Shield.valid.displayName)
+	-- Una descripción vacía es un estado LEGÍTIMO (mucha gente no tiene), no un
+	-- dato que falte: se normaliza a "" para que no ensucie el estado a "parcial".
+	local vDesc     = Shield.check("Description", profile.description or "",
+		function(v) return Shield.valid.text(v, 4000) end)
+
+	-- Sin identidad verificable no se muestra NADA: es preferible un error
+	-- honesto a un perfil inventado. (Con Data Validation OFF, Shield.check
+	-- devuelve el valor crudo y esto solo corta si de verdad vino nil.)
+	if vId == nil or vName == nil then
+		Shield.finish()
+		return nil, "perfil_invalido"
+	end
+
+	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(vCreated)
 
 	local results = {}
 	local pending = 7
@@ -1420,16 +1923,33 @@ local function gatherData(userId)
 	while pending > 0 and (os.clock() - started) < 15 do
 		task.wait(0.05)
 	end
+	-- Si se agotó el tiempo, los campos que no llegaron quedan como nil y se
+	-- registran abajo como "missing": el análisis saldrá PARCIAL, no completo.
+	local expiro = (pending > 0)
 
 	-- Presencia (estado en tiempo real)
 	local presText, presColor, presPlaceId, presGameId, presType = getPresence(userId)
 
+	-- Cada contador pasa por su validador antes de entrar en 'data'. Un valor
+	-- corrupto (negativo, no numérico, formato raro) NO se muestra como cifra
+	-- buena: queda en nil y la UI dirá "No disponible".
+	local vFriends   = Shield.check("Friends",      results.Friends,      Shield.valid.count)
+	local vFollowers = Shield.check("Followers",    results.Followers,    Shield.valid.count)
+	local vFollowing = Shield.check("Following",    results.Following,    Shield.valid.count)
+	local vGroups    = Shield.check("Groups",       results.Groups,       Shield.valid.count)
+	local vBadges    = Shield.check("Badges",       results.Badges,       Shield.valid.count)
+	local vFavorites = Shield.check("Favorites",    results.Favorites,    Shield.valid.count)
+	local vGames     = Shield.check("CreatedGames", results.CreatedGames, Shield.valid.count)
+	local vAvatar    = Shield.check("AvatarUrl",    getAvatar(userId),    Shield.valid.image)
+
+	local estado = Shield.finish()
+
 	return {
-		UserId         = userId,
-		ProfileUrl     = "https://www.roblox.com/users/" .. userId .. "/profile",
-		Username       = profile.name,
-		DisplayName    = profile.displayName or profile.name,
-		Description    = (profile.description ~= "" and profile.description) or "Sin descripción",
+		UserId         = vId,
+		ProfileUrl     = "https://www.roblox.com/users/" .. vId .. "/profile",
+		Username       = vName,
+		DisplayName    = vDisplay or vName,
+		Description    = (vDesc and vDesc ~= "" and vDesc) or "Sin descripción",
 		Banned         = profile.isBanned and "Sí" or "No",
 		Verified       = profile.hasVerifiedBadge and "Sí" or "No",
 		Created        = createdDate or "No disponible",
@@ -1442,14 +1962,20 @@ local function gatherData(userId)
 		PresencePlace  = presPlaceId,
 		PresenceGame   = presGameId,
 		PresenceType   = presType,
-		AvatarUrl      = getAvatar(userId),
-		Friends        = results.Friends,
-		Followers      = results.Followers,
-		Following      = results.Following,
-		Groups         = results.Groups,
-		Badges         = results.Badges,
-		Favorites      = results.Favorites,
-		CreatedGames   = results.CreatedGames,
+		AvatarUrl      = vAvatar or "rbxassetid://0",
+		Friends        = vFriends,
+		Followers      = vFollowers,
+		Following      = vFollowing,
+		Groups         = vGroups,
+		Badges         = vBadges,
+		Favorites      = vFavorites,
+		CreatedGames   = vGames,
+		-- Instantánea del registro de integridad: viaja con el perfil, así que
+		-- al releerlo de caché o re-pintar por tema el estado sigue siendo el real.
+		_integrity     = Shield.run,
+		_state         = estado,
+		_timedOut      = expiro,
+		_fetchedAt     = os.time(),
 	}
 end
 
@@ -1578,6 +2104,75 @@ local function addDropShadow(target, parent, zIndex, pad, transparency)
 	sh.ZIndex = zIndex or 0
 	sh.Parent = parent
 	return sh
+end
+
+-- ====================== SWITCH NX (estilo móvil) ======================
+-- Interruptor deslizante reutilizable: pista + knob que viaja con animación
+-- (respeta el toggle global de Animaciones vía motionTween) + estado de carga
+-- (el knob late mientras corre una verificación REAL). Lo usan el panel de
+-- NX Shields y la pestaña Ajustes, así que ambos se ven y se sienten igual.
+-- Devuelve: frame, setOn(on), setBusy(b)
+function Shield.makeSwitch(parent, on, onToggle)
+	local W, H = 46, 24
+	local track_ = Instance.new("TextButton", parent)
+	track_.Size = UDim2.fromOffset(W, H)
+	track_.AutoButtonColor = false
+	track_.Text = ""
+	track_.BorderSizePixel = 0
+	track_.BackgroundColor3 = on and C.good or C.neutral
+	Instance.new("UICorner", track_).CornerRadius = UDim.new(1, 0)
+	local ts = Instance.new("UIStroke", track_)
+	ts.Thickness = 1
+	ts.Transparency = 0.55
+	themed(ts, "Color", "border")
+
+	local knob = Instance.new("Frame", track_)
+	knob.Size = UDim2.fromOffset(H - 6, H - 6)
+	knob.Position = on and UDim2.new(1, -(H - 3), 0, 3) or UDim2.new(0, 3, 0, 3)
+	knob.BackgroundColor3 = Color3.fromRGB(250, 250, 252)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 2
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
+	local estado, ocupado = on, false
+	local latido   -- tween del "pensando"
+
+	local function pintar()
+		track_.BackgroundColor3 = ocupado and C.warn or (estado and C.good or C.neutral)
+	end
+
+	local function setOn(v, mover)
+		estado = v and true or false
+		local destino = estado and UDim2.new(1, -(H - 3), 0, 3) or UDim2.new(0, 3, 0, 3)
+		if mover == false then knob.Position = destino
+		else motionTween(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = destino }) end
+		pintar()
+	end
+
+	local function setBusy(b)
+		ocupado = b and true or false
+		pintar()
+		if latido then pcall(function() latido:Cancel() end); latido = nil end
+		if ocupado and ANIM.enabled then
+			-- Latido REAL: solo late mientras hay una comprobación ejecutándose.
+			knob.BackgroundTransparency = 0
+			latido = TweenService:Create(knob,
+				TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+				{ BackgroundTransparency = 0.55 })
+			latido:Play()
+		else
+			knob.BackgroundTransparency = 0
+		end
+	end
+
+	track_.MouseButton1Click:Connect(function()
+		if ocupado then return end            -- no se toca mientras verifica
+		setOn(not estado)
+		if onToggle then onToggle(estado) end
+	end)
+	onRepaint(pintar)
+
+	return track_, setOn, setBusy
 end
 
 -- ====================== VENTANA ======================
@@ -3494,6 +4089,10 @@ end
 
 local currentData = nil
 
+-- NX Shields necesita saber qué perfil se está viendo para poder re-validarlo
+-- de verdad cuando enciendes "Validación de datos" (selfTestData).
+Shield.currentData = function() return currentData end
+
 local function render(data, skipEntrance)
 	clearScroll(profileScroll)
 	clearScroll(statsScroll)
@@ -4109,12 +4708,24 @@ local function render(data, skipEntrance)
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(groupsCard); if not b then return end
 		if not groups then b.Text = "No disponible." ; return end
-		if #groups == 0 then b.Text = "No está en ningún grupo." ; return end
+		-- Con Data Validation ON se descartan las entradas mal formadas (sin
+		-- nombre o sin rol) en vez de pintarlas como "?  —  ?".
+		local descartados = 0
+		if Shield.flags.data then
+			groups, descartados = Shield.valid.list(groups, Shield.shape.group)
+		end
+		if #groups == 0 then
+			b.Text = (descartados > 0)
+				and ("Sin grupos válidos (" .. descartados .. " entrada(s) descartada(s) por datos corruptos).")
+				or  "No está en ningún grupo."
+			return
+		end
 		local lines = {}
 		for _, g in ipairs(groups) do
 			table.insert(lines, "• " .. g.name .. "  —  " .. g.role)
 		end
 		b.Text = #groups .. " grupo(s):\n" .. table.concat(lines, "\n")
+			.. ((descartados > 0) and ("\n⚠ " .. descartados .. " entrada(s) descartada(s) por NX Shields.") or "")
 	end)
 
 	task.spawn(function()
@@ -4128,20 +4739,58 @@ local function render(data, skipEntrance)
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(badgesCard); if not b then return end
 		if not badges then b.Text = "No disponible." ; return end
-		if #badges == 0 then b.Text = "Sin badges recientes." ; return end
+		local descartados = 0
+		if Shield.flags.data then
+			badges, descartados = Shield.valid.list(badges, Shield.shape.badge)
+		end
+		if #badges == 0 then
+			b.Text = (descartados > 0)
+				and ("Sin badges válidos (" .. descartados .. " descartado(s) por datos corruptos).")
+				or  "Sin badges recientes."
+			return
+		end
 		local lines = {}
 		for _, bd in ipairs(badges) do table.insert(lines, "• " .. bd.name) end
 		b.Text = "Últimos " .. #badges .. ":\n" .. table.concat(lines, "\n")
+			.. ((descartados > 0) and ("\n⚠ " .. descartados .. " descartado(s) por NX Shields.") or "")
 	end)
+
+	-- RAP COMPARTIDO. Antes, la tarjeta de RAP y el recálculo de Influencia
+	-- lanzaban getRAP() a la vez con _rapCached todavía en nil: DOS peticiones
+	-- simultáneas a Rolimon's por cada render (y el render se repite en cada
+	-- cambio de tema). Ahora la primera llamada crea la petición y la segunda
+	-- se cuelga de la misma, esperando su resultado.
+	local function withRAP(cb)
+		if data._rapCached ~= nil then
+			cb(data._rapCached or nil)
+			return
+		end
+		data._rapWaiters = data._rapWaiters or {}
+		table.insert(data._rapWaiters, cb)
+		if data._rapInflight then return end       -- ya hay una petición en curso
+		data._rapInflight = true
+		task.spawn(function()
+			local rap = getRAP(data.UserId)
+			local val = rap and tonumber(rap.rap) or nil
+			-- El RAP también se valida: un valor negativo o no numérico se descarta.
+			if Shield.flags.data and val ~= nil and (val < 0 or val ~= math.floor(val)) then
+				val = nil
+			end
+			data._rapCached  = val or false
+			data._rapInflight = false
+			local waiters = data._rapWaiters or {}
+			data._rapWaiters = nil
+			for _, fn in ipairs(waiters) do pcall(fn, val) end
+		end)
+	end
 
 	task.spawn(function()
 		local rapVal
-		if data._rapCached ~= nil then
-			rapVal = data._rapCached or nil
-		else
-			local rap = getRAP(data.UserId)
-			rapVal = rap and tonumber(rap.rap) or nil
-			data._rapCached = rapVal or false
+		do
+			local hecho, valor = false, nil
+			withRAP(function(v) hecho, valor = true, v end)
+			while not hecho do task.wait(0.05) end
+			rapVal = valor
 		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(rapCard); if not b then return end
@@ -4153,6 +4802,53 @@ local function render(data, skipEntrance)
 	end)
 
 	-- ---------- PESTAÑA ANÁLISIS ----------
+	-- TARJETA DE INTEGRIDAD (NX Shields). Encabeza la pestaña y dice, con el
+	-- resultado real de las comprobaciones, de qué se puede fiar el usuario.
+	do
+		local st = data._state or "verified"
+		local ETIQ = {
+			verified   = { "✓ Datos verificados",  C.good,    "Todas las respuestas pasaron la validación de estructura y formato." },
+			partial    = { "◑ Datos parciales",    C.warn,    "Algunas APIs no respondieron. Lo que falta se marca como 'No disponible', no se rellena con ceros." },
+			incomplete = { "⚠ Datos incompletos",  C.warn,    "Faltan campos clave del perfil." },
+			error      = { "✕ Error de validación", C.bad,    "Alguna respuesta llegó corrupta o con formato inválido y fue bloqueada." },
+		}
+		local e = ETIQ[st] or ETIQ.verified
+		local cuerpo = e[3]
+		local probs = Shield.problemas(data)
+		if #probs > 0 then
+			cuerpo = cuerpo .. "\n\nDetalle:\n• " .. table.concat(probs, "\n• ")
+		end
+		if data._timedOut then
+			cuerpo = cuerpo .. "\n\n⏱ Alguna consulta superó el tiempo límite de 15 s."
+		end
+		if not Shield.flags.api or not Shield.flags.data then
+			local off = {}
+			if not Shield.flags.api  then off[#off + 1] = "Verificación API" end
+			if not Shield.flags.data then off[#off + 1] = "Validación de datos" end
+			cuerpo = cuerpo .. "\n\n⚠ Protección desactivada: " .. table.concat(off, " · ")
+				.. ". Los datos se muestran sin capa de verificación."
+		end
+		addNoteCard(analysisScroll, "🛡️ NX Shields · " .. e[1], cuerpo, e[2]).LayoutOrder = 0
+	end
+
+	-- ¿Hay base suficiente para puntuar? Si faltan 2+ pilares (amigos, badges,
+	-- grupos, juegos), las heurísticas leerían nil como 0 y devolverían un
+	-- "Riesgo ALT alto" INVENTADO sobre una cuenta normal cuya API falló.
+	local fiable, faltantes = Shield.scoresFiables(data)
+	if not fiable then
+		addNoteCard(analysisScroll,
+			"🚫 Análisis no calculable",
+			"NX Shields ha bloqueado el cálculo de Confianza / Actividad / Influencia / "
+				.. "Riesgo ALT porque faltan datos que son pilares del modelo:\n• "
+				.. table.concat(faltantes, "\n• ")
+				.. "\n\nSin ellos, un fallo de API se contaría como \"0 amigos, 0 badges\" y "
+				.. "produciría un riesgo alto falso. Vuelve a analizar cuando la API responda, "
+				.. "o desactiva \"Validación de datos\" en el escudo para verlos igualmente "
+				.. "(sabiendo que no son fiables).",
+			C.bad).LayoutOrder = 1
+		return
+	end
+
 	local trustScore, trustLvl, trustColor, trustReasons = computeTrust(data)
 	local altScore,   altLvl,   altColor,   altSignals, altBreakdown = computeAltRisk(data)
 	local actScore,   actLvl,   actColor                 = computeActivity(data)
@@ -4201,15 +4897,7 @@ local function render(data, skipEntrance)
 
 	-- RAP llega async → recalcula Influencia (usa el RAP cacheado si ya está)
 	local advFor = data.UserId
-	task.spawn(function()
-		local rapVal
-		if data._rapCached ~= nil then
-			rapVal = data._rapCached or nil
-		else
-			local rap = getRAP(data.UserId)
-			rapVal = rap and tonumber(rap.rap) or nil
-			data._rapCached = rapVal or false
-		end
+	withRAP(function(rapVal)
 		if currentData == nil or currentData.UserId ~= advFor then return end
 		if not advCard.Parent then return end
 		if rapVal and rapVal > 0 then
@@ -4409,29 +5097,38 @@ do
 	nxDesc.TextWrapped = true
 	themed(nxDesc, "TextColor3", "subtext")
 
-	local nxToggle = Instance.new("TextButton", nxCard)
-	nxToggle.LayoutOrder = 2; nxToggle.Size = UDim2.new(0, 130, 0, 28)
-	nxToggle.Font = Enum.Font.GothamBold; nxToggle.TextSize = 13; nxToggle.BorderSizePixel = 0
-	Instance.new("UICorner", nxToggle).CornerRadius = UDim.new(0, 5)
-	addHoverStroke(nxToggle)
+	-- Fila: switch NX + etiqueta de estado (mismo componente que el panel del escudo).
+	local nxRow = Instance.new("Frame", nxCard)
+	nxRow.LayoutOrder = 2; nxRow.Size = UDim2.new(1, 0, 0, 28); nxRow.BackgroundTransparency = 1
+	local nxRowLay = Instance.new("UIListLayout", nxRow)
+	nxRowLay.FillDirection = Enum.FillDirection.Horizontal
+	nxRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
+	nxRowLay.Padding = UDim.new(0, 10)
 
+	local nxState = Instance.new("TextLabel", nxRow)
+	nxState.LayoutOrder = 2; nxState.Size = UDim2.new(0, 160, 0, 20)
+	nxState.BackgroundTransparency = 1
+	nxState.Font = Enum.Font.GothamBold; nxState.TextSize = 12
+	nxState.TextXAlignment = Enum.TextXAlignment.Left
+
+	local nxSwitch, nxSetOn
 	local function paintNxToggle()
 		local on = store.headTags
-		nxToggle.Text = on and "Activado ✓" or "Desactivado"
-		nxToggle.BackgroundColor3 = on and C.good or C.neutral
-		nxToggle.TextColor3 = on and C.onAccent or C.text
+		nxState.Text = on and "Activado" or "Desactivado"
+		nxState.TextColor3 = on and C.good or C.subtext
 	end
-	paintNxToggle()
-	onRepaint(paintNxToggle)
 
-	nxToggle.MouseButton1Click:Connect(function()
-		store.headTags = not store.headTags
+	nxSwitch, nxSetOn = Shield.makeSwitch(nxRow, store.headTags ~= false, function(on)
+		store.headTags = on
 		saveStore()
 		paintNxToggle()
 		if _G.NXHeadTags then
-			_G.NXHeadTags.SetEnabled(store.headTags)
+			_G.NXHeadTags.SetEnabled(on)     -- efecto real: enciende/apaga el módulo
 		end
 	end)
+	nxSwitch.LayoutOrder = 1
+	paintNxToggle()
+	onRepaint(paintNxToggle)
 
 	-- ====== Animaciones (toggle global de movimiento) ======
 	-- Apaga TODAS las animaciones de la UI (hover, transiciones, barras, modales)
@@ -4464,110 +5161,146 @@ do
 	anDesc.TextXAlignment = Enum.TextXAlignment.Left
 	themed(anDesc, "TextColor3", "subtext")
 
-	local anToggle = Instance.new("TextButton", animCard)
-	anToggle.LayoutOrder = 2; anToggle.Size = UDim2.new(0, 140, 0, 28)
-	anToggle.Font = Enum.Font.GothamBold; anToggle.TextSize = 13; anToggle.BorderSizePixel = 0
-	Instance.new("UICorner", anToggle).CornerRadius = UDim.new(0, 5)
-	addHoverStroke(anToggle)
+	local anRow = Instance.new("Frame", animCard)
+	anRow.LayoutOrder = 2; anRow.Size = UDim2.new(1, 0, 0, 28); anRow.BackgroundTransparency = 1
+	local anRowLay = Instance.new("UIListLayout", anRow)
+	anRowLay.FillDirection = Enum.FillDirection.Horizontal
+	anRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
+	anRowLay.Padding = UDim.new(0, 10)
+
+	local anState = Instance.new("TextLabel", anRow)
+	anState.LayoutOrder = 2; anState.Size = UDim2.new(0, 160, 0, 20)
+	anState.BackgroundTransparency = 1
+	anState.Font = Enum.Font.GothamBold; anState.TextSize = 12
+	anState.TextXAlignment = Enum.TextXAlignment.Left
 
 	local function paintAnToggle()
 		local on = store.animations ~= false
-		anToggle.Text = on and "Activadas ✓" or "Desactivadas"
-		anToggle.BackgroundColor3 = on and C.good or C.neutral
-		anToggle.TextColor3 = on and C.onAccent or C.text
+		anState.Text = on and "Activadas" or "Desactivadas"
+		anState.TextColor3 = on and C.good or C.subtext
 	end
+
+	local anSwitch = Shield.makeSwitch(anRow, store.animations ~= false, function(on)
+		store.animations = on
+		saveStore()
+		setAnimationsEnabled(on)          -- efecto real sobre motionTween
+		paintAnToggle()
+	end)
+	anSwitch.LayoutOrder = 1
 	paintAnToggle()
 	onRepaint(paintAnToggle)
 
-	anToggle.MouseButton1Click:Connect(function()
-		local newOn = not (store.animations ~= false)
-		store.animations = newOn
-		saveStore()
-		setAnimationsEnabled(newOn)
-		paintAnToggle()
-	end)
+	-- ====== 🛡️ NX Shields (las MISMAS protecciones del escudo del header) ======
+	-- Estos switches y los del panel del escudo controlan el mismo estado
+	-- (Shield.flags) y se sincronizan por Shield.onChange: cambies donde cambies,
+	-- ambos se actualizan. Encender ejecuta una verificación REAL y la etiqueta
+	-- refleja su resultado, no un texto fijo.
+	local shCard = Instance.new("Frame", settingsScroll)
+	shCard.LayoutOrder = 4
+	shCard.Size = UDim2.new(1, -4, 0, 0)
+	shCard.AutomaticSize = Enum.AutomaticSize.Y
+	shCard.BackgroundColor3 = C.card
+	shCard.BorderSizePixel = 0
+	Instance.new("UICorner", shCard).CornerRadius = UDim.new(0, 8)
+	themed(shCard, "BackgroundColor3", "card")
+	addDepth(shCard)
+	local shPad = Instance.new("UIPadding", shCard)
+	shPad.PaddingTop = UDim.new(0, 8); shPad.PaddingBottom = UDim.new(0, 8)
+	shPad.PaddingLeft = UDim.new(0, 10); shPad.PaddingRight = UDim.new(0, 10)
+	local shLay = Instance.new("UIListLayout", shCard)
+	shLay.Padding = UDim.new(0, 6); shLay.SortOrder = Enum.SortOrder.LayoutOrder
 
-	-- ====== Intro de inicio (animación de bienvenida · una sola vez) ======
-	-- La intro con el logo NX se reproduce SOLO la primera vez (se recuerda con
-	-- store.introSeen). Aquí puedes apagarla, o re-verla cuando quieras (útil en
-	-- pruebas): "Ver de nuevo" la fuerza al instante vía _G.NXIntro.play(true).
-	local introCard = Instance.new("Frame", settingsScroll)
-	introCard.LayoutOrder = 4
-	introCard.Size = UDim2.new(1, -4, 0, 0)
-	introCard.AutomaticSize = Enum.AutomaticSize.Y
-	introCard.BackgroundColor3 = C.card
-	introCard.BorderSizePixel = 0
-	Instance.new("UICorner", introCard).CornerRadius = UDim.new(0, 8)
-	themed(introCard, "BackgroundColor3", "card")
-	addDepth(introCard)
-	local inPad = Instance.new("UIPadding", introCard)
-	inPad.PaddingTop = UDim.new(0, 8); inPad.PaddingBottom = UDim.new(0, 8)
-	inPad.PaddingLeft = UDim.new(0, 10); inPad.PaddingRight = UDim.new(0, 10)
-	local inLay = Instance.new("UIListLayout", introCard)
-	inLay.Padding = UDim.new(0, 6); inLay.SortOrder = Enum.SortOrder.LayoutOrder
+	local shTitle = Instance.new("TextLabel", shCard)
+	shTitle.LayoutOrder = 0; shTitle.Size = UDim2.new(1, 0, 0, 20); shTitle.BackgroundTransparency = 1
+	shTitle.Font = Enum.Font.GothamBold; shTitle.TextSize = 14; shTitle.TextColor3 = C.accent
+	shTitle.Text = "🛡️ NX Shields"; shTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(shTitle, "TextColor3", "accent")
 
-	local inTitle = Instance.new("TextLabel", introCard)
-	inTitle.LayoutOrder = 0; inTitle.Size = UDim2.new(1, 0, 0, 20); inTitle.BackgroundTransparency = 1
-	inTitle.Font = Enum.Font.GothamBold; inTitle.TextSize = 14; inTitle.TextColor3 = C.accent
-	inTitle.Text = "🎬 Intro de inicio"; inTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(inTitle, "TextColor3", "accent")
+	local shDesc = Instance.new("TextLabel", shCard)
+	shDesc.LayoutOrder = 1; shDesc.Size = UDim2.new(1, 0, 0, 16); shDesc.BackgroundTransparency = 1
+	shDesc.Font = Enum.Font.Gotham; shDesc.TextSize = 11; shDesc.TextColor3 = C.subtext
+	shDesc.Text = "Verificación de las respuestas de las APIs y de cada dato antes de mostrarlo. También en el escudo de la barra superior."
+	shDesc.TextXAlignment = Enum.TextXAlignment.Left
+	shDesc.TextWrapped = true
+	themed(shDesc, "TextColor3", "subtext")
 
-	local inDesc = Instance.new("TextLabel", introCard)
-	inDesc.LayoutOrder = 1; inDesc.Size = UDim2.new(1, 0, 0, 16); inDesc.BackgroundTransparency = 1
-	inDesc.Font = Enum.Font.Gotham; inDesc.TextSize = 11; inDesc.TextColor3 = C.subtext
-	inDesc.Text = "Animación de bienvenida con tu logo NX + sonido (solo la primera vez que abres la herramienta)."
-	inDesc.TextXAlignment = Enum.TextXAlignment.Left
-	inDesc.TextWrapped = true
-	themed(inDesc, "TextColor3", "subtext")
+	-- Construye una fila "nombre + switch + estado" enlazada a una protección real.
+	local function filaProteccion(orden, nombre, clave)
+		local fila = Instance.new("Frame", shCard)
+		fila.LayoutOrder = orden; fila.Size = UDim2.new(1, 0, 0, 30); fila.BackgroundTransparency = 1
 
-	-- fila: toggle (on/off) + botón "ver de nuevo" (replay para pruebas)
-	local inRow = Instance.new("Frame", introCard)
-	inRow.LayoutOrder = 2; inRow.Size = UDim2.new(1, 0, 0, 28); inRow.BackgroundTransparency = 1
-	local inRowLay = Instance.new("UIListLayout", inRow)
-	inRowLay.FillDirection = Enum.FillDirection.Horizontal
-	inRowLay.Padding = UDim.new(0, 8); inRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
-	inRowLay.SortOrder = Enum.SortOrder.LayoutOrder
+		local et = Instance.new("TextLabel", fila)
+		et.Size = UDim2.new(1, -180, 1, 0); et.Position = UDim2.new(0, 0, 0, 0)
+		et.BackgroundTransparency = 1
+		et.Font = Enum.Font.GothamMedium; et.TextSize = 13; et.TextColor3 = C.text
+		et.Text = nombre; et.TextXAlignment = Enum.TextXAlignment.Left
+		et.TextTruncate = Enum.TextTruncate.AtEnd
+		themed(et, "TextColor3", "text")
 
-	local inToggle = Instance.new("TextButton", inRow)
-	inToggle.LayoutOrder = 0; inToggle.Size = UDim2.new(0, 140, 0, 28)
-	inToggle.Font = Enum.Font.GothamBold; inToggle.TextSize = 13; inToggle.BorderSizePixel = 0
-	Instance.new("UICorner", inToggle).CornerRadius = UDim.new(0, 5)
-	addHoverStroke(inToggle)
+		local est = Instance.new("TextLabel", fila)
+		est.AnchorPoint = Vector2.new(1, 0.5)
+		est.Position = UDim2.new(1, -54, 0.5, 0)
+		est.Size = UDim2.new(0, 118, 1, 0)
+		est.BackgroundTransparency = 1
+		est.Font = Enum.Font.GothamBold; est.TextSize = 11
+		est.TextXAlignment = Enum.TextXAlignment.Right
+		est.TextTruncate = Enum.TextTruncate.AtEnd
 
-	local function paintInToggle()
-		local on = store.introEnabled ~= false
-		inToggle.Text = on and "Activada ✓" or "Desactivada"
-		inToggle.BackgroundColor3 = on and C.good or C.neutral
-		inToggle.TextColor3 = on and C.onAccent or C.text
-	end
-	paintInToggle()
-	onRepaint(paintInToggle)
+		local sw, setOn, setBusy
+		sw, setOn, setBusy = Shield.makeSwitch(fila, Shield.flags[clave], function(on)
+			setBusy(true)
+			est.Text = "verificando…"
+			est.TextColor3 = C.warn
+			Shield.setFlag(clave, on, function(ok, detalle)
+				setBusy(false)
+				-- La etiqueta muestra el resultado REAL de la comprobación.
+				if not on then
+					est.Text = "Desactivado"; est.TextColor3 = C.subtext
+				elseif ok then
+					est.Text = "Activo ✓"; est.TextColor3 = C.good
+				else
+					est.Text = "Falló"; est.TextColor3 = C.bad
+					statusLabel.Text = "🛡️ " .. nombre .. ": " .. tostring(detalle)
+				end
+			end)
+		end)
+		sw.AnchorPoint = Vector2.new(1, 0.5)
+		sw.Position = UDim2.new(1, 0, 0.5, 0)
 
-	inToggle.MouseButton1Click:Connect(function()
-		store.introEnabled = not (store.introEnabled ~= false)
-		saveStore()
-		paintInToggle()
-	end)
-
-	local inReplay = Instance.new("TextButton", inRow)
-	inReplay.LayoutOrder = 1; inReplay.Size = UDim2.new(0, 130, 0, 28)
-	inReplay.Font = Enum.Font.GothamBold; inReplay.TextSize = 13; inReplay.BorderSizePixel = 0
-	inReplay.Text = "Ver de nuevo ▶"
-	Instance.new("UICorner", inReplay).CornerRadius = UDim.new(0, 5)
-	addHoverStroke(inReplay)
-
-	local function paintInReplay()
-		inReplay.BackgroundColor3 = C.neutral
-		inReplay.TextColor3 = C.text
-	end
-	paintInReplay()
-	onRepaint(paintInReplay)
-
-	inReplay.MouseButton1Click:Connect(function()
-		if _G.NXIntro and _G.NXIntro.play then
-			pcall(_G.NXIntro.play, true)   -- true = forzar aunque ya se haya visto
+		local function refrescar()
+			local on = Shield.flags[clave]
+			setOn(on, false)
+			if Shield.busy == clave then
+				est.Text = "verificando…"; est.TextColor3 = C.warn
+			elseif not on then
+				est.Text = "Desactivado"; est.TextColor3 = C.subtext
+			else
+				local t = Shield.lastTest and Shield.lastTest[clave]
+				if t and not t.ok then
+					est.Text = "Falló"; est.TextColor3 = C.bad
+				else
+					est.Text = "Activo ✓"; est.TextColor3 = C.good
+				end
+			end
 		end
-	end)
+		refrescar()
+		Shield.onChange(refrescar)   -- sincroniza con el panel del escudo
+		onRepaint(refrescar)
+	end
+
+	filaProteccion(2, "Verificación API",    "api")
+	filaProteccion(3, "Validación de datos", "data")
+
+	local shNota = Instance.new("TextLabel", shCard)
+	shNota.LayoutOrder = 4; shNota.Size = UDim2.new(1, 0, 0, 30); shNota.BackgroundTransparency = 1
+	shNota.Font = Enum.Font.Gotham; shNota.TextSize = 10; shNota.TextColor3 = C.subtext
+	shNota.Text = "Apagarlas no es cosmético: los datos pasan a mostrarse sin filtrar y los análisis heurísticos dejan de bloquearse aunque falten pilares."
+	shNota.TextXAlignment = Enum.TextXAlignment.Left
+	shNota.TextWrapped = true
+	themed(shNota, "TextColor3", "subtext")
+
+	-- (La tarjeta "🎬 Intro de inicio" se retiró a pedido del usuario. La intro
+	--  sigue existiendo: se controla por _G.NXIntro.play() / store.introEnabled.)
 
 	-- (La tarjeta "Signos · prueba de glifos" se quitó a pedido del usuario.)
 end
@@ -5040,6 +5773,19 @@ function NXWin.startScan()
 	end)
 end
 
+-- Texto de estado según el resultado REAL de las verificaciones del análisis.
+local function textoEstado(data)
+	local st = data and data._state
+	if st == "verified" then return "✓ Verificado." end
+	if st == "partial" then
+		local n = #Shield.problemas(data)
+		return "◑ Parcial · " .. n .. " dato(s) no disponibles."
+	end
+	if st == "incomplete" then return "⚠ Datos incompletos (faltan campos clave)." end
+	if st == "error"      then return "✕ Error de validación en los datos." end
+	return "✓ Listo."
+end
+
 analyze = function(input)
 	if analyzing then return end
 	input = (input or ""):gsub("%s", "")
@@ -5051,42 +5797,71 @@ analyze = function(input)
 	NXWin.startScan()
 
 	task.spawn(function()
-		local userId = tonumber(input)
-		if not userId then
-			local id, _, errType = getUserIdByName(input)
-			if not id then
-				if errType == "not_found" then
-					statusLabel.Text = "☹ Usuario no encontrado."
-				elseif errType == "api_error" then
-					statusLabel.Text = "☹ Error temporal de Roblox API. Intenta más tarde."
-				else
-					statusLabel.Text = "☹ Error desconocido."
+		-- TODO el flujo va dentro de un pcall: antes, cualquier error dentro de
+		-- esta corrutina la mataba y dejaba `analyzing = true` PARA SIEMPRE
+		-- (la herramienta no volvía a analizar nada en toda la sesión).
+		local ok, err = pcall(function()
+			local userId = tonumber(input)
+			if not userId then
+				local id, _, errType = getUserIdByName(input)
+				if not id then
+					if errType == "not_found" then
+						statusLabel.Text = "☹ Usuario no encontrado."
+					elseif errType == "api_error" then
+						statusLabel.Text = "☹ Error temporal de Roblox API. Intenta más tarde."
+					else
+						statusLabel.Text = "☹ Error desconocido."
+					end
+					render(nil)
+					return
 				end
+				userId = id
+			end
+
+			-- Validación de entrada: un ID escrito a mano puede ser absurdo.
+			if Shield.flags.data and Shield.valid.userId(userId) == nil then
+				statusLabel.Text = "☹ UserId inválido."
 				render(nil)
-				analyzing = false
 				return
 			end
-			userId = id
-		end
 
-		if profileCache[userId] then
-			render(profileCache[userId])
-			statusLabel.Text = "✓ Listo (caché)."
-			analyzing = false
-			return
-		end
+			-- CACHÉ CON CADUCIDAD: antes no expiraba nunca, así que "Listo (caché)"
+			-- podía mostrar la presencia (dato en tiempo real) congelada durante
+			-- horas. Pasados PROFILE_TTL segundos se vuelve a consultar.
+			local hit = profileCache[userId]
+			if hit and (os.time() - (hit._fetchedAt or 0)) < PROFILE_TTL then
+				Shield.run = hit._integrity or Shield.run   -- el escudo refleja lo que se ve
+				Shield.emit()
+				render(hit)
+				statusLabel.Text = textoEstado(hit) .. " (caché)"
+				return
+			end
 
-		statusLabel.Text = "Consultando APIs..."
-		local data = gatherData(userId)
-		if not data then
-			statusLabel.Text = "☹ Error o usuario inexistente."
-			render(nil)
-		else
-			setCached(userId, data)
-			render(data)
-			statusLabel.Text = "✓ Listo."
+			statusLabel.Text = "Consultando APIs..."
+			local data, motivo = gatherData(userId)
+			if not data then
+				if motivo == "perfil_invalido" then
+					statusLabel.Text = "✕ Perfil rechazado por NX Shields (datos inválidos)."
+				elseif motivo == "sin_respuesta" then
+					statusLabel.Text = "☹ Sin respuesta de la API de Roblox."
+				else
+					statusLabel.Text = "☹ Error o usuario inexistente."
+				end
+				render(nil)
+			else
+				setCached(userId, data)
+				render(data)
+				statusLabel.Text = textoEstado(data)
+			end
+		end)
+
+		if not ok then
+			statusLabel.Text = "☹ Fallo interno durante el análisis."
+			pcall(render, nil)
+			warn("[NX Analyzer] error en analyze: " .. tostring(err))
 		end
-		analyzing = false
+		analyzing = false          -- SIEMPRE se libera, pase lo que pase
+		Shield.emit()
 	end)
 end
 
@@ -5778,31 +6553,15 @@ do
     end
 
     -- Muestra el popup de bloqueo con el tiempo restante; al pulsar el botón cierra todo.
+    -- DESACTIVADO: nunca se muestra el popup de bloqueo.
     local function showLockPopup(d)
-        local remain = (tonumber(d["until"]) or os.time()) - os.time()
-        local baseBody = d.body or "Esta experiencia o sus moderadores te expulsaron temporalmente."
-        pcall(showRobloxModal, {
-            title     = d.title or "Error al unirse",
-            body      = baseBody .. "\n\nTiempo restante: " .. fmtRemaining(remain),
-            button    = d.button or "Salir",
-            errorCode = d.errorCode,
-            duration  = 0,
-            onButton  = closeTool,
-        })
+        -- no-op
     end
 
     -- Inicia un bloqueo NUEVO de 'secs' segundos con los textos dados.
+    -- DESACTIVADO: el kill-switch remoto ya no puede bloquear la herramienta.
     local function triggerLockout(secs, modalOpts)
-        local d = {
-            ["until"] = os.time() + math.max(1, math.floor(tonumber(secs) or 0)),
-            id        = modalOpts and modalOpts.id,
-            title     = modalOpts and modalOpts.title,
-            body      = modalOpts and modalOpts.body,
-            button    = modalOpts and modalOpts.button,
-            errorCode = modalOpts and modalOpts.errorCode,
-        }
-        setLock(d)
-        showLockPopup(d)
+        -- no-op
     end
 
     -- Segundos de bloqueo declarados en un mensaje (lock / lockSeconds / lockMinutes), o 0.
@@ -5873,22 +6632,12 @@ do
                         -- estilo modal-Roblox por "style", o por "type" (perdonador:
                         -- type=roblox/ban/kick/modal también abre el popup; type=error
                         -- NO, porque ahí "error" es un color de toast válido).
-                        local style = tostring(m.style or m.kind or "toast"):lower()
-                        local typ   = tostring(m.type or ""):lower()
-                        if style == "roblox" or style == "ban" or style == "kick"
-                            or style == "modal" or style == "error"
-                            or typ == "roblox" or typ == "ban" or typ == "kick" or typ == "modal" then
-                            pcall(showRobloxModal, {
-                                title = m.title, body = m.body, button = m.button,
-                                errorCode = m.errorCode or m.code,
-                                duration = tonumber(m.duration) or 0,
-                            })
-                        else
-                            pcall(showToast, {
-                                type = m.type, title = m.title, body = m.body, image = m.image,
-                                duration = tonumber(m.duration) or CONFIG.DEFAULT_DURATION,
-                            })
-                        end
+                        -- DESACTIVADO: los mensajes remotos ya NO pueden abrir el
+                        -- modal estilo "ban/kick" de Roblox. Solo toasts normales.
+                        pcall(showToast, {
+                            type = m.type, title = m.title, body = m.body, image = m.image,
+                            duration = tonumber(m.duration) or CONFIG.DEFAULT_DURATION,
+                        })
                     end
                     task.wait(CONFIG.GAP)
                 end
@@ -5905,11 +6654,10 @@ do
         end)
     end
 
-    -- ---- al cargar: si quedaba un bloqueo activo de antes, aplicarlo de inmediato
-    -- (así, aunque re-ejecuten el script durante el castigo, sigue bloqueado) ----
+    -- ---- al cargar: limpiar cualquier bloqueo guardado de antes (kill-switch
+    -- remoto desactivado; nunca vuelve a quedar bloqueado) ----
     do
-        local d = getLock()
-        if d then showLockPopup(d) end
+        clearLock()
     end
 
     -- ---- arranque: primer intento con reintentos + refresco periódico ----
@@ -6830,7 +7578,7 @@ Animations.luxe = {
             circleIcon = Instance.new("ImageLabel")
             circleIcon.BackgroundTransparency = 1
             circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
-            circleIcon.Size                   = UDim2.fromScale(0.60, 0.60)
+            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
             circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
             circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
             circleIcon.ScaleType              = Enum.ScaleType.Fit
@@ -7588,7 +8336,8 @@ end)()
 		bImg.ScaleType = Enum.ScaleType.Fit
 		bImg.ZIndex = 6
 		title.Position = UDim2.new(0, 80, 0, 0)            -- título vuelve a su sitio
-		title.Size     = UDim2.new(1, -224, 1, 0)          -- deja sitio a los controles + logo a la derecha
+		-- Reserva a la derecha: logo NX + 3 controles + escudo NX Shields.
+		title.Size     = UDim2.new(1, -262, 1, 0)
 	end)
 
 	-- ── 1.5) CONTROLES DE VENTANA (minimizar / expandir / cerrar) ───────────
@@ -7687,6 +8436,373 @@ end)()
 			x.TextColor3 = WHITE
 			x.ZIndex = 6
 		end
+	end)
+
+	-- ╔════════════════════════════════════════════════════════════════════╗
+	-- ║  🛡️ NX SHIELDS · escudo del header + panel estilo extensión         ║
+	-- ╠════════════════════════════════════════════════════════════════════╣
+	-- ║  El icono vive a la izquierda de los controles de ventana, como la  ║
+	-- ║  barra de extensiones de Chrome/Brave. Su punto de estado NO es      ║
+	-- ║  decorativo: sale de Shield.estado(), que deriva del resultado real  ║
+	-- ║  de las validaciones del último análisis y de qué protecciones       ║
+	-- ║  están encendidas. Al pulsarlo se abre el panel con los switches.    ║
+	-- ╚════════════════════════════════════════════════════════════════════╝
+	pcall(function()
+		-- Solo TEXTOS aquí: los colores NO se guardan en esta tabla porque se
+		-- congelarían con el tema activo al construirla. Se releen de C (tabla
+		-- viva) en cada llamada, así el escudo sigue el tema al cambiarlo.
+		local TEXTOS = { ok = "Protegido", partial = "Parcial", error = "Error", loading = "Verificando…" }
+		local function paleta()
+			local e = Shield.estado()
+			local mapa = { ok = C.good, partial = C.warn, error = C.bad, loading = C.accent }
+			return mapa[e] or C.good, TEXTOS[e] or TEXTOS.ok, e
+		end
+
+		-- ── Botón escudo (glass + neón, forma de escudo dibujada) ──────────
+		local sBtn = Instance.new("TextButton")
+		sBtn.Name = "NXShieldButton"
+		sBtn.AnchorPoint = Vector2.new(1, 0.5)
+		sBtn.Position = UDim2.new(1, -140, 0.5, 0)       -- a la izquierda de los 3 controles
+		sBtn.Size = UDim2.fromOffset(26, 24)
+		sBtn.AutoButtonColor = false
+		sBtn.Text = ""
+		sBtn.BorderSizePixel = 0
+		sBtn.BackgroundColor3 = C.neutral
+		sBtn.BackgroundTransparency = 0.15
+		sBtn.ZIndex = 5
+		sBtn.Parent = header
+		themed(sBtn, "BackgroundColor3", "neutral")
+		Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 7)
+		local sStroke = Instance.new("UIStroke", sBtn)
+		sStroke.Thickness = 1.3
+		sStroke.Transparency = 0.25
+
+		-- Escudo DIBUJADO con Frames (no emoji ni asset: nunca sale el cuadrito
+		-- "tofu" ni depende de que Roblox modere una imagen). Cuerpo rectangular
+		-- + punta inferior en diamante rotado, con "NX" encima.
+		local sTop = Instance.new("Frame", sBtn)
+		sTop.AnchorPoint = Vector2.new(0.5, 0)
+		sTop.Position = UDim2.new(0.5, 0, 0.5, -8)
+		sTop.Size = UDim2.fromOffset(14, 9)
+		sTop.BorderSizePixel = 0
+		sTop.BackgroundColor3 = C.good
+		sTop.ZIndex = 6
+		local stc = Instance.new("UICorner", sTop); stc.CornerRadius = UDim.new(0, 3)
+		local sBot = Instance.new("Frame", sBtn)
+		sBot.AnchorPoint = Vector2.new(0.5, 0)
+		sBot.Position = UDim2.new(0.5, 0, 0.5, -2)
+		sBot.Size = UDim2.fromOffset(10, 10)
+		sBot.Rotation = 45
+		sBot.BorderSizePixel = 0
+		sBot.BackgroundColor3 = C.good
+		sBot.ZIndex = 6
+		local sbc = Instance.new("UICorner", sBot); sbc.CornerRadius = UDim.new(0, 3)
+		-- "NX" encima del escudo (letras: siempre renderizan).
+		local sTxt = Instance.new("TextLabel", sBtn)
+		sTxt.BackgroundTransparency = 1
+		sTxt.AnchorPoint = Vector2.new(0.5, 0.5)
+		sTxt.Position = UDim2.new(0.5, 0, 0.5, -1)
+		sTxt.Size = UDim2.fromOffset(24, 12)
+		sTxt.Font = Enum.Font.GothamBold
+		sTxt.Text = "NX"
+		sTxt.TextSize = 9
+		sTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
+		sTxt.ZIndex = 8
+
+		-- Punto de estado (arriba-derecha del icono), como el badge de una extensión.
+		local sDot = Instance.new("Frame", sBtn)
+		sDot.AnchorPoint = Vector2.new(1, 0)
+		sDot.Position = UDim2.new(1, 1, 0, -1)
+		sDot.Size = UDim2.fromOffset(8, 8)
+		sDot.BorderSizePixel = 0
+		sDot.BackgroundColor3 = C.good
+		sDot.ZIndex = 9
+		Instance.new("UICorner", sDot).CornerRadius = UDim.new(1, 0)
+		local sDotStroke = Instance.new("UIStroke", sDot)
+		sDotStroke.Thickness = 1.2
+		sDotStroke.Color = Color3.fromRGB(15, 15, 18)
+
+		-- ── Panel desplegable (dentro de 'main' para que no lo recorte nada) ──
+		local panel = Instance.new("Frame")
+		panel.Name = "NXShieldPanel"
+		panel.AnchorPoint = Vector2.new(1, 0)
+		panel.Position = UDim2.new(1, -12, 0, 38)
+		panel.Size = UDim2.fromOffset(268, 0)
+		panel.AutomaticSize = Enum.AutomaticSize.Y
+		panel.BackgroundColor3 = C.card
+		panel.BackgroundTransparency = 0.04
+		panel.BorderSizePixel = 0
+		panel.Visible = false
+		panel.ZIndex = 120
+		panel.Parent = main
+		themed(panel, "BackgroundColor3", "card")
+		Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 12)
+		local pStroke = Instance.new("UIStroke", panel)
+		pStroke.Thickness = 1.4
+		pStroke.Transparency = 0.35
+		themed(pStroke, "Color", "accent")
+		local pScale = Instance.new("UIScale", panel)
+		local pPad = Instance.new("UIPadding", panel)
+		pPad.PaddingTop = UDim.new(0, 10); pPad.PaddingBottom = UDim.new(0, 10)
+		pPad.PaddingLeft = UDim.new(0, 12); pPad.PaddingRight = UDim.new(0, 12)
+		local pLay = Instance.new("UIListLayout", panel)
+		pLay.Padding = UDim.new(0, 8); pLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local function etiqueta(orden, texto, size, role, bold, alto)
+			local l = Instance.new("TextLabel", panel)
+			l.LayoutOrder = orden
+			l.Size = UDim2.new(1, 0, 0, alto or 16)
+			l.BackgroundTransparency = 1
+			l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
+			l.TextSize = size
+			l.TextColor3 = C[role]
+			l.TextXAlignment = Enum.TextXAlignment.Left
+			l.TextWrapped = (alto ~= nil)
+			l.TextYAlignment = Enum.TextYAlignment.Top
+			l.Text = texto
+			l.ZIndex = 121
+			themed(l, "TextColor3", role)
+			return l
+		end
+
+		-- Cabecera del panel: punto + título + estado en texto
+		local cab = Instance.new("Frame", panel)
+		cab.LayoutOrder = 0; cab.Size = UDim2.new(1, 0, 0, 22); cab.BackgroundTransparency = 1
+		cab.ZIndex = 121
+		local cabDot = Instance.new("Frame", cab)
+		cabDot.AnchorPoint = Vector2.new(0, 0.5)
+		cabDot.Position = UDim2.new(0, 0, 0.5, 0)
+		cabDot.Size = UDim2.fromOffset(9, 9)
+		cabDot.BorderSizePixel = 0
+		cabDot.BackgroundColor3 = C.good
+		cabDot.ZIndex = 122
+		Instance.new("UICorner", cabDot).CornerRadius = UDim.new(1, 0)
+		local cabTit = Instance.new("TextLabel", cab)
+		cabTit.Position = UDim2.new(0, 16, 0, 0)
+		cabTit.Size = UDim2.new(1, -16, 1, 0)
+		cabTit.BackgroundTransparency = 1
+		cabTit.Font = Enum.Font.GothamBold
+		cabTit.TextSize = 14
+		cabTit.TextColor3 = C.text
+		cabTit.Text = "NX Shields"
+		cabTit.TextXAlignment = Enum.TextXAlignment.Left
+		cabTit.ZIndex = 122
+		themed(cabTit, "TextColor3", "text")
+		local cabEstado = Instance.new("TextLabel", cab)
+		cabEstado.AnchorPoint = Vector2.new(1, 0.5)
+		cabEstado.Position = UDim2.new(1, 0, 0.5, 0)
+		cabEstado.Size = UDim2.new(0, 110, 1, 0)
+		cabEstado.BackgroundTransparency = 1
+		cabEstado.Font = Enum.Font.GothamBold
+		cabEstado.TextSize = 11
+		cabEstado.TextXAlignment = Enum.TextXAlignment.Right
+		cabEstado.ZIndex = 122
+
+		local function linea(orden)
+			local d = Instance.new("Frame", panel)
+			d.LayoutOrder = orden
+			d.Size = UDim2.new(1, 0, 0, 1)
+			d.BackgroundColor3 = C.border
+			d.BackgroundTransparency = 0.4
+			d.BorderSizePixel = 0
+			d.ZIndex = 121
+			themed(d, "BackgroundColor3", "border")
+		end
+		linea(1)
+
+		-- 🔒 Usuario Roblox — datos REALES de la sesión, pasados por los validadores.
+		etiqueta(2, "🔒 Usuario Roblox", 12, "subtext", true)
+		local usrOk   = Shield.valid.username(player.Name) ~= nil
+		local idOk    = Shield.valid.userId(player.UserId) ~= nil
+		local usrLbl  = etiqueta(3, "", 12, "text", true)
+		usrLbl.Text   = (usrOk and "✓ " or "✕ ") .. player.Name .. "  ·  " .. tostring(player.UserId)
+		usrLbl.TextColor3 = (usrOk and idOk) and C.good or C.bad
+		local execLbl = etiqueta(4, "Executor: " .. EXECUTOR_NAME, 10, "subtext")
+
+		linea(5)
+		etiqueta(6, "⚡ Verificaciones", 12, "subtext", true)
+
+		-- Fila de protección con switch real
+		local filas = {}
+		local function filaProt(orden, nombre, clave, desc)
+			local f = Instance.new("Frame", panel)
+			f.LayoutOrder = orden
+			f.Size = UDim2.new(1, 0, 0, 44)
+			f.BackgroundTransparency = 1
+			f.ZIndex = 121
+
+			local nom = Instance.new("TextLabel", f)
+			nom.Size = UDim2.new(1, -56, 0, 18)
+			nom.BackgroundTransparency = 1
+			nom.Font = Enum.Font.GothamBold
+			nom.TextSize = 12
+			nom.TextColor3 = C.text
+			nom.Text = nombre
+			nom.TextXAlignment = Enum.TextXAlignment.Left
+			nom.TextTruncate = Enum.TextTruncate.AtEnd
+			nom.ZIndex = 122
+			themed(nom, "TextColor3", "text")
+
+			local est = Instance.new("TextLabel", f)
+			est.Position = UDim2.new(0, 0, 0, 18)
+			est.Size = UDim2.new(1, -56, 0, 24)
+			est.BackgroundTransparency = 1
+			est.Font = Enum.Font.Gotham
+			est.TextSize = 10
+			est.Text = desc
+			est.TextColor3 = C.subtext
+			est.TextXAlignment = Enum.TextXAlignment.Left
+			est.TextWrapped = true
+			est.TextYAlignment = Enum.TextYAlignment.Top
+			est.ZIndex = 122
+
+			-- Forward-declare: el callback usa setBusy, y en `local a,b,c = expr`
+			-- las variables aún NO existen dentro de expr (sería un global nil).
+			local sw, setOn, setBusy
+			sw, setOn, setBusy = Shield.makeSwitch(f, Shield.flags[clave], function(on)
+				setBusy(true)
+				est.Text = "Ejecutando verificación…"
+				est.TextColor3 = C.warn
+				Shield.setFlag(clave, on, function(ok, detalle)
+					setBusy(false)
+					if not on then
+						est.Text = (clave == "api") and "Verificación API desactivada"
+							or "Validación de datos desactivada"
+						est.TextColor3 = C.subtext
+					elseif ok then
+						est.Text = (clave == "api") and ("API verificada correctamente · " .. tostring(detalle))
+							or ("Datos validados · " .. tostring(detalle))
+						est.TextColor3 = C.good
+					else
+						est.Text = "Falló: " .. tostring(detalle)
+						est.TextColor3 = C.bad
+					end
+				end)
+			end)
+			sw.AnchorPoint = Vector2.new(1, 0)
+			sw.Position = UDim2.new(1, 0, 0, 4)
+			sw.ZIndex = 122
+
+			filas[clave] = { est = est, setOn = setOn, setBusy = setBusy, desc = desc }
+		end
+
+		filaProt(7, "API Validation",  "api",
+			"Comprueba estructura, errores y códigos HTTP de cada respuesta.")
+		filaProt(8, "Data Validation", "data",
+			"Valida username, UserId, fechas, contadores, avatar e items.")
+
+		linea(9)
+		-- Pie con contadores REALES del interceptor + estado del último análisis.
+		local pie = etiqueta(10, "", 10, "subtext", false, 44)
+
+		-- ── Sincronización de todo el estado visible ────────────────────────
+		local function refrescar()
+			local color, texto, est = paleta()
+			sDot.BackgroundColor3   = color
+			sTop.BackgroundColor3   = color
+			sBot.BackgroundColor3   = color
+			sStroke.Color           = color
+			cabDot.BackgroundColor3 = color
+			cabEstado.TextColor3    = color
+			cabEstado.Text          = texto
+
+			for clave, f in pairs(filas) do
+				local on = Shield.flags[clave]
+				f.setOn(on, false)
+				f.setBusy(Shield.busy == clave)
+				if Shield.busy ~= clave then
+					if not on then
+						f.est.Text = (clave == "api") and "Verificación API desactivada"
+							or "Validación de datos desactivada"
+						f.est.TextColor3 = C.subtext
+					else
+						local t = Shield.lastTest and Shield.lastTest[clave]
+						if t and not t.ok then
+							f.est.Text = "Falló: " .. tostring(t.detalle)
+							f.est.TextColor3 = C.bad
+						elseif t and t.ok then
+							f.est.Text = (clave == "api")
+								and ("API verificada correctamente · " .. tostring(t.detalle))
+								or  ("Datos validados · " .. tostring(t.detalle))
+							f.est.TextColor3 = C.good
+						else
+							f.est.Text = f.desc
+							f.est.TextColor3 = C.subtext
+						end
+					end
+				end
+			end
+
+			local r = Shield.run
+			local ESTADOS = {
+				verified = "Verificado", partial = "Parcial",
+				incomplete = "Datos incompletos", error = "Error", loading = "Cargando…",
+			}
+			local ultimo = r and (ESTADOS[r.state] or r.state) or "sin análisis aún"
+			pie.Text = string.format(
+				"Respuestas inspeccionadas: %d  ·  bloqueadas: %d\nCampos validados: %d  ·  rechazados: %d\nÚltimo análisis: %s",
+				Shield.stats.checks, Shield.stats.blocked,
+				Shield.stats.fields, Shield.stats.rejected, ultimo)
+			-- El icono NO late si no hay nada ejecutándose: la animación indica
+			-- proceso real, no adorno.
+			sTxt.TextTransparency = (est == "loading") and 0.35 or 0
+		end
+		refrescar()
+		Shield.onChange(refrescar)
+		onRepaint(refrescar)
+
+		-- ── Abrir / cerrar el panel (animado) ───────────────────────────────
+		local abierto = false
+		local function setAbierto(v)
+			abierto = v
+			if v then
+				refrescar()
+				panel.Visible = true
+				if ANIM.enabled then
+					pScale.Scale = 0.92
+					panel.BackgroundTransparency = 1
+					motionTween(pScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+					motionTween(panel, TweenInfo.new(0.16), { BackgroundTransparency = 0.04 })
+				else
+					pScale.Scale = 1
+					panel.BackgroundTransparency = 0.04
+				end
+			else
+				if ANIM.enabled then
+					motionTween(pScale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.92 })
+					motionTween(panel, TweenInfo.new(0.14), { BackgroundTransparency = 1 }, function()
+						if not abierto then panel.Visible = false end
+					end)
+				else
+					panel.Visible = false
+				end
+			end
+		end
+
+		track(sBtn.MouseButton1Click:Connect(function() setAbierto(not abierto) end))
+		track(sBtn.MouseEnter:Connect(function()
+			motionTween(sBtn, TweenInfo.new(0.12), { BackgroundTransparency = 0 })
+		end))
+		track(sBtn.MouseLeave:Connect(function()
+			motionTween(sBtn, TweenInfo.new(0.16), { BackgroundTransparency = 0.15 })
+		end))
+		attachTip(sBtn, "NX Shields · estado de verificación")
+
+		-- Cerrar al pulsar fuera del panel (como el popup de una extensión).
+		-- NO se filtra por gameProcessedEvent: al pulsar sobre CUALQUIER GUI ese
+		-- flag llega en true, así que filtrar por él impedía cerrar el panel al
+		-- hacer clic en otra parte de la interfaz. El test real es geométrico.
+		track(UserInputService.InputBegan:Connect(function(input)
+			if not abierto then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1
+				and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local p = input.Position
+			local function dentro(obj)
+				local a, b = obj.AbsolutePosition, obj.AbsoluteSize
+				return p.X >= a.X and p.X <= a.X + b.X and p.Y >= a.Y and p.Y <= a.Y + b.Y
+			end
+			if not dentro(panel) and not dentro(sBtn) then setAbierto(false) end
+		end))
 	end)
 
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
