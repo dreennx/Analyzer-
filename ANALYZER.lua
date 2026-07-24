@@ -212,7 +212,8 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ====================== PERSISTENCIA (archivo) ======================
 -- Si el executor tiene sistema de archivos, guardamos el tema elegido.
-local SAVE_FILE = "ProfileAnalyzer_data.json"
+-- (Nombres de archivo inlineados: NO gastar locals de raíz — el chunk roza el
+--  límite de 200 registros de Luau por el módulo de head tags del final.)
 local hasFS = (type(writefile) == "function")
 	and (type(readfile) == "function")
 	and (type(isfile) == "function")
@@ -222,16 +223,15 @@ local hasFS = (type(writefile) == "function")
 --  la persistencia correcta es por archivo, que es lo que hacemos aquí.)
 local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false }
 
--- Guardado ROBUSTO: escribe el archivo principal + una COPIA DE RESPALDO.
--- Si el principal se corrompe, loadStore() recupera del backup. Falla en
--- silencio si el executor no tiene sistema de archivos.
-local BACKUP_FILE = "ProfileAnalyzer_data.bak.json"
+-- Guardado ROBUSTO: escribe el archivo principal + una COPIA DE RESPALDO
+-- (.bak.json). Si el principal se corrompe, loadStore() recupera del backup.
+-- Falla en silencio si el executor no tiene sistema de archivos.
 local function saveStore()
 	if not hasFS then return end
 	pcall(function()
 		local json = HttpService:JSONEncode(store)
-		writefile(SAVE_FILE, json)
-		writefile(BACKUP_FILE, json)
+		writefile("ProfileAnalyzer_data.json", json)
+		writefile("ProfileAnalyzer_data.bak.json", json)
 	end)
 end
 
@@ -239,11 +239,11 @@ local function loadStore()
 	if not hasFS then return end
 	pcall(function()
 		local raw
-		if isfile(SAVE_FILE) then raw = readfile(SAVE_FILE) end
+		if isfile("ProfileAnalyzer_data.json") then raw = readfile("ProfileAnalyzer_data.json") end
 		local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
 		-- principal vacío/corrupto → intenta el respaldo
-		if (not ok or type(decoded) ~= "table") and isfile(BACKUP_FILE) then
-			ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(BACKUP_FILE)) end)
+		if (not ok or type(decoded) ~= "table") and isfile("ProfileAnalyzer_data.bak.json") then
+			ok, decoded = pcall(function() return HttpService:JSONDecode(readfile("ProfileAnalyzer_data.bak.json")) end)
 		end
 		if ok and type(decoded) == "table" then
 			-- Mezcla GENÉRICA: cualquier clave guardada pisa el default. Así las
@@ -445,9 +445,9 @@ local EXECUTOR_NAME = detectExecutor()
 -- Nombre neutro para el ScreenGui: no delata qué hace el script si alguien
 -- mira el árbol de instancias. Constante (no aleatorio) para poder limpiar
 -- la instancia anterior al recargar.
-local GUI_NAME = "UtilityPanel"
+-- "UtilityPanel" inlineado (no gastar local de raíz por el límite de 200).
 for _, child in ipairs(playerGui:GetChildren()) do
-	if child:IsA("ScreenGui") and child.Name == GUI_NAME then
+	if child:IsA("ScreenGui") and child.Name == "UtilityPanel" then
 		child:Destroy()
 	end
 end
@@ -543,7 +543,7 @@ end
 -- Se descarga UNA sola vez al cargar el script; el lookup luego es instantáneo.
 -- Si el JSON no carga o el usuario no está, simplemente no se muestra tag.
 -- Estructura esperada:  { "8396392068": { "tag": "NX OWNER", "color": "cyan", "icon": "👑" } }
-local NX_TAGS_URL = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/tags.json"
+-- (URL inlineada abajo en loadNXTags: no gastar un local de raíz.)
 local nxTags = nil           -- nil = aún no cargado; tabla = listo (puede estar vacía)
 local nxLoading = false
 
@@ -551,7 +551,7 @@ local function loadNXTags()
 	if nxTags ~= nil or nxLoading then return end
 	nxLoading = true
 	task.spawn(function()
-		local body = rawGet(NX_TAGS_URL)        -- usa el GET crudo del script (con fallback)
+		local body = rawGet("https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/tags.json")   -- GET crudo (con fallback)
 		local parsed = {}
 		if body then
 			pcall(function()
@@ -906,6 +906,8 @@ do
 		stats  = { checks = 0, blocked = 0, fields = 0, rejected = 0 },
 		last   = nil,   -- último motivo de bloqueo (texto humano)
 		busy   = nil,   -- "api" | "data" mientras corre una autoverificación
+		TTL    = 180,   -- caducidad de la caché de perfiles (s). Aquí para no
+		                -- gastar un local de raíz (límite de 200 de Luau).
 	}
 
 	-- ── Notificación de cambios (la consume la UI: escudo, panel y Ajustes) ──
@@ -1311,10 +1313,11 @@ local function toNum(v)
 end
 
 -- ====================== BÚSQUEDA ROBUSTA ======================
-local MAX_RETRIES = 2
-
+-- (MAX_RETRIES = 2 se inlinea a propósito: NO gastar un local de raíz. El
+--  chunk principal roza el límite de 200 registros de Luau por el módulo de
+--  head tags pegado al final.)
 local function getUserIdByName(name)
-	for attempt = 1, MAX_RETRIES + 1 do
+	for attempt = 1, 3 do   -- 2 reintentos + intento inicial
 		local data, status = apiPost("https://users.roblox.com/v1/usernames/users", {
 			usernames = { name }, excludeBannedUsers = false,
 		})
@@ -1322,10 +1325,10 @@ local function getUserIdByName(name)
 			return data.data[1].id, data.data[1].name, nil
 		end
 		if status == 200 and data then return nil, nil, "not_found" end
-		if attempt <= MAX_RETRIES then task.wait(1) end
+		if attempt <= 2 then task.wait(1) end
 	end
 
-	for attempt = 1, MAX_RETRIES + 1 do
+	for attempt = 1, 3 do
 		local s, status = apiGet("https://users.roblox.com/v1/users/search?keyword="
 			.. HttpService:UrlEncode(name) .. "&limit=1")
 		if s and s.data then
@@ -1347,14 +1350,13 @@ local function getUserIdByName(name)
 		elseif status == 200 then
 			return nil, nil, "not_found"
 		end
-		if attempt <= MAX_RETRIES then task.wait(1) end
+		if attempt <= 2 then task.wait(1) end
 	end
 	return nil, nil, "api_error"
 end
 
 local avatarCache = {}
 local avatarCacheOrder = {}
-local AVATAR_CACHE_MAX = 60
 local function getAvatar(userId)
 	if avatarCache[userId] then return avatarCache[userId] end
 	local ok, thumb = pcall(function()
@@ -1365,7 +1367,7 @@ local function getAvatar(userId)
 	-- de cuenta en cuenta) se acumulan cientos de thumbnails sin liberarse nunca.
 	-- El string ya guardado en data.AvatarUrl sigue válido aunque se desaloje.
 	avatarCacheOrder[#avatarCacheOrder + 1] = userId
-	if #avatarCacheOrder > AVATAR_CACHE_MAX then
+	if #avatarCacheOrder > 60 then   -- tope inlineado (no gastar local de raíz)
 		local oldest = table.remove(avatarCacheOrder, 1)
 		if oldest ~= userId then avatarCache[oldest] = nil end
 	end
@@ -1849,16 +1851,15 @@ end
 -- (_itemsCached, _groupsCached, _badgesCached, etc.) sin liberarse nunca.
 local profileCache      = {}
 local profileCacheOrder = {}
-local PROFILE_CACHE_MAX = 20
--- Caducidad de la caché. La presencia ("Jugando: X") es un dato EN VIVO: sin
--- TTL, re-analizar a alguien devolvía indefinidamente el estado de la primera
--- consulta. 180 s = se reusa lo pesado sin mostrar presencia rancia.
-local PROFILE_TTL       = 180
+-- (PROFILE_CACHE_MAX = 20 inlineado abajo: no gastar local de raíz.)
+-- Caducidad de la caché (Shield.TTL, definido en el bloque NX Shields para no
+-- gastar un local de raíz): la presencia ("Jugando: X") es un dato EN VIVO;
+-- sin TTL, re-analizar devolvía el estado de la primera consulta para siempre.
 
 local function setCached(userId, data)
 	if not profileCache[userId] then
 		table.insert(profileCacheOrder, userId)
-		if #profileCacheOrder > PROFILE_CACHE_MAX then
+		if #profileCacheOrder > 20 then   -- tope de perfiles en caché (inlineado)
 			local oldest = table.remove(profileCacheOrder, 1)
 			profileCache[oldest] = nil
 		end
@@ -1981,7 +1982,7 @@ end
 
 -- ====================== GUI ======================
 local gui = Instance.new("ScreenGui")
-gui.Name = GUI_NAME
+gui.Name = "UtilityPanel"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
@@ -2196,7 +2197,7 @@ themed(stroke, "Color", "accent")
 
 -- Sombra suave de la ventana (profundidad). Va detrás de 'main' (ZIndex 0) y la
 -- sigue al arrastrar/redimensionar escuchando los cambios de Position/Size.
-local SHADOW_PAD = 14   -- separación de la sombra (con el asset de esquinas redondeadas).
+-- (SHADOW_PAD = 14, separación de la sombra, inlineado abajo: local de raíz.)
 local windowShadow = Instance.new("ImageLabel")
 windowShadow.Name = "WindowShadow"
 windowShadow.Active = false
@@ -2209,8 +2210,8 @@ windowShadow.SliceCenter = Rect.new(49, 49, 450, 450)   -- centro del asset redo
 windowShadow.ZIndex = 0
 windowShadow.Parent = gui
 local function syncWindowShadow()
-	windowShadow.Size = main.Size + UDim2.fromOffset(SHADOW_PAD * 2, SHADOW_PAD * 2)
-	windowShadow.Position = main.Position - UDim2.fromOffset(SHADOW_PAD, SHADOW_PAD)
+	windowShadow.Size = main.Size + UDim2.fromOffset(28, 28)      -- SHADOW_PAD*2
+	windowShadow.Position = main.Position - UDim2.fromOffset(14, 14)   -- SHADOW_PAD
 end
 syncWindowShadow()
 track(main:GetPropertyChangedSignal("Size"):Connect(syncWindowShadow))
@@ -2442,7 +2443,7 @@ do
 	themed(handle, "BackgroundColor3", "subtext")
 end
 
-local SUG_MAX = 5
+-- (SUG_MAX = 5, máx. de sugerencias, inlineado abajo: no gastar local de raíz.)
 local suggestionFrame = Instance.new("Frame", searchFrame)
 suggestionFrame.Name = "Suggestions"
 suggestionFrame.Size = UDim2.new(0, 200, 0, 0)
@@ -2501,8 +2502,8 @@ end
 
 local function showSuggestions(entries)
 	if not entries or #entries == 0 then hideAllSuggestions(); return end
-	local shown = math.min(#entries, SUG_MAX)
-	for i = 1, SUG_MAX do
+	local shown = math.min(#entries, 5)   -- SUG_MAX
+	for i = 1, 5 do
 		local item = ensureSuggestionItem(i)
 		if i <= shown then
 			local u = entries[i]
@@ -2533,7 +2534,7 @@ track(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 		suggestThread = nil
 		if myId ~= suggestRequestId then return end
 		local url = "https://users.roblox.com/v1/users/search?keyword="
-			.. HttpService:UrlEncode(txt) .. "&limit=" .. SUG_MAX
+			.. HttpService:UrlEncode(txt) .. "&limit=5"   -- SUG_MAX
 		local data = apiGet(url)
 		if myId ~= suggestRequestId then return end
 		if data and data.data then showSuggestions(data.data) else hideAllSuggestions() end
@@ -5774,7 +5775,8 @@ function NXWin.startScan()
 end
 
 -- Texto de estado según el resultado REAL de las verificaciones del análisis.
-local function textoEstado(data)
+-- Va como método de Shield (no como local de raíz) para no gastar registros.
+function Shield.textoEstado(data)
 	local st = data and data._state
 	if st == "verified" then return "✓ Verificado." end
 	if st == "partial" then
@@ -5827,13 +5829,13 @@ analyze = function(input)
 
 			-- CACHÉ CON CADUCIDAD: antes no expiraba nunca, así que "Listo (caché)"
 			-- podía mostrar la presencia (dato en tiempo real) congelada durante
-			-- horas. Pasados PROFILE_TTL segundos se vuelve a consultar.
+			-- horas. Pasados Shield.TTL segundos se vuelve a consultar.
 			local hit = profileCache[userId]
-			if hit and (os.time() - (hit._fetchedAt or 0)) < PROFILE_TTL then
+			if hit and (os.time() - (hit._fetchedAt or 0)) < Shield.TTL then
 				Shield.run = hit._integrity or Shield.run   -- el escudo refleja lo que se ve
 				Shield.emit()
 				render(hit)
-				statusLabel.Text = textoEstado(hit) .. " (caché)"
+				statusLabel.Text = Shield.textoEstado(hit) .. " (caché)"
 				return
 			end
 
@@ -5851,7 +5853,7 @@ analyze = function(input)
 			else
 				setCached(userId, data)
 				render(data)
-				statusLabel.Text = textoEstado(data)
+				statusLabel.Text = Shield.textoEstado(data)
 			end
 		end)
 
