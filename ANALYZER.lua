@@ -1,10 +1,273 @@
 --[[
-   Roblox Public Profile Analyzer  v3.6.0
+   Roblox Public Profile Analyzer  v3.9.1
    ---------------------------------------------------------------
+   Cambios en v3.9.1 (sobre v3.9.0) — ANIMACIONES:
+     • NUEVO escáner de análisis "NX Flow": sustituye la banda/haz que
+       barría la pantalla. Minimalista — TRES servidores en fila que
+       representan el flujo del análisis: Request -> Processing ->
+       Complete, con una línea entre cada par y un paquete de datos que
+       viaja de uno al siguiente. La información del perfil aparece SOLO
+       DESPUÉS de que la animación se desvanece (nunca encima de ella).
+       Cubre solo el área de contenido y es casi opaca, así no se ve nada
+       por debajo. Vive en su propio módulo (_G.NXScan), separado de la
+       lógica del analizador: el único vínculo es _G.NXScan.finish(cb).
+       Todo TweenService, sin RenderStepped propio.
+     • Transición entre secciones y aparición de la info con "smoosh"
+       (deslizamiento + micro pop con rebote).
+     • La ventana hace un pequeño smoosh al arrastrarla (se encoge un
+       pelín al agarrarla y rebota al soltar).
+     • Micro-feedback de pulsación en los botones (se hunden un pelín).
+       Deliberadamente sutil.
+   ---------------------------------------------------------------
+   Cambios en v3.9.0 (sobre v3.8.3):
+
+     INTERFAZ — menos ruido, nada de errores en pantalla
+     • RETIRADA la tarjeta "Verificación" de la pestaña Perfil. Lo que
+       aportaba (estado de la cuenta, insignia verificada, coincidencia
+       de nombres y nombres previos) NO se pierde: se movió a la nueva
+       pestaña Huella, que es su sitio natural, junto al resto de
+       comprobaciones. Deja de haber dos sitios diciendo lo mismo.
+     • LA INTERFAZ YA NO MUESTRA ERRORES. Un fallo de API, un executor
+       sin portapapeles o una respuesta corrupta se muestran como "No
+       disponible", no como un error con su causa técnica. La distinción
+       que SÍ se conserva, porque es información real, es la de "No
+       encontrado" (la fuente respondió y el dato no está) frente a "No
+       disponible" (la fuente no respondió).
+     • RETIRADO el estilo terminal "Kali" entero: la tarjeta de Ajustes,
+       la capa de fuente monoespaciada y el tema de color "kali". Quien
+       lo tuviera guardado como tema arranca en "tor" sin perder nada.
+     • RETIRADOS los emojis de la interfaz (83 en 72 textos). Se
+       conservan los glifos que hacen un trabajo: la marca de
+       verificación, los triángulos de plegar/desplegar, las viñetas y
+       las flechas.
+     • RETIRADO el botón "Enviar solicitud de amistad" de la pestaña
+       Perfil, con su función y la comprobación de estado que lo
+       alimentaba.
+     • MODO AVANZADO (Ajustes). Apagado por defecto: la pestaña Análisis
+       enseña las puntuaciones y poco más. Encendido, añade los
+       desgloses ponderados, las notas metodológicas y la sección de
+       recolección profunda de la pestaña Huella. Se aplica al perfil
+       que ya tengas en pantalla, sin re-analizar.
+
+     NUEVO — pestaña "Huella": OSINT sobre el ecosistema de Roblox
+     • Traducción de tres herramientas clásicas a lo que Roblox SÍ
+       expone públicamente:
+       - Sherlock (¿dónde existe esta identidad?) -> presencia en
+         DevForum, experiencias publicadas, grupos que dirige, items en
+         el catálogo e inventario público, cada uno con su enlace.
+       - Maigret (recolección profunda) -> cifras totales en vez de las
+         muestras de 10 de la pestaña Items. Solo en modo avanzado.
+       - Holehe (¿en qué servicios está esta cuenta?) -> Roblox no
+         expone el correo de NADIE, así que se traduce a estado de la
+         cuenta cruzando dos fuentes independientes.
+     • Carga PEREZOSA: la pestaña no gasta ni una petición hasta que la
+       abres, y no repite nada si el perfil no cambió.
+     • Botón "Copiar informe": vuelca a texto todo lo resuelto.
+     • Rolimon's aparece como "No verificable desde el script" y no como
+       un fallo: su API pública se retiró y eso no es un error nuestro.
+
+     ARREGLOS DE FONDO
+     • FIX (colores que no cuadraban): la resolución de color de los
+       tags estaba DUPLICADA con dos paletas distintas (red, blue, cyan,
+       gold, yellow, purple, black y white no coincidían), así que el
+       MISMO tag salía de un color en el chip del perfil y de otro sobre
+       la cabeza. Ahora hay un solo kit (_G.NXTagKit) del que leen las
+       tres capas, y también un solo sitio donde se descarta la corona.
+     • FIX (media configuración): había DOS URLs para el MISMO tags.json
+       ("/refs/heads/main/" y "/main/"), así que cambiar de rama o de
+       repositorio arreglaba la mitad del script y dejaba la otra mitad
+       apuntando al sitio viejo. Ahora todo sale de _G.NXTagRepo.
+     • Descargar y parsear JSON estaba reescrito CUATRO veces, cada copia
+       con su propio criterio sobre qué es un fallo. Ahora es _G.NXJson.
+     • Fuera los sondeos con task.wait: el chip del perfil daba hasta 60
+       vueltas de 0.1 s esperando a que cargara un JSON. Los dos backends
+       avisan cuando terminan (_G.NXV2.onReady / alCargarLegacy).
+     • isLicensed() era un `return true` fijo, así que licenses.json y
+       showLicenseDenied() estaban muertos sin que se notara. Ahora
+       comprueba de verdad, sigue siendo fail-open (si el archivo no
+       carga o no declara "_enforce": true, pasa todo el mundo) y admite
+       caducidad por usuario.
+     • El 'store' de NX V2 tapaba al 'store' de preferencias del chunk
+       raíz. Renombrado a 'cache'.
+   ---------------------------------------------------------------
+   Cambios en v3.8.3 (fixes visuales de UI, sobre v3.8.2):
+     • TABS: el texto ahora es SIEMPRE blanco. El tab activo va en blanco
+       pleno y los inactivos en el mismo blanco pero atenuado
+       (TextTransparency), así se lee todo igual de claro y se distingue
+       cuál está activo. Guarda de luminancia: si el fondo del tab fuera
+       muy claro (el tema "negro" tiene accent blanco, "claro" tiene
+       neutral claro) el texto cae a onAccent para no quedar invisible.
+       Además el bloque del tab inactivo es más suave (menos saturado).
+     • IDENTIDAD SIN DUPLICAR: UserId, Username y Display Name se mostraban
+       DOS veces (como filas del perfil arriba y otra vez dentro del panel
+       " Identidad"). Se quitaron del panel, que pasa a llamarse
+       " Verificación" y se queda SOLO con lo que aporta análisis
+       (coincidencia de nombres, estado de la cuenta, verificado cruzado y
+       nombres previos). La identidad queda en UNA sola sección: las filas
+       del perfil, con la etiqueta a la izquierda y el valor a la derecha.
+       También se retiró la fila "Antigüedad" del panel (era idéntica a
+       "Edad de cuenta" de arriba).
+     • MENOS INTENSIDAD: el borde neón (PRISM) es más transparente y
+       calmado, y el contorno del panel más suave. Mismo estilo, menos
+       saturación. (Los acentos de cada tema NO se tocaron para no romper
+       los contrastes ya afinados.)
+   ---------------------------------------------------------------
+   Cambios en v3.8.2 (fixes UI, sobre v3.8.1):
+     • RETIRADO el menú de sugerencias del buscador. Caía a y=72 y las
+       tabs están a y=78, así que TAPABA la barra de pestañas y no se
+       podía cambiar de vista con el buscador enfocado. Buscar sigue
+       funcionando: escribir + Enter o pulsar "Analizar".
+     • FIX: la barra de pestañas era transparente y el contenido con
+       scroll se veía POR DEBAJO (el toggle "Activado" atravesándola).
+       Ahora tiene fondo sólido (color de tema).
+     • FIX: "Estadísticas" se cortaba a "stadística" con la fuente
+       mono. Los tabs pasan a AUTO-ANCHO (crecen con el texto + 14 px
+       de aire a cada lado) y quedan bloqueados en Gotham vía atributo
+       NXfLock (el skin Kali ya lo respeta).
+   ---------------------------------------------------------------
+   Cambios en v3.8.1 (limpieza de UI, sobre v3.8.0):
+     • RETIRADO el barrido CRT permanente (animación que corría todo
+       el tiempo en el menú). La única animación tipo escáner que
+       queda es la de búsqueda, que ya se enciende solo al analizar.
+     • RETIRADOS los corchetes HUD de las esquinas (cajas de adorno).
+     • RETIRADO el logo NX de la esquina superior derecha. Los
+       controles de ventana pasan a esa esquina y el título recupera
+       el ancho: cabecera más limpia y equilibrada.
+     • ARREGLADA la fila del link del perfil: el link va ahora en una
+       fila entera arriba (siempre visible y completo) y Abrir Perfil /
+       Copiar link en una segunda fila a mitades. Ya no se montan entre
+       sí ni el texto se sale al achicar la ventana.
+     • RETIRADA la barra de terminal inferior (duplicaba la línea de
+       estado y quitaba alto). El tema Kali + la fuente mono mantienen
+       el aire de terminal. Contenido más alto.
+     • RETIRADO el botón Reportar de la fila del link. Nota: Roblox NO
+       expone ninguna API para abrir su menú nativo de reporte desde un
+       script/executor, así que un botón "nativo" es imposible.
+     • Redacción del historial de nombres: en vez de "no existe", dice
+       que Roblox "no lo hace público / no disponible".
+   ---------------------------------------------------------------
+   Cambios en v3.8.0 (sobre v3.7.0):
+     • NUEVO: COPIAR LA DESCRIPCIÓN de la cuenta. Dos sitios:
+       - Tarjeta "Descripción" de la pestaña Perfil: la cabecera ahora
+         lleva el contador de caracteres y un botón "Copiar". Copia el
+         texto COMPLETO aunque en pantalla esté plegado ("Mostrar
+         más"), porque copia la cadena original, no lo que se ve.
+         Si la cuenta no tiene descripción, el botón queda apagado y
+         lo dice en la barra de estado en vez de copiar "Sin
+         descripción" como si fuera un dato.
+       - Mini-perfil (el que abre "Analizar →" en un amigo): junto a
+         "Copiar usuario" hay ahora "Copiar descripción". La bio llega
+         asíncrona, así que el botón avisa si aún no hay nada.
+     • NUEVO: TEMA "KALI" — la terminal de Kali Linux. Fondo casi
+       negro azulado, acento azul dragón y verde fósforo para los
+       estados correctos. Primero en el selector de Ajustes.
+     • NUEVO: BARRA DE TERMINAL abajo del panel. Prompt de dos líneas
+       igual que el zsh de Kali (┌──(nx@analyzer)-[ruta] / └─$), con
+       el comando tecleándose letra a letra, cursor parpadeante y la
+       salida real de la herramienta (espeja statusLabel y la colorea:
+       verde ok, rojo error). Los ángulos del prompt van DIBUJADOS con
+       frames, no como texto: los caracteres de caja salen como
+       cuadros vacíos en varias fuentes de Roblox.
+     • NUEVO: capa "NX KALI SKIN" — marco HUD en las esquinas del área
+       de datos, barrido CRT y TIPOGRAFÍA MONO en todo el panel.
+       Se enciende y apaga desde Ajustes › " Estilo terminal (Kali)"
+       y la fuente es reversible (cada etiqueta recuerda la suya).
+     • FIX: el Frame principal no tenía nombre, así que la Lista de
+       Jugadores nunca encontraba "UtilityPanel.main" y se anclaba
+       siempre en su posición de reserva. Ahora se llama "main".
+   ---------------------------------------------------------------
+   Cambios en v3.7.0 (sobre v3.6.1):
+     • NUEVO:  REPORTAR USUARIO. Tercer botón en la fila del link del
+       perfil. Abre un panel con 9 SECCIONES (exploits/trampas, audio
+       y micrófono, avatar inapropiado, chat de texto, acoso, estafa,
+       suplantación, contenido adulto y datos personales) y 3
+       plantillas por sección (27 en total). La descripción se genera
+       ya rellena con @usuario, Display Name, UserId, experiencia,
+       PlaceId, JobId y fecha UTC, y es EDITABLE antes de usarla.
+       "Abrir reporte de Roblox" copia el texto y abre
+       roblox.com/report-abuse con el usuario preseleccionado usando
+       la cadena openURL de siempre (navegador nativo → open_url del
+       executor → puerto 9222 → portapapeles).
+       LÍMITE HONESTO: Roblox no tiene API para abrir su menú interno
+       de reporte ni para enviar reportes desde un script. Esto te
+       lleva al formulario con todo listo; el envío lo haces tú.
+     • NUEVO:  PANEL DE IDENTIDAD en la pestaña Perfil. Reúne
+       UserId, @usuario, Display Name, si coinciden (y por qué
+       importa: el Display Name se repite entre cuentas, el @usuario
+       no), estado de la cuenta cruzando DOS fuentes, insignia de
+       verificado (y avisa si las dos fuentes se contradicen en vez de
+       elegir una por ti), antigüedad y nº de nombres previos.
+       Dice explícitamente que el historial de DISPLAY NAMES no lo
+       publica Roblox, para que no parezca que falló algo.
+     • NUEVO: detección de CUENTAS BORRADAS vía user-profile-api
+       (apis.roblox.com), el endpoint que usa hoy la web de Roblox.
+       Responde sin sesión y en lote. Antes una cuenta borrada no se
+       distinguía de una normal. Si el endpoint no responde, se dice
+       "no comprobable": un fallo de API no es un veredicto.
+     • NUEVO: CACHÉ E HISTORIAL DE BÚSQUEDA. /users/search es el
+       endpoint más rate-limited (429 con facilidad), así que las
+       sugerencias se cachean 120 s: borrar una letra y volver a
+       escribirla ya no gasta petición. Además el buscador vacío
+       ofrece los últimos 12 perfiles analizados, recordados entre
+       sesiones en el mismo archivo de guardado que el tema.
+     • La ventana va POR ENCIMA DE CUALQUIER UI DEL JUEGO
+       (ScreenGui.DisplayOrder muy alto + re-imposición event-based si
+       aparece otro ScreenGui más alto). La Lista de Jugadores va uno
+       por debajo, para que al solaparse mande la ventana principal.
+       Lo que esto NO puede hacer: la CoreGui de Roblox (barra
+       superior, chat, menú de escape) siempre queda por encima de
+       PlayerGui, y mover el panel ahí exige gethui()/CoreGui, donde
+       los botones dejan de responder.
+     • FIX (peticiones duplicadas): el Panel de Identidad y la tarjeta
+       "Historial de nombres" piden el mismo dato y se dibujan a la
+       vez, así que lanzaban DOS getNameHistory por perfil contra
+       username-history, que es justo el endpoint que más se queja.
+       Ahora comparten una sola petición en vuelo (mismo patrón que
+       withRAP).
+
+   Cambios en v3.6.1 (sobre v3.6.0) — COMPATIBILIDAD con los cambios
+   que Roblox y Rolimon's hicieron en sus APIs. Los 4 se comprobaron
+   con peticiones reales el 2026-07-26, no de memoria:
+
+     • FIX GRAVE (búsqueda muerta): Roblox ahora VALIDA el parámetro
+       `limit` de /v1/users/search y solo acepta 10, 25, 50 o 100.
+       Cualquier otro valor responde 400 "Allowed values: ...". El
+       script pedía limit=1 (fallback de getUserIdByName), limit=5
+       (sugerencias del buscador) y limit=12 (búsqueda global de la
+       Lista de Jugadores): las TRES estaban rotas, o sea que no
+       salían sugerencias ni resultados globales en absoluto. Ahora
+       se piden valores legales (10 / 25) y se recorta en el cliente.
+       De paso, el fallback ya no mira solo data[1]: recorre los
+       resultados buscando la coincidencia EXACTA (con 10 resultados
+       el primero no tiene por qué ser el que pediste), y "hay
+       resultados pero ninguno coincide" ya se reporta como
+       not_found en vez de como api_error.
+     • FIX (juegos creados siempre vacíos): games.roblox.com/v2 bajó
+       su tope de página a 50 ("Allowed values: 10, 25, 50"), y
+       countPaged pedía 100 por defecto -> 400 -> el contador salía
+       nil -> NX Shields lo marcaba como dato ausente -> el análisis
+       bajaba a "parcial" sin que pasara nada malo de verdad.
+     • FIX (items sin nombre ni precio): catalog.roblox.com/v1/
+       catalog/items/details ahora exige X-CSRF-TOKEN; con apiPost
+       devolvía 403 "XSRF token invalid", así que los items del
+       avatar salían sin nombre y el precio total era siempre 0.
+       Pasa a usar postAuth, que ya hacía el ciclo 403 -> token ->
+       reintento (la función ya existía en el archivo, no se usaba
+       aquí).
+     • FIX (mensaje que mentía): Rolimon's RETIRÓ su endpoint
+       /playerapi/player/<id> (404 "This endpoint has moved") y su
+       reemplazo está tras Cloudflare y exige una clave que se pide
+       en su Discord. El RAP ya no es obtenible desde aquí. Antes la
+       tarjeta decía "tu executor la bloquea", lo cual ya es FALSO y
+       mandaba a buscar el problema donde no está. Ahora getRAP
+       devuelve (nil, motivo) y la tarjeta explica la causa real.
+       No se inventa ningún número: la Influencia simplemente se
+       queda con su cálculo sin RAP, como ya hacía.
+
    Cambios en v3.6.0 (sobre v3.5.0):
-     • NUEVO: 🛡️ NX SHIELDS — capa de verificación REAL (nada decorativo).
+     • NUEVO:  NX SHIELDS — capa de verificación REAL (nada decorativo).
        Icono de escudo en la cabecera (estilo extensión de Chrome/Brave) con
-       punto de estado 🟢/🟡/🔴 derivado del resultado de las comprobaciones,
+       punto de estado // derivado del resultado de las comprobaciones,
        y panel desplegable con switches deslizantes estilo móvil.
        Dos protecciones, ambas con efecto medible:
        - API Validation: intercepta apiGet/apiPost y clasifica cada respuesta
@@ -43,7 +306,7 @@
        mostraba la presencia (dato en vivo) congelada indefinidamente. TTL 180 s.
      • Ajustes: los botones Activado/Desactivado son ahora switches NX
        deslizantes (mismo componente que el panel del escudo, sincronizados),
-       se añadió la tarjeta 🛡️ NX Shields y se retiró la tarjeta 🎬 Intro de
+       se añadió la tarjeta  NX Shields y se retiró la tarjeta  Intro de
        inicio (la intro sigue disponible por _G.NXIntro.play()).
 
    Cambios en v3.5.0 (sobre v3.4.0):
@@ -83,7 +346,7 @@
        API pública (_G.NXHeadTags.SetEnabled) desde un toggle en Ajustes.
        - Nuevo: preferencia persistente store.headTags (on/off), recordada
          entre sesiones en el mismo archivo de guardado.
-       - Nuevo: tarjeta "🏷️ NX Head Tags" en la pestaña Ajustes con un
+       - Nuevo: tarjeta " NX Head Tags" en la pestaña Ajustes con un
          botón Activado/Desactivado que respeta el tema en vivo.
        - Al cargar, si dejaste los tags apagados, se paran sin tocar su
          código. Si el módulo no está presente, el Analyzer corre igual.
@@ -155,7 +418,7 @@
        morado y acento violeta (el morado de Tor). Se elige en la
        pestaña Ajustes como los demás y se aplica al instante.
      • UI estilo navegador: el buscador ahora parece una barra de
-       direcciones (forma de píldora, candado 🔒 a la izquierda y texto
+       direcciones (forma de píldora, candado  a la izquierda y texto
        tipo URL), y la cabecera tiene botón minimizar "—" además del de
        cerrar, como los controles de ventana de un navegador.
      • MODO DISCRETO: tecla rápida [RightShift] que oculta/muestra TODA
@@ -221,7 +484,7 @@ local hasFS = (type(writefile) == "function")
 -- DEFAULT de primera vez: tema "tor" (morado) + intro retirada.
 -- (Nota: en cliente/executor NO existe DataStore — eso es solo servidor;
 --  la persistencia correcta es por archivo, que es lo que hacemos aquí.)
-local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false }
+local store = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false, advanced = false }
 
 -- Guardado ROBUSTO: escribe el archivo principal + una COPIA DE RESPALDO
 -- (.bak.json). Si el principal se corrompe, loadStore() recupera del backup.
@@ -354,6 +617,9 @@ local function applyTheme(name)
 	local t = THEMES[name] or THEMES.negro
 	for k, v in pairs(t) do C[k] = v end
 end
+-- El tema "kali" se retiró junto con el estilo terminal. Las instalaciones que
+-- lo tuvieran guardado caen a "tor" para no arrancar sin un tema válido.
+if store.theme == "kali" then store.theme = "tor" end
 applyTheme(store.theme)
 
 -- ====================== SISTEMA DE TEMA EN VIVO ======================
@@ -452,6 +718,28 @@ for _, child in ipairs(playerGui:GetChildren()) do
 	end
 end
 
+--  INSTANCIA ÚNICA · anti-lag por ACUMULACIÓN al re-ejecutar 
+-- Al volver a ejecutar el script SIN salir del juego, los bucles de la sesión
+-- anterior seguían VIVOS y se SUMABAN a los nuevos. El más caro, con diferencia:
+-- el RenderStepped de NX Head Tags, que recorre CADA jugador y anima un
+-- BillboardGui por cabeza. Dos o tres re-ejecuciones = dos o tres loops +
+-- billboards duplicados sobre todas las cabezas → caída de FPS grave y creciente.
+-- (El HUD y el panel se autolimpian al destruir "UtilityPanel" de arriba; Head
+--  Tags NO, porque su renderConn es un upvalue del chunk viejo que nadie
+--  desconectaba.) Aquí matamos la sesión previa de tags antes de montar la nueva.
+pcall(function()
+	if _G.NXHeadTags and _G.NXHeadTags.Stop then _G.NXHeadTags.Stop() end
+end)
+-- Cinturón y tirantes: barrer billboards huérfanos (si un Stop previo no llegó a
+-- limpiarlos, p. ej. una ejecución que falló a medias) y una Lista anterior. El
+-- do...end libera sus registros al cerrar (no gasta locals de raíz).
+do
+	local o = playerGui:FindFirstChild("NXHeadTags")
+	if o then o:Destroy() end
+	o = playerGui:FindFirstChild("ListaJugadoresModerna")
+	if o then o:Destroy() end
+end
+
 -- ====================== HTTP ROBUSTO ======================
 local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
 local clipboard = setclipboard or (syn and syn.write_clipboard) or toclipboard or function() end
@@ -542,49 +830,131 @@ end
 -- Lee un JSON público (UserId -> { tag, color, icon }) desde GitHub y lo cachea.
 -- Se descarga UNA sola vez al cargar el script; el lookup luego es instantáneo.
 -- Si el JSON no carga o el usuario no está, simplemente no se muestra tag.
--- Estructura esperada:  { "8396392068": { "tag": "NX OWNER", "color": "cyan", "icon": "👑" } }
+-- Estructura esperada:  { "8396392068": { "tag": "NX OWNER", "color": "cyan", "icon": "" } }
 -- (URL inlineada abajo en loadNXTags: no gastar un local de raíz.)
+-- ORIGEN ÚNICO del repositorio de tags. Antes había DOS URLs distintas para
+-- el MISMO tags.json ("/refs/heads/main/" aquí y "/main/" en los head tags),
+-- así que cambiar de rama o de repo arreglaba la mitad del script y dejaba la
+-- otra mitad apuntando al sitio viejo, sin ningún aviso.
+_G.NXTagRepo = {
+	base = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/",
+}
+_G.NXTagRepo.tags = _G.NXTagRepo.base .. "tags.json"
+
+-- Descarga + parseo de JSON en UN solo sitio. Antes esto estaba reescrito
+-- cuatro veces (aquí suelto, en NX Core, en NX V2 y en los head tags), cada
+-- copia con su propio criterio sobre qué es un fallo. Devuelve:
+--   tabla, códigoHTTP   si el cuerpo llegó y era un objeto JSON
+--   nil,   códigoHTTP   en cualquier otro caso (sin cuerpo, JSON roto, no-tabla)
+-- Nunca lanza: el que llama decide qué hacer con el nil.
+_G.NXJson = function(url)
+	local body, status = rawGet(url)
+	if not body then return nil, tonumber(status) or status end
+	local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
+	if not ok or type(t) ~= "table" then return nil, tonumber(status) or status end
+	return t, tonumber(status) or status
+end
+
 local nxTags = nil           -- nil = aún no cargado; tabla = listo (puede estar vacía)
 local nxLoading = false
+local nxTagsListos = {}      -- callbacks a los que avisar cuando termine la carga
 
 local function loadNXTags()
 	if nxTags ~= nil or nxLoading then return end
 	nxLoading = true
 	task.spawn(function()
-		local body = rawGet("https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/tags.json")   -- GET crudo (con fallback)
-		local parsed = {}
-		if body then
-			pcall(function()
-				local decoded = HttpService:JSONDecode(body)
-				if type(decoded) == "table" then parsed = decoded end
-			end)
-		end
-		nxTags = parsed                          -- nunca queda en nil: evita reintentos infinitos
+		nxTags = _G.NXJson(_G.NXTagRepo.tags) or {}   -- nunca nil: evita reintentos infinitos
 		nxLoading = false
+		-- Aviso a quien esté esperando (el chip del perfil), en vez de obligarle
+		-- a sondear con task.wait.
+		local pendientes = nxTagsListos
+		nxTagsListos = {}
+		for _, fn in ipairs(pendientes) do task.spawn(fn) end
 	end)
 end
 
--- Convierte el nombre de color del JSON a Color3. Acepta nombres comunes o hex "#RRGGBB".
-local NX_COLORS = {
-	cyan = Color3.fromRGB(0, 229, 255),  red = Color3.fromRGB(255, 76, 76),
-	green = Color3.fromRGB(80, 220, 120), blue = Color3.fromRGB(80, 150, 255),
-	yellow = Color3.fromRGB(255, 214, 64), orange = Color3.fromRGB(255, 150, 40),
-	purple = Color3.fromRGB(180, 110, 255), pink = Color3.fromRGB(255, 110, 200),
-	white = Color3.fromRGB(245, 245, 245), gold = Color3.fromRGB(255, 196, 64),
-	gray = Color3.fromRGB(170, 170, 170), grey = Color3.fromRGB(170, 170, 170),
-	black = Color3.fromRGB(30, 30, 30),
+-- ── KIT DE TAGS · una sola implementación ──────────────────────────────────
+-- Antes esto vivía por triplicado: aquí, dentro de NX V2 y otra vez dentro de
+-- los head tags, y con DOS paletas distintas. Consecuencia real: el mismo tag
+-- podía salir de un color en el chip del perfil y de otro sobre la cabeza.
+-- Ahora hay un solo sitio donde se decide color, imagen y corona.
+_G.NXTagKit = {
+	-- Asset de la corona que se descarta venga por donde venga (imagen o emoji).
+	CORONA_ASSET = "98710143344488",
+	-- Unión de las dos paletas que existían. Donde discrepaban (red, blue, cyan,
+	-- gold, yellow, purple, black, white) mandan estos valores, que son los que
+	-- ya estaban ajustados para contrastar sobre las tarjetas del panel.
+	COLORES = {
+		cyan = Color3.fromRGB(0, 229, 255),  red = Color3.fromRGB(255, 76, 76),
+		green = Color3.fromRGB(80, 220, 120), blue = Color3.fromRGB(80, 150, 255),
+		yellow = Color3.fromRGB(255, 214, 64), orange = Color3.fromRGB(255, 150, 40),
+		purple = Color3.fromRGB(180, 110, 255), pink = Color3.fromRGB(255, 110, 200),
+		white = Color3.fromRGB(245, 245, 245), gold = Color3.fromRGB(255, 196, 64),
+		gray = Color3.fromRGB(170, 170, 170), grey = Color3.fromRGB(170, 170, 170),
+		black = Color3.fromRGB(30, 30, 30),
+		magenta = Color3.fromRGB(255, 0, 200), teal = Color3.fromRGB(0, 200, 180),
+		silver = Color3.fromRGB(200, 200, 210), lime = Color3.fromRGB(160, 255, 80),
+	},
 }
-local function nxColor(name)
-	if type(name) == "string" then
-		local hex = name:match("^#?(%x%x%x%x%x%x)$")
+
+-- Campo de color del JSON -> Color3. Acepta un Color3 ya hecho, una tabla
+-- {r,g,b} (0-1 o 0-255), un nombre conocido o un hex "#RRGGBB".
+-- 'porDefecto' deja que cada capa tenga su propio fallback sin duplicar nada.
+function _G.NXTagKit.color(value, porDefecto)
+	porDefecto = porDefecto or _G.NXTagKit.COLORES.cyan
+	if typeof(value) == "Color3" then return value end
+	if type(value) == "table" then
+		local r = value[1] or value.r or value.R
+		local g = value[2] or value.g or value.G
+		local b = value[3] or value.b or value.B
+		if r and g and b then
+			if r <= 1 and g <= 1 and b <= 1 then return Color3.new(r, g, b) end
+			return Color3.fromRGB(r, g, b)
+		end
+		return porDefecto
+	end
+	if type(value) == "string" then
+		local s = value:lower():gsub("%s", "")
+		local c = _G.NXTagKit.COLORES[s]
+		if c then return c end
+		local hex = s:match("^#?(%x%x%x%x%x%x)$")
 		if hex then
 			return Color3.fromRGB(tonumber(hex:sub(1, 2), 16),
 				tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16))
 		end
-		local c = NX_COLORS[name:lower()]
-		if c then return c end
 	end
-	return NX_COLORS.cyan      -- por defecto
+	return porDefecto
+end
+
+-- Campo de imagen -> "rbxassetid://N" usable, o nil si no hay imagen válida.
+function _G.NXTagKit.imagen(v)
+	if v == nil then return nil end
+	if type(v) == "number" then v = "rbxassetid://" .. v end
+	v = tostring(v)
+	if v == "" or v == "rbxassetid://0" then return nil end
+	local d = v:match("^(%d+)$")
+	if d then v = "rbxassetid://" .. d end
+	if not (v:match("^rbxassetid://%d+$") or v:match("^rbxthumb") or v:match("^http")) then
+		return nil
+	end
+	if v:find(_G.NXTagKit.CORONA_ASSET, 1, true) then return nil end   -- corona fuera
+	return v
+end
+
+-- Quita la corona de un icono de texto venga del JSON que venga.
+function _G.NXTagKit.icono(v)
+	return (tostring(v or ""):gsub("\u{1F451}", ""))
+end
+
+-- Suscripción a "el JSON legacy ya cargó". Si ya está cargado se llama en el
+-- siguiente frame, para que quien la use no tenga dos caminos distintos.
+-- (Va aquí y no junto a loadNXTags porque allí _G.NXTagKit todavía no existe.)
+function _G.NXTagKit.alCargarLegacy(fn)
+	if nxTags ~= nil then task.defer(fn) else table.insert(nxTagsListos, fn) end
+end
+
+local function nxColor(name)
+	return _G.NXTagKit.color(name)
 end
 
 -- Devuelve { tag, icon, color(Color3) } para un userId, o nil si no tiene tag.
@@ -594,7 +964,7 @@ local function getNXTag(userId)
 	if type(entry) ~= "table" then return nil end
 	local tagText = entry.tag or entry.text or ""
 	if tagText == "" and (entry.icon == nil or entry.icon == "") then return nil end
-	local _icon = tostring(entry.icon or ""):gsub("👑", "")   -- NX: mata corona emoji
+	local _icon = _G.NXTagKit.icono(entry.icon)
 	return { tag = tagText, icon = _icon, color = nxColor(entry.color) }
 end
 
@@ -612,30 +982,46 @@ do
 	if _G.NXV2 and _G.NXV2.stop then pcall(_G.NXV2.stop) end
 	local NX_V2 = { enabled = true, images = false }   -- images OFF: assets aún no válidos
 	local alive = true
-	local BASE  = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/v2/"
+	local BASE  = _G.NXTagRepo.base .. "v2/"
 	local TTL, RETRY = 300, 15
 
 	-- NXData: fetch + cache + dedup + retry + refresh
-	local store, at, inflight = {}, {}, {}
+	-- 'cache' y no 'store': el chunk raíz ya tiene un 'store' que es el archivo
+	-- de preferencias, y dos cosas distintas con el mismo nombre invitan a un
+	-- accidente en cuanto alguien edite este bloque.
+	local cache, at, inflight = {}, {}, {}
+	local avisarSiListo   -- declarada antes de fetch(), que la usa
 	local function fetch(f, force)
 		if inflight[f] then return end
-		if not force and store[f] and (os.clock() - (at[f] or 0)) < TTL then return end
+		if not force and cache[f] and (os.clock() - (at[f] or 0)) < TTL then return end
 		inflight[f] = true
 		task.spawn(function()
-			local body = rawGet(BASE .. f)                  -- reusa tu rawGet (con fallback)
-			if body then
-				local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
-				if ok and type(t) == "table" then store[f], at[f] = t, os.clock() end
-			end
+			local t = _G.NXJson(BASE .. f)
+			if t then cache[f], at[f] = t, os.clock() end
 			inflight[f] = nil
+			avisarSiListo()
 		end)
 	end
-	local function dget(f) return store[f] end
+	local function dget(f) return cache[f] end
+
+	-- Aviso de "ya están los dos JSON". Sustituye a los sondeos con task.wait
+	-- que había repartidos (el chip del perfil daba hasta 60 vueltas de 0.1 s).
+	local listos = {}
+	function avisarSiListo()
+		if not (cache["roles.json"] and cache["tags.json"]) then return end
+		local pendientes = listos
+		listos = {}
+		for _, fn in ipairs(pendientes) do task.spawn(fn) end
+	end
+	local function alCargar(fn)
+		if cache["roles.json"] and cache["tags.json"] then task.defer(fn)
+		else table.insert(listos, fn) end
+	end
 	task.spawn(function()
 		while alive do
 			if NX_V2.enabled then
 				for _, f in ipairs({ "roles.json", "tags.json" }) do
-					if not store[f] then fetch(f)
+					if not cache[f] then fetch(f)
 					elseif (os.clock() - (at[f] or 0)) >= TTL then fetch(f, true) end
 				end
 			end
@@ -646,13 +1032,7 @@ do
 
 	-- ImageResolver: normaliza + valida (PreloadAsync) + cachea
 	local CP, icache = game:GetService("ContentProvider"), {}
-	local function imgNormalize(v)
-		if v == nil then return nil end
-		if type(v) == "number" then v = "rbxassetid://" .. v end
-		v = tostring(v); if v == "" or v == "rbxassetid://0" then return nil end
-		local d = v:match("^(%d+)$"); if d then v = "rbxassetid://" .. d end
-		return (v:match("^rbxassetid://%d+$") or v:match("^rbxthumb") or v:match("^http")) and v or nil
-	end
+	local imgNormalize = _G.NXTagKit.imagen
 	local function imgPreload(v)
 		local id = imgNormalize(v); if not id or icache[id] then return end
 		icache[id] = "pending"
@@ -696,9 +1076,8 @@ do
 			   or imgNormalize(role.iconImage) or imgNormalize(nxAsset(role.iconAsset))
 			if img then imgPreload(img) end
 		end
-		if img and tostring(img):find("98710143344488", 1, true) then img = nil end  -- NX: mata imagen-corona
 		local tagText = raw.tag or ""
-		local icon = tostring(raw.icon or role.icon or ""):gsub("👑", "")             -- NX: mata corona emoji
+		local icon = _G.NXTagKit.icono(raw.icon or role.icon)
 		if tagText == "" and icon == "" and not img then return nil end
 		return {
 			tag = tagText, discordRole = raw.discordRole or role.discordRole,
@@ -716,6 +1095,8 @@ do
 		image = { normalize = imgNormalize, preload = imgPreload, usable = imgUsable },
 		data = { get = dget, ensure = fetch },
 		pending = function() return not (dget("roles.json") and dget("tags.json")) end,
+		onReady = alCargar,   -- onReady(fn): fn se llama cuando estén los dos JSON
+
 		setEnabled = function(on) NX_V2.enabled = on and true or false; _G.NXV2.enabled = NX_V2.enabled end,
 		setImages = function(on) NX_V2.images = on and true or false; _G.NXV2.images = NX_V2.images end,
 		stop = function() alive = false end,   -- corta el bucle de refresco (cleanup / re-ejecución)
@@ -732,10 +1113,8 @@ do
 
 	-- Cuando v2 termine de cargar por primera vez, refresca los head tags para
 	-- que apliquen v2 sin esperar al refresh de 5 min.
-	task.spawn(function()
-		local n = 0
-		while n < 120 and dget("tags.json") == nil do task.wait(0.1); n = n + 1 end
-		if dget("tags.json") and _G.NXHeadTags and _G.NXHeadTags.Refresh then
+	alCargar(function()
+		if _G.NXHeadTags and _G.NXHeadTags.Refresh then
 			pcall(_G.NXHeadTags.Refresh)
 		end
 	end)
@@ -752,7 +1131,7 @@ end
 -- logEvent() es un no-op hasta que se conecte un backend en v3.5+.
 -- ================================================================
 local NXCore = (function()
-	local NX_BASE    = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/"
+	local NX_BASE    = _G.NXTagRepo.base
 	local NX_VERSION = "3.4.0"
 
 	local state = {
@@ -768,10 +1147,7 @@ local NXCore = (function()
 
 	-- Descarga y parsea un JSON usando rawGet() (ya definida en el script).
 	local function fetchJSON(filename)
-		local body = rawGet(NX_BASE .. filename)
-		if not body then return nil end
-		local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
-		return (ok and type(t) == "table") and t or nil
+		return _G.NXJson(NX_BASE .. filename)
 	end
 
 	local function fireReady()
@@ -816,8 +1192,20 @@ local NXCore = (function()
 		else table.insert(readyCbs, fn) end
 	end
 
-	-- Licencias: fail-open si el archivo falló o aún no ha cargado.
+	-- Licencias. FAIL-OPEN por diseño: si el archivo no cargó, o si no declara
+	-- "_enforce": true, pasa todo el mundo. Un fallo de red no puede dejar a
+	-- nadie fuera de su propia herramienta.
+	-- (Antes el cuerpo era un `return true` fijo, así que licenses.json y
+	--  showLicenseDenied() estaban muertos sin que se notara desde fuera.)
 	function api.isLicensed(userId)
+		if not state.ready or state.failed.licenses then return true end
+		if state.licenses._enforce ~= true then return true end
+		local e = state.licenses[tostring(userId)]
+		if e == nil or e == false then return false end
+		if type(e) == "table" and e.expires then
+			local hasta = tonumber(e.expires)
+			if hasta and os.time() > hasta then return false end
+		end
 		return true
 	end
 
@@ -872,7 +1260,7 @@ local NXCore = (function()
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
--- ║  🛡️ NX SHIELDS · núcleo de verificación (v1.0)                        ║
+-- ║   NX SHIELDS · núcleo de verificación (v1.0)                        ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  NO es decorativo. Dos protecciones REALES, cada una con efecto        ║
 -- ║  medible en el comportamiento del sistema:                             ║
@@ -1195,7 +1583,7 @@ do
 		return out
 	end
 
-	-- ── ESTADO GLOBAL DEL ESCUDO (🟢 / 🟡 / 🔴) ──────────────────────────────
+	-- ── ESTADO GLOBAL DEL ESCUDO ( /  / ) ──────────────────────────────
 	-- Derivado, nunca decorativo:
 	--   error   → alguna validación falló de verdad en el último análisis
 	--   partial → hay protecciones apagadas, o faltaron datos no críticos
@@ -1329,21 +1717,30 @@ local function getUserIdByName(name)
 	end
 
 	for attempt = 1, 3 do
+		-- FIX (2026-07-26): Roblox ahora VALIDA el parámetro `limit` de /users/search
+		-- y solo acepta 10, 25, 50 o 100. Con "&limit=1" devolvía
+		--   400 {"message":"Allowed values: 10, 25, 50, 100","field":"limit"}
+		-- así que este fallback entero estaba MUERTO. Se pide el mínimo legal (10)
+		-- y se recorre la lista buscando la coincidencia exacta (antes solo se
+		-- miraba data[1], que con 10 resultados ya no tiene por qué ser el bueno).
 		local s, status = apiGet("https://users.roblox.com/v1/users/search?keyword="
-			.. HttpService:UrlEncode(name) .. "&limit=1")
+			.. HttpService:UrlEncode(name) .. "&limit=10")
 		if s and s.data then
 			if s.data[1] then
-				-- FIX: la API a veces devuelve entradas SIN 'name' (datos parciales).
+				-- La API a veces devuelve entradas SIN 'name' (datos parciales).
 				-- Antes, `s.data[1].name:lower()` lanzaba error aquí dentro del
 				-- task.spawn de analyze() y dejaba `analyzing` en true PARA SIEMPRE
 				-- (la herramienta no volvía a analizar nada en toda la sesión).
-				local hit = s.data[1]
-				if type(hit.name) == "string" and type(hit.id) == "number"
-					and hit.name:lower() == name:lower() then
-					return hit.id, hit.name, nil
-				else
-					return nil, nil, "api_error"
+				local objetivo = name:lower()
+				for _, hit in ipairs(s.data) do
+					if type(hit.name) == "string" and type(hit.id) == "number"
+						and hit.name:lower() == objetivo then
+						return hit.id, hit.name, nil
+					end
 				end
+				-- Hubo resultados pero ninguno es el nombre pedido: no existe ese
+				-- usuario exacto (no es un fallo de la API).
+				return nil, nil, "not_found"
 			else
 				return nil, nil, "not_found"
 			end
@@ -1407,7 +1804,7 @@ local function getSubscription(userId)
 	if mt == Enum.MembershipType.None then
 		return "Ninguna (cuenta gratis)"
 	elseif mt == Enum.MembershipType.Premium then
-		return "Premium / Plus ⭐"
+		return "Premium / Plus"
 	else
 		return tostring(mt.Name)
 	end
@@ -1427,13 +1824,13 @@ local function getPresence(userId)
 	local placeId = p.placeId or p.rootPlaceId
 	local gameId = p.gameId
 	if t == 2 then
-		return "🎮 Jugando" .. (loc and (": " .. loc) or ""), C.good, placeId, gameId, t
+		return "Jugando" .. (loc and (": " .. loc) or ""), C.good, placeId, gameId, t
 	elseif t == 3 then
-		return "🏗️ En Studio", C.warn, nil, nil, t
+		return "En Studio", C.warn, nil, nil, t
 	elseif t == 1 then
-		return "🟢 Online" .. (loc and (" (" .. loc .. ")") or " (web/app)"), C.good, nil, nil, t
+		return "Online" .. (loc and (" (" .. loc .. ")") or " (web/app)"), C.good, nil, nil, t
 	else
-		return "⚫ Offline", C.subtext, nil, nil, t
+		return "Offline", C.subtext, nil, nil, t
 	end
 end
 
@@ -1462,7 +1859,12 @@ local function getWornItems(userId)
 	if #items > 0 then
 		local ids = {}
 		for _, it in ipairs(items) do table.insert(ids, { itemType = "Asset", id = it.id }) end
-		local resp = apiPost("https://catalog.roblox.com/v1/catalog/items/details", { items = ids })
+		-- FIX (2026-07-26): este endpoint ahora exige X-CSRF-TOKEN. Con apiPost
+		-- (que no lo maneja) devolvía 403 {"message":"XSRF token invalid"}, así
+		-- que los items salían sin NOMBRE y sin PRECIO, y el precio total del
+		-- avatar era siempre 0. postAuth ya hace el 403 -> toma el token de la
+		-- cabecera -> reintenta, que es exactamente lo que pide el endpoint.
+		local resp = postAuth("https://catalog.roblox.com/v1/catalog/items/details", { items = ids })
 		if resp and resp.data then
 			local byId = {}
 			for _, d in ipairs(resp.data) do byId[d.id] = d end
@@ -1511,14 +1913,27 @@ end
 -- ====================== RAP (valor de limiteds, vía Rolimon's) ======================
 -- AVISO: usa una web externa (rolimons.com). Si tu executor/red la bloquea,
 -- devolverá nil y la UI mostrará "No disponible". No es un dato de Roblox.
+-- Devuelve: tabla {rap, premium} o (nil, motivo).
+-- motivo = "movida" | "sin_respuesta" | "sin_datos"  -> la UI dice la verdad
+-- en vez de echarle la culpa al executor.
 local function getRAP(userId)
-	local data = apiGet("https://www.rolimons.com/playerapi/player/" .. userId)
-	if not data then return nil end
-	if data.success == false then return nil end
-	return {
-		rap = data.value or data.rap,
-		premium = data.premium,
-	}
+	local data, status = apiGet("https://www.rolimons.com/playerapi/player/" .. userId)
+	-- FIX (2026-07-26): Rolimon's RETIRÓ este endpoint. Hoy responde
+	--   404 {"success":false,"message":"This endpoint has moved, use the new url"}
+	-- y su reemplazo (api.rolimons.com) está detrás de Cloudflare y exige un rol
+	-- de API que se pide en su Discord. O sea: el RAP NO es obtenible desde aquí.
+	-- No se inventa un número: se informa por qué falta.
+	if type(data) == "table" and data.success == false then
+		local msg = tostring(data.message or "")
+		if msg:find("moved") or msg:find("new url") or tonumber(status) == 404 then
+			return nil, "movida"
+		end
+		return nil, "sin_datos"
+	end
+	if not data then return nil, "sin_respuesta" end
+	local valor = data.value or data.rap
+	if valor == nil then return nil, "sin_datos" end
+	return { rap = valor, premium = data.premium }
 end
 
 -- ====================== SCORE DE CONFIANZA (heurística 0-100) ======================
@@ -1578,7 +1993,7 @@ local function computeTrust(data)
 	local ghost = (days >= 730) and badges == 0 and groups == 0 and games == 0 and favs == 0
 	if ghost then
 		local penalty = (friends <= 1) and 25 or 15
-		add(-penalty, "⚠️ Cuenta antigua sin actividad (-" .. penalty .. ")")
+		add(-penalty, "Cuenta antigua sin actividad (-" .. penalty .. ")")
 	end
 
 	score = math.clamp(score, 0, 100)
@@ -1902,7 +2317,7 @@ local function gatherData(userId)
 	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(vCreated)
 
 	local results = {}
-	local pending = 7
+	local pending = 8   -- 7 contadores + el perfil moderno (user-profile-api)
 
 	local function task_fetch(key, fn)
 		task.spawn(function()
@@ -1917,8 +2332,33 @@ local function gatherData(userId)
 	task_fetch("Following",    function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/followings/count", "count") end)
 	task_fetch("Groups",       function() return countPaged("https://groups.roblox.com/v1/users/" .. userId .. "/groups/roles") end)
 	task_fetch("Badges",       function() return countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges") end)
-	task_fetch("Favorites",    function() return countPaged("https://games.roblox.com/v2/users/" .. userId .. "/favorite/games") end)
-	task_fetch("CreatedGames", function() return countPaged("https://games.roblox.com/v2/users/" .. userId .. "/games") end)
+	-- FIX (2026-07-26): games.roblox.com/v2 bajó su tope de página a 50. Con el
+	-- limit=100 por defecto de countPaged, /games devolvía
+	--   400 {"message":"Allowed values: 10, 25, 50","field":"limit"}
+	-- así que "Juegos creados" salía SIEMPRE vacío -> Shields lo marcaba como
+	-- dato ausente -> el análisis bajaba a "parcial" sin motivo real.
+	-- Se fija 50 en los dos (favorite/games aún acepta 100, pero se iguala por
+	-- coherencia y para que el mismo dominio no vuelva a romperse a medias).
+	task_fetch("Favorites",    function() return countPaged("https://games.roblox.com/v2/users/" .. userId .. "/favorite/games", 50) end)
+	task_fetch("CreatedGames", function() return countPaged("https://games.roblox.com/v2/users/" .. userId .. "/games", 50) end)
+
+	-- PERFIL MODERNO (user-profile-api). Es el endpoint que usa hoy la web de
+	-- Roblox; responde SIN sesión y en lote. Aporta dos cosas que /v1/users/{id}
+	-- no da: isDeleted (cuenta borrada, que antes no se distinguía de una normal)
+	-- y un segundo parecer sobre isVerified, útil para contrastar.
+	-- Campos comprobados el 2026-07-26: names.username / names.displayName /
+	-- names.combinedName / isVerified / isDeleted. NO existen 'description' ni
+	-- 'previousUsernames' (devuelven lista vacía): no los pidas.
+	task_fetch("ProfileApi", function()
+		local resp = apiPost("https://apis.roblox.com/user-profile-api/v1/user/profiles/get-profiles", {
+			userIds = { userId },
+			fields  = { "names.username", "names.displayName", "names.combinedName", "isVerified", "isDeleted" },
+		})
+		if type(resp) ~= "table" or type(resp.profileDetails) ~= "table" then return nil end
+		local d = resp.profileDetails[1]
+		if type(d) ~= "table" then return nil end
+		return d
+	end)
 
 	local started = os.clock()
 	while pending > 0 and (os.clock() - started) < 15 do
@@ -1943,9 +2383,33 @@ local function gatherData(userId)
 	local vGames     = Shield.check("CreatedGames", results.CreatedGames, Shield.valid.count)
 	local vAvatar    = Shield.check("AvatarUrl",    getAvatar(userId),    Shield.valid.image)
 
+	-- Lectura del perfil moderno. Si el endpoint no respondió, NO se inventa
+	-- nada: los campos quedan nil y la UI lo dirá como "no disponible" en vez
+	-- de afirmar que la cuenta está activa (un fallo de API no es un veredicto).
+	local pa = results.ProfileApi
+	local paOk = (type(pa) == "table")
+	-- Se extraen con if explícito, NO con `paOk and pa.isDeleted or nil`: ese
+	-- truco colapsa un `false` legítimo a nil (false or nil = nil), o sea que
+	-- "la API dice que NO está borrada" se volvería "no se pudo comprobar".
+	-- Es el mismo error de fondo que "dato ausente = 0".
+	local paDeleted, paVerified, paCombined
+	if paOk then
+		if type(pa.isDeleted)  == "boolean" then paDeleted  = pa.isDeleted  end
+		if type(pa.isVerified) == "boolean" then paVerified = pa.isVerified end
+		if type(pa.names) == "table" and type(pa.names.combinedName) == "string" then
+			paCombined = pa.names.combinedName
+		end
+	end
+
 	local estado = Shield.finish()
 
 	return {
+		-- Perfil moderno (user-profile-api). nil = no se pudo comprobar.
+		IsDeleted      = paDeleted,
+		VerifiedApi    = paVerified,
+		CombinedName   = paCombined,
+		ProfileApiOk   = paOk,
+
 		UserId         = vId,
 		ProfileUrl     = "https://www.roblox.com/users/" .. vId .. "/profile",
 		Username       = vName,
@@ -1986,7 +2450,29 @@ gui.Name = "UtilityPanel"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
+-- POR ENCIMA DE CUALQUIER UI DEL JUEGO. DisplayOrder ordena los ScreenGui entre
+-- sí: el más alto se dibuja encima. Sin esto, un juego que use un DisplayOrder
+-- alto (menús, tiendas, cinemáticas) tapaba el panel.
+-- OJO con lo que NO puede hacer: la CoreGui de Roblox (barra superior, chat,
+-- menú de escape) SIEMPRE va por encima de PlayerGui, y meter el panel ahí
+-- exige gethui()/CoreGui, donde los botones dejan de responder. Así que esto
+-- lo pone sobre todo lo del JUEGO, no sobre la interfaz propia de Roblox.
+gui.DisplayOrder = 2147483
 gui.Parent = playerGui
+
+-- Si el juego (o la re-ejecución de otro script) crea después un ScreenGui con
+-- DisplayOrder aún más alto, lo re-imponemos. Es event-based, no un bucle:
+-- solo corre cuando de verdad aparece un ScreenGui nuevo. (Ver regla de
+-- rendimiento: nada de escanear en bucles.)
+task.defer(function()
+	pcall(function()
+		playerGui.ChildAdded:Connect(function(hijo)
+			if hijo ~= gui and hijo:IsA("ScreenGui") and hijo.DisplayOrder >= gui.DisplayOrder then
+				gui.DisplayOrder = hijo.DisplayOrder + 1
+			end
+		end)
+	end)
+end)
 
 -- INTRO: si la animación de bienvenida va a salir, ocultamos el panel desde el
 -- arranque para que NO se vea antes que la intro. La intro lo revela al final
@@ -2072,6 +2558,17 @@ end
 -- el nombre de la función para no tocar los sitios donde ya se llamaba.
 local function addHoverStroke(btn)
 	btn.AutoButtonColor = false
+	if not ANIM.enabled then return end
+	-- Micro-feedback al pulsar: se hunde un pelín y vuelve al soltar. A propósito
+	-- muy sutil (el usuario lo pidió poco notorio). Usa una UIScale propia; en
+	-- reposo no toca ni color ni layout, así que no pelea con paintTabs ni themed.
+	local sc = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
+	local function to(s, d)
+		motionTween(sc, TweenInfo.new(d, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = s })
+	end
+	btn.MouseButton1Down:Connect(function() to(0.95, 0.07) end)
+	btn.MouseButton1Up:Connect(function() to(1, 0.12) end)
+	btn.MouseLeave:Connect(function() to(1, 0.12) end)
 end
 
 -- Profundidad sutil para tarjetas: gradiente vertical (arriba algo más claro,
@@ -2179,6 +2676,10 @@ end
 -- ====================== VENTANA ======================
 local MIN_W, MIN_H = 420, 360   -- tamaño mínimo al redimensionar
 local main = Instance.new("Frame")
+-- El nombre importa: la Lista de Jugadores se ancla al lado del panel buscando
+-- UtilityPanel.main. Sin nombre era "Frame", la búsqueda fallaba en silencio y
+-- la Lista se quedaba siempre en su posición de reserva.
+main.Name = "main"
 main.Size = UDim2.new(0, 600, 0, 480)
 main.Position = UDim2.new(0.5, -300, 0.5, -240)
 main.BackgroundColor3 = C.bg
@@ -2305,6 +2806,18 @@ do
 		introScale.Scale = 0.94
 		windowShadow.ImageTransparency = 0.5
 		motionTween(introScale, TweenInfo.new(0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+	end
+
+	-- "Smoosh" al arrastrar: la ventana se encoge un pelín al agarrarla y vuelve
+	-- con un pequeño rebote al soltar. Reusa introScale (la ÚNICA UIScale de la
+	-- ventana): añadir otra daría un comportamiento ambiguo entre las dos.
+	function NXWin.setDragSquish(on)
+		if not ANIM.enabled then return end
+		if on then
+			motionTween(introScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.985 })
+		else
+			motionTween(introScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+		end
 	end
 
 	-- Cerrar animado: colapso elegante y destruye la GUI al terminar.
@@ -2443,103 +2956,20 @@ do
 	themed(handle, "BackgroundColor3", "subtext")
 end
 
--- (SUG_MAX = 5, máx. de sugerencias, inlineado abajo: no gastar local de raíz.)
-local suggestionFrame = Instance.new("Frame", searchFrame)
-suggestionFrame.Name = "Suggestions"
-suggestionFrame.Size = UDim2.new(0, 200, 0, 0)
-suggestionFrame.Position = UDim2.new(0, 0, 0, 32)
-suggestionFrame.BackgroundColor3 = C.input
-suggestionFrame.BorderSizePixel = 0
-suggestionFrame.Visible = false
-suggestionFrame.ZIndex = 10
-suggestionFrame.AutomaticSize = Enum.AutomaticSize.Y
-Instance.new("UICorner", suggestionFrame).CornerRadius = UDim.new(0, 6)
-local sugStroke = Instance.new("UIStroke", suggestionFrame)
-sugStroke.Color = C.accent
-sugStroke.Transparency = 0.7
-local suggestionList = Instance.new("UIListLayout", suggestionFrame)
-suggestionList.Padding = UDim.new(0, 2)
-
+-- (v3.8.2) MENÚ DE SUGERENCIAS ELIMINADO a pedido del usuario.
+-- Antes salía un dropdown debajo del buscador con los últimos perfiles y con
+-- resultados en vivo de la API. El problema real: caía a y=72 y las TABS
+-- están a y=78, así que TAPABA las pestañas y el usuario no podía cambiar de
+-- vista mientras estaba tecleando o mientras el buscador tenía foco vacío.
+-- Solución simple: fuera. La búsqueda ya funciona escribiendo + Enter o
+-- pulsando "Analizar" (auto-resuelve @usuario o UserId), así que no se pierde
+-- funcionalidad, solo el atajo visual. Se dejan STUBS de las 3 funciones
+-- (hideAllSuggestions/showSuggestions/ensureSuggestionItem) para no romper
+-- las llamadas que quedan en otros sitios del archivo. Coste: 0.
 local analyze
-
-local suggestionItems = {}
-local function ensureSuggestionItem(idx)
-	local item = suggestionItems[idx]
-	if item then return item end
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, -4, 0, 28)
-	btn.BackgroundColor3 = C.neutral
-	btn.Font = Enum.Font.Gotham
-	btn.TextSize = 13
-	btn.TextColor3 = C.text
-	btn.BorderSizePixel = 0
-	btn.TextXAlignment = Enum.TextXAlignment.Left
-	btn.LayoutOrder = idx
-	btn.Visible = false
-	btn.ZIndex = 11
-	btn.Parent = suggestionFrame
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-	suggestionItems[idx] = { button = btn, userName = "" }
-	track(btn.MouseButton1Click:Connect(function()
-		local data = suggestionItems[idx]
-		if data and data.userName ~= "" then
-			searchBox.Text = data.userName
-			for _, it in ipairs(suggestionItems) do it.button.Visible = false end
-			suggestionFrame.Visible = false
-			if analyze then analyze(data.userName) end
-		end
-	end))
-	return suggestionItems[idx]
-end
-
-local function hideAllSuggestions()
-	for _, item in ipairs(suggestionItems) do
-		item.button.Visible = false
-		item.userName = ""
-	end
-	suggestionFrame.Visible = false
-end
-
-local function showSuggestions(entries)
-	if not entries or #entries == 0 then hideAllSuggestions(); return end
-	local shown = math.min(#entries, 5)   -- SUG_MAX
-	for i = 1, 5 do
-		local item = ensureSuggestionItem(i)
-		if i <= shown then
-			local u = entries[i]
-			item.userName = u.name
-			item.button.Text = (u.displayName or u.name) .. " (@" .. u.name .. ")"
-			item.button.Visible = true
-		else
-			item.button.Visible = false
-			item.userName = ""
-		end
-	end
-	suggestionFrame.Visible = true
-end
-
-local suggestThread
-local suggestRequestId = 0
-local lastSuggestText = ""
-
-track(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local txt = searchBox.Text:gsub("%s", "")
-	if txt == lastSuggestText then return end
-	lastSuggestText = txt
-	suggestRequestId = suggestRequestId + 1
-	local myId = suggestRequestId
-	if suggestThread then pcall(task.cancel, suggestThread); suggestThread = nil end
-	if #txt < 3 then hideAllSuggestions(); return end
-	suggestThread = task.delay(0.5, function()
-		suggestThread = nil
-		if myId ~= suggestRequestId then return end
-		local url = "https://users.roblox.com/v1/users/search?keyword="
-			.. HttpService:UrlEncode(txt) .. "&limit=5"   -- SUG_MAX
-		local data = apiGet(url)
-		if myId ~= suggestRequestId then return end
-		if data and data.data then showSuggestions(data.data) else hideAllSuggestions() end
-	end)
-end))
+local function hideAllSuggestions() end
+local function showSuggestions(_) end
+local function ensureSuggestionItem(_) return nil end
 
 local analyzeBtn = Instance.new("TextButton", searchFrame)
 analyzeBtn.Size = UDim2.new(0, 100, 0, 28)
@@ -2571,7 +3001,11 @@ themed(statusLabel, "TextColor3", "subtext")
 local tabBar = Instance.new("ScrollingFrame", main)
 tabBar.Size = UDim2.new(1, -20, 0, 26)
 tabBar.Position = UDim2.new(0, 10, 0, 78)
-tabBar.BackgroundTransparency = 1
+-- Fondo sólido (v3.8.2): antes era transparente y el contenido con scroll
+-- se veía POR DEBAJO de las tabs (el toggle "Activado" atravesándolas).
+tabBar.BackgroundColor3 = C.bg
+tabBar.BackgroundTransparency = 0
+themed(tabBar, "BackgroundColor3", "bg")
 tabBar.BorderSizePixel = 0
 tabBar.ScrollBarThickness = 3
 tabBar.ScrollBarImageColor3 = C.accent
@@ -2584,9 +3018,16 @@ tabLayout.Padding = UDim.new(0, 5)
 tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local content = Instance.new("Frame", main)
+-- -116: la barra de terminal inferior se retiró (v3.8.1), así que el contenido
+-- vuelve a llegar casi hasta el borde de abajo. Más alto útil para los datos.
 content.Size = UDim2.new(1, -20, 1, -116)
 content.Position = UDim2.new(0, 10, 0, 106)
 content.BackgroundTransparency = 1
+
+-- (La BARRA DE TERMINAL inferior se retiró en v3.8.1 a pedido del usuario:
+--  duplicaba la línea de estado y restaba alto útil. El aire de terminal lo
+--  dan el tema Kali + la fuente mono. _G.NXTerm ya no existe y sus dos llamadas
+--  —en analyze() y en el arranque del skin— también se quitaron.)
 
 local tabs, pages = {}, {}
 local tabByPage = {}      -- page -> botón (para activar una pestaña por código)
@@ -2594,12 +3035,25 @@ local onShowByPage = {}   -- page -> callback opcional al mostrarse (carga perez
 local activeTab = nil
 local function paintTabs()
 	for _, t in ipairs(tabs) do
+		-- Texto de las tabs SIEMPRE blanco (a pedido): activo en blanco pleno,
+		-- inactivo en el mismo blanco pero atenuado. Guarda de luminancia por si el
+		-- fondo del tab es muy claro (el tema "negro" tiene accent BLANCO y "claro"
+		-- tiene neutral claro): ahí el blanco no se leería, así que cae a onAccent.
+		-- (bg/lum/txt son locales de ESTA función; no gastan registros de raíz.)
+		local bg  = (t == activeTab) and C.accent or C.neutral
+		local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
+		local txt = (lum > 0.62) and C.onAccent or Color3.fromRGB(255, 255, 255)
 		if t == activeTab then
 			t.BackgroundColor3 = C.accent
-			t.TextColor3 = C.onAccent
+			t.BackgroundTransparency = 0
+			t.TextColor3 = txt
+			t.TextTransparency = 0
 		else
+			-- inactivo: bloque más suave (menos saturado) + blanco atenuado
 			t.BackgroundColor3 = C.neutral
-			t.TextColor3 = C.text
+			t.BackgroundTransparency = 0.35
+			t.TextColor3 = txt
+			t.TextTransparency = 0.32
 		end
 	end
 end
@@ -2609,11 +3063,18 @@ onRepaint(paintTabs)
 local function showPage(page)
 	for _, p in pairs(pages) do p.Visible = false end
 	page.Visible = true
-	-- transición chill: la pestaña entra deslizándose un pelín hacia arriba.
+	-- La pestaña entra con "smoosh": sube un pelín + un micro pop de escala que
+	-- rebota (Back). Reusa una UIScale propia de la página (PageScale) para no
+	-- crear una nueva en cada cambio de sección.
 	if ANIM.enabled then
-		page.Position = UDim2.new(0, 0, 0, 10)
-		motionTween(page, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		local sc = page:FindFirstChild("PageScale")
+		if not sc then sc = Instance.new("UIScale", page); sc.Name = "PageScale" end
+		sc.Scale = 0.985
+		page.Position = UDim2.new(0, 0, 0, 12)
+		motionTween(page, TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{ Position = UDim2.new(0, 0, 0, 0) })
+		motionTween(sc, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ Scale = 1 })
 	else
 		page.Position = UDim2.new(0, 0, 0, 0)
 	end
@@ -2625,7 +3086,11 @@ end
 
 local function createTab(name, page, onShow)
 	local btn = Instance.new("TextButton", tabBar)
-	btn.Size = UDim2.new(0, 92, 0, 24)
+	-- Auto-ancho: antes eran 92 px fijos y los rótulos largos se cortaban
+	-- ("Estadísticas" salía como "stadística"). Ahora el tab se adapta al
+	-- texto y un UIPadding le da 14 px de aire a cada lado.
+	btn.Size = UDim2.new(0, 0, 0, 24)
+	btn.AutomaticSize = Enum.AutomaticSize.X
 	btn.LayoutOrder = #tabs
 	btn.BackgroundColor3 = C.neutral
 	btn.Text = name
@@ -2634,6 +3099,8 @@ local function createTab(name, page, onShow)
 	btn.TextColor3 = C.text
 	btn.BorderSizePixel = 0
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+	local tp = Instance.new("UIPadding", btn)
+	tp.PaddingLeft = UDim.new(0, 14); tp.PaddingRight = UDim.new(0, 14)
 	addHoverStroke(btn)
 	tabByPage[page] = btn
 	if onShow then onShowByPage[page] = onShow end
@@ -3372,8 +3839,13 @@ local function addRow(parent, label, value, copyable, valueColor)
 end
 
 -- ====================== RENDER: DESCRIPCIÓN EXPANDIBLE ======================
+-- La cabecera lleva contador de caracteres y botón COPIAR. El botón copia
+-- SIEMPRE el texto completo, aunque en pantalla se vea recortado por el
+-- plegado (usa 'text', no 'body.Text').
 local function addDescription(parent, text)
 	text = tostring(text or "Sin descripción")
+	-- Una descripción vacía es un estado legítimo; ahí no hay nada que copiar.
+	local vacia = (text == "" or text == "Sin descripción" or text == "No disponible")
 
 	local card = Instance.new("Frame", parent)
 	card.Size = UDim2.new(1, -4, 0, 0)
@@ -3382,6 +3854,7 @@ local function addDescription(parent, text)
 	card.BorderSizePixel = 0
 	card.ClipsDescendants = true
 	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
+	themed(card, "BackgroundColor3", "card")
 	local pad = Instance.new("UIPadding", card)
 	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
 	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
@@ -3389,15 +3862,61 @@ local function addDescription(parent, text)
 	layout.Padding = UDim.new(0, 4)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local head = Instance.new("TextLabel", card)
-	head.LayoutOrder = 0
-	head.Size = UDim2.new(1, 0, 0, 18)
+	-- Cabecera: título · contador · botón copiar (posicionados dentro de la fila,
+	-- no en el UIListLayout de la tarjeta, para que queden en la misma línea).
+	local headRow = Instance.new("Frame", card)
+	headRow.LayoutOrder = 0
+	headRow.Size = UDim2.new(1, 0, 0, 20)
+	headRow.BackgroundTransparency = 1
+
+	local head = Instance.new("TextLabel", headRow)
+	head.Size = UDim2.new(1, -150, 1, 0)
 	head.BackgroundTransparency = 1
 	head.Font = Enum.Font.GothamBold
 	head.TextSize = 13
 	head.TextColor3 = C.subtext
 	head.Text = "Descripción"
 	head.TextXAlignment = Enum.TextXAlignment.Left
+	head.TextTruncate = Enum.TextTruncate.AtEnd
+	themed(head, "TextColor3", "subtext")
+
+	local meta = Instance.new("TextLabel", headRow)
+	meta.Size = UDim2.new(0, 70, 1, 0)
+	meta.Position = UDim2.new(1, -142, 0, 0)
+	meta.BackgroundTransparency = 1
+	meta.Font = Enum.Font.Gotham
+	meta.TextSize = 11
+	meta.TextColor3 = C.subtext
+	meta.Text = vacia and "vacía" or (#text .. " car.")
+	meta.TextXAlignment = Enum.TextXAlignment.Right
+	themed(meta, "TextColor3", "subtext")
+
+	local copyDesc = Instance.new("TextButton", headRow)
+	copyDesc.Size = UDim2.new(0, 66, 0, 20)
+	copyDesc.Position = UDim2.new(1, -66, 0, 0)
+	copyDesc.BackgroundColor3 = vacia and C.neutral or C.accent
+	copyDesc.Text = "Copiar"
+	copyDesc.Font = Enum.Font.GothamBold
+	copyDesc.TextSize = 11
+	copyDesc.TextColor3 = vacia and C.subtext or C.onAccent
+	copyDesc.BorderSizePixel = 0
+	copyDesc.AutoButtonColor = false
+	copyDesc.ZIndex = 2
+	Instance.new("UICorner", copyDesc).CornerRadius = UDim.new(0, 4)
+	themed(copyDesc, "BackgroundColor3", vacia and "neutral" or "accent")
+	themed(copyDesc, "TextColor3", vacia and "subtext" or "onAccent")
+	copyDesc.MouseButton1Click:Connect(function()
+		if vacia then
+			statusLabel.Text = "Este usuario no tiene descripción"
+			return
+		end
+		clipboard(text)              -- SIEMPRE el texto completo, no el recortado
+		statusLabel.Text = "Copiado: descripción (" .. #text .. " caracteres)"
+		copyDesc.Text = "✓ Copiado"
+		task.delay(1.2, function()
+			if copyDesc and copyDesc.Parent then copyDesc.Text = "Copiar" end
+		end)
+	end)
 
 	local body = Instance.new("TextLabel", card)
 	body.LayoutOrder = 1
@@ -3411,6 +3930,7 @@ local function addDescription(parent, text)
 	body.TextXAlignment = Enum.TextXAlignment.Left
 	body.TextYAlignment = Enum.TextYAlignment.Top
 	body.Text = text
+	themed(body, "TextColor3", "text")
 
 	local COLLAPSED = 160
 	local isLong = #text > COLLAPSED
@@ -3435,7 +3955,10 @@ local function addDescription(parent, text)
 		toggle.TextSize = 12
 		toggle.TextColor3 = C.onAccent
 		toggle.BorderSizePixel = 0
+		toggle.AutoButtonColor = false
 		Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 4)
+		themed(toggle, "BackgroundColor3", "accent")
+		themed(toggle, "TextColor3", "onAccent")
 		toggle.MouseButton1Click:Connect(function()
 			expanded = not expanded
 			toggle.Text = expanded and "Mostrar menos" or "Mostrar más"
@@ -3667,21 +4190,64 @@ local function showMiniProfileCard(userId, fallback)
 	userLbl.ZIndex = 72
 
 	local resolvedUser = fallback.name or tostring(userId)
-	local copyBtn = Instance.new("TextButton", body)
-	copyBtn.LayoutOrder = 3
-	copyBtn.Size = UDim2.new(0, 170, 0, 28)
+	-- Fila de dos botones: copiar @usuario y copiar la descripción completa.
+	-- (La descripción llega asíncrona más abajo; el botón lee 'resolvedDesc',
+	--  que se rellena cuando responde la API.)
+	local resolvedDesc = nil
+	local btnRow = Instance.new("Frame", body)
+	btnRow.LayoutOrder = 3
+	btnRow.Size = UDim2.new(1, 0, 0, 28)
+	btnRow.BackgroundTransparency = 1
+	btnRow.ZIndex = 72
+	local btnLay = Instance.new("UIListLayout", btnRow)
+	btnLay.FillDirection = Enum.FillDirection.Horizontal
+	btnLay.Padding = UDim.new(0, 6)
+	btnLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	btnLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local copyBtn = Instance.new("TextButton", btnRow)
+	copyBtn.LayoutOrder = 1
+	copyBtn.Size = UDim2.new(0, 138, 0, 28)
 	copyBtn.BackgroundColor3 = C.accent
 	copyBtn.Text = "Copiar usuario"
 	copyBtn.Font = Enum.Font.GothamBold
-	copyBtn.TextSize = 13
+	copyBtn.TextSize = 12
 	copyBtn.TextColor3 = C.onAccent
 	copyBtn.BorderSizePixel = 0
+	copyBtn.AutoButtonColor = false
 	copyBtn.ZIndex = 72
 	Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 6)
 	copyBtn.MouseButton1Click:Connect(function()
 		clipboard(resolvedUser)
 		copyBtn.Text = "✓ Copiado"
 		task.delay(1.1, function() if copyBtn and copyBtn.Parent then copyBtn.Text = "Copiar usuario" end end)
+	end)
+
+	local copyDescBtn = Instance.new("TextButton", btnRow)
+	copyDescBtn.LayoutOrder = 2
+	copyDescBtn.Size = UDim2.new(0, 148, 0, 28)
+	copyDescBtn.BackgroundColor3 = C.neutral
+	copyDescBtn.Text = "Copiar descripción"
+	copyDescBtn.Font = Enum.Font.GothamBold
+	copyDescBtn.TextSize = 12
+	copyDescBtn.TextColor3 = C.text
+	copyDescBtn.BorderSizePixel = 0
+	copyDescBtn.AutoButtonColor = false
+	copyDescBtn.ZIndex = 72
+	Instance.new("UICorner", copyDescBtn).CornerRadius = UDim.new(0, 6)
+	copyDescBtn.MouseButton1Click:Connect(function()
+		if not resolvedDesc or resolvedDesc == "" then
+			copyDescBtn.Text = "Sin descripción"
+			task.delay(1.3, function()
+				if copyDescBtn and copyDescBtn.Parent then copyDescBtn.Text = "Copiar descripción" end
+			end)
+			return
+		end
+		clipboard(resolvedDesc)
+		copyDescBtn.Text = "✓ Copiado"
+		task.delay(1.1, function()
+			if copyDescBtn and copyDescBtn.Parent then copyDescBtn.Text = "Copiar descripción" end
+		end)
 	end)
 
 	local divider = Instance.new("Frame", body)
@@ -3785,12 +4351,13 @@ local function showMiniProfileCard(userId, fallback)
 			resolvedUser = prof.name or resolvedUser
 			dispLbl.Text = prof.displayName or prof.name or ("ID " .. userId)
 			userLbl.Text = "@" .. (prof.name or "?")
-			descLbl.Text = (prof.description and prof.description ~= "" and prof.description) or "Sin descripción"
+			resolvedDesc = (prof.description and prof.description ~= "" and prof.description) or nil
+			descLbl.Text = resolvedDesc or "Sin descripción"
 			verVal.Text = prof.hasVerifiedBadge and "Sí" or "No"
 			local _, ageLabel = formatAge(prof.created)
 			ageVal.Text = ageLabel or "No disponible"
 		else
-			descLbl.Text = "No se pudo cargar la info."
+			descLbl.Text = "No disponible."
 		end
 		friendsVal.Text = (fc and fc.count ~= nil) and tostring(fc.count) or "?"
 	end)
@@ -3919,7 +4486,7 @@ local function addFriendsDropdown(parent, data, order)
 				local err = Instance.new("TextLabel", inner)
 				err.Size = UDim2.new(1, -6, 0, 24); err.BackgroundTransparency = 1
 				err.Font = Enum.Font.Gotham; err.TextSize = 12; err.TextColor3 = C.bad
-				err.Text = "No disponible (lista privada o falló la API)."
+				err.Text = "No disponible."
 				err.TextXAlignment = Enum.TextXAlignment.Left
 				task.wait()
 				targetH = math.min(ilay.AbsoluteContentSize.Y, MAXH)
@@ -3976,117 +4543,6 @@ end
 -- ====================== AMISTAD: ESTADO + BOTÓN ROBUSTO ======================
 -- Estado de amistad ENTRE tú y el objetivo: NotFriends / Friends /
 -- RequestSent / RequestReceived. Devuelve el string o nil si falla.
-local function getFriendStatus(targetId)
-	local d = apiGet("https://friends.roblox.com/v1/users/" .. player.UserId
-		.. "/friends/statuses?userIds=" .. targetId)
-	if d and d.data and d.data[1] and d.data[1].status then
-		return d.data[1].status
-	end
-	return nil
-end
-
--- Botón de solicitud de amistad con: verificación previa del estado (ya amigo /
--- pendiente / recibida), UN SOLO USO (anti-spam, no repite peticiones), estados
--- de color (tema/amarillo/verde/rojo) y mensajes de error claros.
-local function buildFriendButton(parent, targetId, order)
-	local frame = Instance.new("Frame", parent)
-	frame.LayoutOrder = order
-	frame.Size = UDim2.new(1, -4, 0, 32)
-	frame.BackgroundTransparency = 1
-
-	local btn = Instance.new("TextButton", frame)
-	btn.Size = UDim2.new(1, 0, 1, 0)
-	btn.BackgroundColor3 = C.neutral
-	btn.Text = "Comprobando estado..."
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 14
-	btn.TextColor3 = C.text
-	btn.AutoButtonColor = false
-	btn.BorderSizePixel = 0
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-
-	local locked = true   -- bloqueado hasta conocer el estado (evita spam)
-	local function setState(text, bg, fg, clickable)
-		btn.Text = text
-		motionTween(btn, TweenInfo.new(0.15), { BackgroundColor3 = bg })
-		btn.TextColor3 = fg or C.onAccent
-		btn.AutoButtonColor = clickable and true or false
-		locked = not clickable
-	end
-
-	-- verificación previa del estado de amistad
-	task.spawn(function()
-		local status = getFriendStatus(targetId)
-		if not frame.Parent then return end
-		if status == "Friends" then
-			setState("✓ Ya son amigos", C.good, C.onAccent, false)
-		elseif status == "RequestSent" then
-			setState("Pendiente", C.warn, C.onAccent, false)
-		elseif status == "RequestReceived" then
-			setState("➕ Aceptar solicitud", C.accent, C.onAccent, true)
-		else
-			setState("➕ Enviar solicitud de amistad", C.accent, C.onAccent, true)
-		end
-	end)
-
-	btn.MouseButton1Click:Connect(function()
-		if locked then return end                 -- un solo uso / sin clics múltiples
-		setState("Enviando...", C.warn, C.onAccent, false)
-		task.spawn(function()
-			local body, statusCode, errs = postAuth(
-				"https://friends.roblox.com/v1/users/" .. targetId .. "/request-friendship", {})
-			if not frame.Parent then return end
-			local code = tonumber(statusCode)
-			local ok = (code == 200) and (type(body) ~= "table" or body.success ~= false)
-
-			-- fallback en-juego si la vía web falla y el usuario está en tu servidor
-			if not ok then
-				local fb = false
-				pcall(function()
-					local target = Players:GetPlayerByUserId(targetId)
-					if target then player:RequestFriendship(target); fb = true end
-				end)
-				if fb then ok = true end
-			end
-
-			if ok then
-				setState("✓ Solicitud enviada", C.good, C.onAccent, false)
-				statusLabel.Text = "Solicitud de amistad enviada correctamente."
-				return
-			end
-
-			-- ---- manejo de errores claro ----
-			local errMsg = (errs and errs[1] and errs[1].message) or ""
-			local low = errMsg:lower()
-			if statusCode == "no_http_request" then
-				setState("✕ No disponible", C.bad, C.onAccent, false)
-				statusLabel.Text = "Tu executor no permite enviar solicitudes (sin 'request')."
-			elseif statusCode == "connection_failure" then
-				setState("✕ Error de red — reintentar", C.bad, C.onAccent, true)
-				statusLabel.Text = "Error de red al enviar la solicitud. Reintenta."
-			elseif code == 429 then
-				setState("✕ Límite — reintentar", C.bad, C.onAccent, true)
-				statusLabel.Text = "Demasiadas solicitudes (límite de Roblox). Espera un poco."
-			elseif code == 401 then
-				cachedCsrf = nil  -- token inválido: limpiar para que el próximo intento lo renueve
-				setState("✕ Sin sesión", C.bad, C.onAccent, false)
-				statusLabel.Text = "El executor no envía tu sesión; Roblox rechazó la solicitud."
-			elseif low:find("already") or low:find("friend") then
-				setState("✓ Ya enviada / amigos", C.good, C.onAccent, false)
-				statusLabel.Text = "Ya son amigos o ya existía una solicitud."
-			elseif low:find("privacy") or low:find("not authorized") or low:find("cannot") or low:find("can't") then
-				setState("✕ No acepta solicitudes", C.bad, C.onAccent, false)
-				statusLabel.Text = "Este usuario no acepta solicitudes (configuración de privacidad)."
-			else
-				setState("✕ Error — reintentar", C.bad, C.onAccent, true)
-				statusLabel.Text = "No se pudo enviar" ..
-					((errMsg ~= "") and (": " .. errMsg) or (" (código " .. tostring(statusCode) .. ")."))
-			end
-		end)
-	end)
-
-	return frame
-end
 
 local currentData = nil
 
@@ -4094,12 +4550,806 @@ local currentData = nil
 -- de verdad cuando enciendes "Validación de datos" (selfTestData).
 Shield.currentData = function() return currentData end
 
+-- MODO AVANZADO. Apagado, la interfaz muestra lo justo; encendido, añade los
+-- desgloses de las heurísticas, la recolección profunda de la pestaña Huella y
+-- las notas metodológicas. Va como método de Shield (no como local de raíz)
+-- para no gastar registros: el chunk roza el límite de 200 de Luau.
+function Shield.adv() return store.advanced == true end
+
+-- ====================== NX PLUS · identidad · reporte · caché ======================
+-- (Va DESPUÉS de `local currentData` a propósito: si se declara después, leerlo
+--  aquí dentro no daría el local sino un global nil, sin error y sin aviso.)
+-- Bloque autocontenido en do...end: sus locals viven solo aquí dentro y se
+-- liberan al 'end', así que NO consumen registros del chunk raíz (que ya va por
+-- 151 de los 200 que permite Luau). Se expone por _G.NXPlus, igual que _G.NXV2.
+-- Reversible: borrar el bloque y sus 3 llamadas devuelve el script a como estaba.
+do
+	if _G.NXPlus and _G.NXPlus.stop then pcall(_G.NXPlus.stop) end
+	local P = {}
+
+	-- ── Escala de profundidad (z-index) declarada UNA vez, en vez de repartir
+	-- números sueltos por el archivo: contenido 1 · velo 300 · tarjeta 301 · encima 302.
+	local Z = { velo = 300, card = 301, sobre = 302 }
+
+	-- ────────────────────────────────────────────────────────────────────────
+	-- 1) CACHÉ + HISTORIAL DE BÚSQUEDA
+	-- ────────────────────────────────────────────────────────────────────────
+	-- El endpoint /users/search es el más rate-limited de todos (429 constante).
+	-- Repetir una búsqueda no debería costar una petición.
+	local buscCache = {}          -- keyword(lower) -> { t = os.time(), datos = {...} }
+	local BUSC_TTL  = 120         -- s. Una búsqueda de nombres no cambia en 2 min.
+
+	function P.cacheGet(keyword)
+		local k = tostring(keyword):lower()
+		local e = buscCache[k]
+		if e and (os.time() - e.t) < BUSC_TTL then return e.datos end
+		if e then buscCache[k] = nil end        -- caducada: se limpia sola
+		return nil
+	end
+
+	function P.cachePut(keyword, datos)
+		if type(datos) ~= "table" then return end
+		local k = tostring(keyword):lower()
+		if not buscCache[k] then
+			-- Tope duro: sin él, teclear mucho llena la tabla sin liberarse nunca.
+			local n = 0
+			for _ in pairs(buscCache) do n = n + 1 end
+			if n >= 40 then table.clear(buscCache) end
+		end
+		buscCache[k] = { t = os.time(), datos = datos }
+	end
+
+	-- Historial de usuarios YA analizados, persistido en el mismo archivo de
+	-- guardado que el tema (store). Máximo 12, sin repetidos, el último primero.
+	if type(store.searchHistory) ~= "table" then store.searchHistory = {} end
+
+	function P.recordar(userId, username, displayName)
+		if not userId or not username then return end
+		local h = store.searchHistory
+		for i = #h, 1, -1 do
+			local e = h[i]
+			if type(e) ~= "table" or e.id == userId then table.remove(h, i) end
+		end
+		table.insert(h, 1, { id = userId, name = username, display = displayName or username })
+		while #h > 12 do table.remove(h) end
+		pcall(saveStore)
+	end
+
+	function P.recientes() return store.searchHistory or {} end
+
+	function P.limpiarHistorial()
+		store.searchHistory = {}
+		pcall(saveStore)
+	end
+
+	-- ── NOMBRES PREVIOS COMPARTIDOS ────────────────────────────────────────
+	-- El Panel de Identidad y la tarjeta "Historial de nombres" quieren el MISMO
+	-- dato y se dibujan a la vez, así que sin esto lanzarían dos getNameHistory
+	-- simultáneos contra username-history, que es el endpoint más rate-limited
+	-- del conjunto (429 con facilidad). Mismo patrón que withRAP: el primero que
+	-- llega crea la petición, el segundo se cuelga de ella.
+	-- cb recibe (lista|nil, hasMore). nil = no se pudo obtener.
+	function P.nombres(data, cb)
+		if type(data._namesCached) == "table" then
+			cb(data._namesCached, data._namesHasMore or false); return
+		end
+		if data._namesCached == false then cb(nil, false); return end
+
+		data._namesWaiters = data._namesWaiters or {}
+		table.insert(data._namesWaiters, cb)
+		if data._namesInflight then return end
+		data._namesInflight = true
+
+		task.spawn(function()
+			local ok, lista, mas = pcall(getNameHistory, data.UserId)
+			if ok and type(lista) == "table" then
+				data._namesCached  = lista
+				data._namesHasMore = mas or false
+			else
+				data._namesCached  = false
+				data._namesHasMore = false
+			end
+			data._namesInflight = false
+			local esperando = data._namesWaiters or {}
+			data._namesWaiters = nil
+			local res = (type(data._namesCached) == "table") and data._namesCached or nil
+			for _, fn in ipairs(esperando) do pcall(fn, res, data._namesHasMore) end
+		end)
+	end
+
+	-- ────────────────────────────────────────────────────────────────────────
+	-- 2) PANEL DE IDENTIDAD
+	-- ────────────────────────────────────────────────────────────────────────
+	-- Junta en un solo sitio TODO lo que Roblox expone públicamente sobre quién
+	-- es esta cuenta, y dice explícitamente qué NO expone. Sin inventar nada.
+	local function fila(parent, orden, etiqueta, valor, color, nota)
+		local f = Instance.new("Frame", parent)
+		f.LayoutOrder = orden
+		f.Size = UDim2.new(1, 0, 0, 0)
+		f.AutomaticSize = Enum.AutomaticSize.Y
+		f.BackgroundTransparency = 1
+
+		local lay = Instance.new("UIListLayout", f)
+		lay.Padding = UDim.new(0, 1); lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local top = Instance.new("Frame", f)
+		top.LayoutOrder = 0
+		top.Size = UDim2.new(1, 0, 0, 20)
+		top.BackgroundTransparency = 1
+
+		local l = Instance.new("TextLabel", top)
+		l.Size = UDim2.new(0, 118, 1, 0)
+		l.BackgroundTransparency = 1
+		l.Font = Enum.Font.Gotham; l.TextSize = 12
+		l.TextColor3 = C.subtext
+		l.Text = etiqueta
+		l.TextXAlignment = Enum.TextXAlignment.Left
+		themed(l, "TextColor3", "subtext")
+
+		local v = Instance.new("TextLabel", top)
+		v.Size = UDim2.new(1, -122, 1, 0)
+		v.Position = UDim2.new(0, 122, 0, 0)
+		v.BackgroundTransparency = 1
+		v.Font = Enum.Font.GothamBold; v.TextSize = 12
+		v.TextColor3 = color or C.text
+		v.Text = tostring(valor)
+		v.TextXAlignment = Enum.TextXAlignment.Left
+		v.TextTruncate = Enum.TextTruncate.AtEnd
+		if not color then themed(v, "TextColor3", "text") end
+
+		-- Nota explicativa bajo la fila: el color NUNCA es el único indicador
+		-- (accesibilidad); siempre hay símbolo + texto que lo dicen.
+		if nota then
+			local n = Instance.new("TextLabel", f)
+			n.LayoutOrder = 1
+			n.Size = UDim2.new(1, -122, 0, 0)
+			n.Position = UDim2.new(0, 122, 0, 0)
+			n.AutomaticSize = Enum.AutomaticSize.Y
+			n.BackgroundTransparency = 1
+			n.Font = Enum.Font.Gotham; n.TextSize = 11
+			n.TextColor3 = C.subtext
+			n.Text = nota
+			n.TextWrapped = true
+			n.TextXAlignment = Enum.TextXAlignment.Left
+			themed(n, "TextColor3", "subtext")
+		end
+		-- Se devuelve TAMBIÉN el label del valor para poder rellenarlo luego sin
+		-- tener que ir a buscarlo por el árbol (que es frágil y se rompe al
+		-- tocar la jerarquía).
+		return f, v
+	end
+
+
+	-- ────────────────────────────────────────────────────────────────────────
+	-- 3) REPORTE DE USUARIO
+	-- ────────────────────────────────────────────────────────────────────────
+	-- QUÉ HACE Y QUÉ NO: Roblox no ofrece ninguna API para abrir su menú de
+	-- reporte ni para enviar un reporte desde un script. Lo que SÍ existe y es
+	-- estable es la página web de reporte con el usuario ya preseleccionado:
+	--   https://www.roblox.com/report-abuse/?targetId=<id>&targetType=User
+	-- (comprobada el 2026-07-26: si no hay sesión redirige al login y vuelve
+	--  sola a la página de reporte, o sea que el enlace es el correcto).
+	-- Así que esto abre ESA página con tu openURL de siempre (navegador nativo →
+	-- open_url del executor → puerto 9222 → portapapeles) y te deja la
+	-- descripción ya escrita para pegarla. El envío lo haces tú: la herramienta
+	-- no manda reportes en tu nombre.
+	local CATS = {
+		{ id = "exploits", titulo = "Exploits / trampas", motivo = "Cheating/Exploiting",
+		  prompts = {
+			"El jugador está usando exploits en la experiencia. Se mueve a velocidad imposible y atraviesa paredes y obstáculos que deberían bloquearlo.",
+			"El jugador está volando o teletransportándose por el mapa, algo que esta experiencia no permite de forma legítima.",
+			"El jugador es invencible: recibe daño de varias fuentes y su vida no baja, y elimina a los demás al instante desde lejos.",
+		  } },
+		{ id = "audio", titulo = "Audio / micrófono", motivo = "Inappropriate audio",
+		  prompts = {
+			"El jugador transmite audio saturado y distorsionado a propósito por el chat de voz, a volumen muy alto, de forma continua e imposible de ignorar.",
+			"El jugador está reproduciendo música con derechos de autor por el micrófono de forma constante, impidiendo que se escuche a los demás.",
+			"El jugador grita e insulta por el chat de voz de forma repetida, dirigiéndose a otras personas de la sala.",
+		  } },
+		{ id = "avatar", titulo = "Avatar inapropiado", motivo = "Inappropriate avatar",
+		  prompts = {
+			"El avatar del jugador es sexualmente explícito: está configurado para simular desnudez y no es apropiado para la plataforma.",
+			"El avatar del jugador usa una combinación de accesorios que forma una imagen ofensiva/obscena visible para todos.",
+			"El avatar del jugador muestra símbolos de odio o referencias extremistas.",
+		  } },
+		{ id = "chat", titulo = "Chat de texto", motivo = "Abusive chat",
+		  prompts = {
+			"El jugador escribe insultos y lenguaje ofensivo por el chat de texto de forma repetida hacia otras personas.",
+			"El jugador usa el chat para saltarse el filtro y escribir palabras ofensivas con símbolos y espacios entre letras.",
+			"El jugador está enviando spam masivo por el chat, impidiendo seguir la conversación.",
+		  } },
+		{ id = "acoso", titulo = "Acoso / bullying", motivo = "Bullying/Harassment",
+		  prompts = {
+			"El jugador está acosando a otra persona de la sala: la sigue por el mapa, la bloquea y se burla de ella de forma insistente después de que le pidieran parar.",
+			"El jugador amenaza a otros participantes y les dice que va a reportarlos o banearlos en falso para asustarlos.",
+			"El jugador se dirige a otra persona con comentarios humillantes de forma repetida.",
+		  } },
+		{ id = "scam", titulo = "Estafa / scam", motivo = "Scamming",
+		  prompts = {
+			"El jugador ofrece Robux o items gratis a cambio de entrar a un enlace externo, que es una estafa.",
+			"El jugador pide los datos de acceso de la cuenta prometiendo un premio a cambio.",
+			"El jugador propone un intercambio, recibe primero y no entrega su parte.",
+		  } },
+		{ id = "suplantacion", titulo = "Suplantación", motivo = "Impersonation",
+		  prompts = {
+			"El jugador se hace pasar por personal de Roblox para pedir cosas a los demás.",
+			"El jugador copió el Display Name y el avatar de otra persona para hacerse pasar por ella. Recuerda que el Display Name se puede repetir: el @usuario y el UserId son los que identifican de verdad.",
+			"El jugador se hace pasar por un moderador o administrador de esta experiencia para dar órdenes.",
+		  } },
+		{ id = "adulto", titulo = "Contenido adulto", motivo = "Adult content",
+		  prompts = {
+			"El jugador tiene conductas de contenido sexual dentro de la experiencia.",
+			"El jugador busca 'citas' de forma explícita e insiste a otras personas.",
+			"El jugador comparte enlaces a contenido para adultos por el chat.",
+		  } },
+		{ id = "datos", titulo = "Datos personales", motivo = "Personal information",
+		  prompts = {
+			"El jugador está publicando datos personales de otra persona (nombre real, dirección, teléfono o redes) por el chat.",
+			"El jugador pide insistentemente datos personales como edad, dirección o fotos.",
+			"El jugador amenaza con publicar información privada de otro participante.",
+		  } },
+	}
+
+	-- Contexto verificable de DÓNDE está pasando. Solo datos que existen de
+	-- verdad; nada se rellena a ojo.
+	local function contexto()
+		local partes = {}
+		partes[#partes + 1] = "PlaceId: " .. tostring(game.PlaceId)
+		if game.JobId and game.JobId ~= "" then
+			partes[#partes + 1] = "Servidor (JobId): " .. game.JobId
+		end
+		local nombre
+		pcall(function()
+			nombre = game:GetService("MarketplaceService")
+				:GetProductInfo(game.PlaceId).Name
+		end)
+		if nombre then table.insert(partes, 1, "Experiencia: " .. nombre) end
+		return table.concat(partes, "\n")
+	end
+
+	function P.textoReporte(data, cat, idx)
+		local cuerpo = cat.prompts[idx] or cat.prompts[1]
+		return table.concat({
+			"Usuario reportado: @" .. tostring(data.Username)
+				.. " (Display Name: " .. tostring(data.DisplayName)
+				.. " · UserId: " .. tostring(data.UserId) .. ")",
+			"Motivo: " .. cat.titulo,
+			"",
+			cuerpo,
+			"",
+			"--- Contexto ---",
+			contexto(),
+			"Fecha (UTC): " .. os.date("!%Y-%m-%d %H:%M"),
+		}, "\n")
+	end
+
+	function P.reportar(data)
+		if type(data) ~= "table" or not data.UserId then return end
+		local viejo = gui:FindFirstChild("NXReportModal")
+		if viejo then viejo:Destroy() end
+
+		local velo = Instance.new("TextButton", gui)   -- TextButton = traga clics
+		velo.Name = "NXReportModal"
+		velo.Size = UDim2.new(1, 0, 1, 0)
+		velo.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		velo.BackgroundTransparency = 1
+		velo.BorderSizePixel = 0
+		velo.Text = ""
+		velo.AutoButtonColor = false
+		velo.ZIndex = Z.velo
+		motionTween(velo, TweenInfo.new(0.18), { BackgroundTransparency = 0.45 })
+
+		local card = Instance.new("Frame", velo)
+		card.Size = UDim2.new(0, 540, 0, 430)
+		card.Position = UDim2.new(0.5, -270, 0.5, -215)
+		card.BackgroundColor3 = C.bg
+		card.BorderSizePixel = 0
+		-- Active = true hace que la tarjeta ABSORBA el clic. Sin esto, un Frame
+		-- normal deja pasar el clic al velo de detrás (que cierra el modal), o
+		-- sea que pulsar dentro de la ventana la cerraría.
+		card.Active = true
+		card.ZIndex = Z.card
+		themed(card, "BackgroundColor3", "bg")
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+		local cst = Instance.new("UIStroke", card)
+		cst.Color = C.accent; cst.Transparency = 0.4
+		themed(cst, "Color", "accent")
+
+		-- Aparición: escala 0.94 → 1 (transform, no tamaño en píxeles), 180 ms.
+		local esc = Instance.new("UIScale", card)
+		esc.Scale = 0.94
+		motionTween(esc, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+
+		local function cerrar()
+			motionTween(velo, TweenInfo.new(0.15), { BackgroundTransparency = 1 })
+			motionTween(esc, TweenInfo.new(0.15), { Scale = 0.94 }, function()
+				if velo and velo.Parent then velo:Destroy() end
+			end)
+		end
+		track(velo.MouseButton1Click:Connect(cerrar))
+
+		-- ── Cabecera ──
+		local head = Instance.new("TextLabel", card)
+		head.Size = UDim2.new(1, -56, 0, 26)
+		head.Position = UDim2.new(0, 14, 0, 12)
+		head.BackgroundTransparency = 1
+		head.Font = Enum.Font.GothamBold; head.TextSize = 16
+		head.TextColor3 = C.accent
+		head.Text = "Reportar usuario"
+		head.TextXAlignment = Enum.TextXAlignment.Left
+		head.ZIndex = Z.sobre
+		themed(head, "TextColor3", "accent")
+
+		local sub = Instance.new("TextLabel", card)
+		sub.Size = UDim2.new(1, -56, 0, 16)
+		sub.Position = UDim2.new(0, 14, 0, 34)
+		sub.BackgroundTransparency = 1
+		sub.Font = Enum.Font.Gotham; sub.TextSize = 12
+		sub.TextColor3 = C.subtext
+		sub.Text = "@" .. tostring(data.Username) .. "  ·  ID " .. tostring(data.UserId)
+		sub.TextXAlignment = Enum.TextXAlignment.Left
+		sub.TextTruncate = Enum.TextTruncate.AtEnd
+		sub.ZIndex = Z.sobre
+		themed(sub, "TextColor3", "subtext")
+
+		local x = Instance.new("TextButton", card)
+		x.Size = UDim2.new(0, 28, 0, 28)                 -- objetivo de toque cómodo
+		x.Position = UDim2.new(1, -38, 0, 12)
+		x.BackgroundColor3 = C.card
+		x.Text = "X"
+		x.Font = Enum.Font.GothamBold; x.TextSize = 13
+		x.TextColor3 = C.text
+		x.BorderSizePixel = 0
+		x.AutoButtonColor = false
+		x.ZIndex = Z.sobre
+		Instance.new("UICorner", x).CornerRadius = UDim.new(0, 6)
+		themed(x, "BackgroundColor3", "card"); themed(x, "TextColor3", "text")
+		-- Hover: solo color, nunca escala (una escala aquí movería el layout).
+		track(x.MouseEnter:Connect(function()
+			motionTween(x, TweenInfo.new(0.15), { BackgroundColor3 = C.bad })
+		end))
+		track(x.MouseLeave:Connect(function()
+			motionTween(x, TweenInfo.new(0.15), { BackgroundColor3 = C.card })
+		end))
+		track(x.MouseButton1Click:Connect(cerrar))
+
+		-- ── Columna izquierda: categorías ──
+		local izq = Instance.new("ScrollingFrame", card)
+		izq.Size = UDim2.new(0, 186, 1, -118)
+		izq.Position = UDim2.new(0, 14, 0, 60)
+		izq.BackgroundTransparency = 1
+		izq.BorderSizePixel = 0
+		izq.ScrollBarThickness = 3
+		izq.CanvasSize = UDim2.new(0, 0, 0, 0)
+		izq.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		izq.ZIndex = Z.sobre
+		local izqLay = Instance.new("UIListLayout", izq)
+		izqLay.Padding = UDim.new(0, 4); izqLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		-- ── Columna derecha: variantes + vista previa editable ──
+		local varLbl = Instance.new("TextLabel", card)
+		varLbl.Size = UDim2.new(0, 320, 0, 16)
+		varLbl.Position = UDim2.new(0, 208, 0, 60)
+		varLbl.BackgroundTransparency = 1
+		varLbl.Font = Enum.Font.GothamBold; varLbl.TextSize = 11
+		varLbl.TextColor3 = C.subtext
+		varLbl.Text = "PLANTILLA"
+		varLbl.TextXAlignment = Enum.TextXAlignment.Left
+		varLbl.ZIndex = Z.sobre
+		themed(varLbl, "TextColor3", "subtext")
+
+		local varRow = Instance.new("Frame", card)
+		varRow.Size = UDim2.new(0, 320, 0, 26)
+		varRow.Position = UDim2.new(0, 208, 0, 78)
+		varRow.BackgroundTransparency = 1
+		varRow.ZIndex = Z.sobre
+		local varLay = Instance.new("UIListLayout", varRow)
+		varLay.FillDirection = Enum.FillDirection.Horizontal
+		varLay.Padding = UDim.new(0, 6); varLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local prev = Instance.new("TextBox", card)
+		prev.Size = UDim2.new(0, 320, 1, -186)
+		prev.Position = UDim2.new(0, 208, 0, 110)
+		prev.BackgroundColor3 = C.card
+		prev.Font = Enum.Font.Gotham; prev.TextSize = 12
+		prev.TextColor3 = C.text
+		prev.TextWrapped = true
+		prev.MultiLine = true
+		prev.ClearTextOnFocus = false
+		prev.TextEditable = true                          -- lo puedes ajustar tú
+		prev.TextXAlignment = Enum.TextXAlignment.Left
+		prev.TextYAlignment = Enum.TextYAlignment.Top
+		prev.BorderSizePixel = 0
+		prev.Text = ""
+		prev.ZIndex = Z.sobre
+		themed(prev, "BackgroundColor3", "card"); themed(prev, "TextColor3", "text")
+		Instance.new("UICorner", prev).CornerRadius = UDim.new(0, 6)
+		local ppad = Instance.new("UIPadding", prev)
+		ppad.PaddingTop = UDim.new(0, 6); ppad.PaddingLeft = UDim.new(0, 8)
+		ppad.PaddingRight = UDim.new(0, 8); ppad.PaddingBottom = UDim.new(0, 6)
+
+		local catSel, varSel = CATS[1], 1
+		local botonesCat, botonesVar = {}, {}
+
+		local function pintarVar()
+			for i, b in ipairs(botonesVar) do
+				local on = (i == varSel)
+				b.BackgroundColor3 = on and C.accent or C.card
+				b.TextColor3 = on and C.onAccent or C.subtext
+			end
+		end
+
+		local function pintarCat()
+			for _, b in ipairs(botonesCat) do
+				local on = (b:GetAttribute("catId") == catSel.id)
+				b.BackgroundColor3 = on and C.accent or C.card
+				b.TextColor3 = on and C.onAccent or C.text
+			end
+		end
+
+		local function refrescar()
+			prev.Text = P.textoReporte(data, catSel, varSel)
+			pintarCat(); pintarVar()
+		end
+
+		local function construirVars()
+			for _, b in ipairs(botonesVar) do b:Destroy() end
+			table.clear(botonesVar)
+			for i = 1, #catSel.prompts do
+				local b = Instance.new("TextButton", varRow)
+				b.LayoutOrder = i
+				b.Size = UDim2.new(0, 34, 1, 0)
+				b.BackgroundColor3 = C.card
+				b.Text = tostring(i)
+				b.Font = Enum.Font.GothamBold; b.TextSize = 12
+				b.TextColor3 = C.subtext
+				b.BorderSizePixel = 0
+				b.AutoButtonColor = false
+				b.ZIndex = Z.sobre
+				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+				track(b.MouseButton1Click:Connect(function()
+					varSel = i
+					refrescar()
+				end))
+				botonesVar[i] = b
+			end
+		end
+
+		for i, cat in ipairs(CATS) do
+			local b = Instance.new("TextButton", izq)
+			b.LayoutOrder = i
+			b.Size = UDim2.new(1, -6, 0, 32)             -- 32px: cómodo de pulsar
+			b.BackgroundColor3 = C.card
+			b.Text = "  " .. cat.titulo
+			b.Font = Enum.Font.Gotham; b.TextSize = 12
+			b.TextColor3 = C.text
+			b.TextXAlignment = Enum.TextXAlignment.Left
+			b.BorderSizePixel = 0
+			b.AutoButtonColor = false
+			b.ZIndex = Z.sobre
+			b:SetAttribute("catId", cat.id)
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+			track(b.MouseButton1Click:Connect(function()
+				catSel, varSel = cat, 1
+				construirVars()
+				refrescar()
+			end))
+			botonesCat[i] = b
+		end
+
+		-- ── Pie: acciones ──
+		local copiar = Instance.new("TextButton", card)
+		copiar.Size = UDim2.new(0, 168, 0, 32)
+		copiar.Position = UDim2.new(0, 14, 1, -46)
+		copiar.BackgroundColor3 = C.neutral
+		copiar.Text = "Copiar descripción"
+		copiar.Font = Enum.Font.GothamBold; copiar.TextSize = 12
+		copiar.TextColor3 = C.text
+		copiar.BorderSizePixel = 0
+		copiar.AutoButtonColor = false
+		copiar.ZIndex = Z.sobre
+		Instance.new("UICorner", copiar).CornerRadius = UDim.new(0, 6)
+		themed(copiar, "BackgroundColor3", "neutral"); themed(copiar, "TextColor3", "text")
+		track(copiar.MouseButton1Click:Connect(function()
+			clipboard(prev.Text)
+			copiar.Text = "✓ Copiado"
+			task.delay(1.2, function()
+				if copiar and copiar.Parent then copiar.Text = "Copiar descripción" end
+			end)
+		end))
+
+		local abrir = Instance.new("TextButton", card)
+		abrir.Size = UDim2.new(0, 320, 0, 32)
+		abrir.Position = UDim2.new(0, 208, 1, -46)
+		abrir.BackgroundColor3 = C.accent
+		abrir.Text = "Abrir reporte de Roblox →"
+		abrir.Font = Enum.Font.GothamBold; abrir.TextSize = 12
+		abrir.TextColor3 = C.onAccent
+		abrir.BorderSizePixel = 0
+		abrir.AutoButtonColor = false
+		abrir.ZIndex = Z.sobre
+		Instance.new("UICorner", abrir).CornerRadius = UDim.new(0, 6)
+		themed(abrir, "BackgroundColor3", "accent"); themed(abrir, "TextColor3", "onAccent")
+		track(abrir.MouseButton1Click:Connect(function()
+			-- Estado de carga: el botón se desactiva mientras se intenta abrir,
+			-- para que no se pueda pulsar tres veces seguidas.
+			if abrir:GetAttribute("ocupado") then return end
+			abrir:SetAttribute("ocupado", true)
+			abrir.Text = "Abriendo…"
+			clipboard(prev.Text)          -- la descripción va lista para pegar
+			task.spawn(function()
+				local url = "https://www.roblox.com/report-abuse/?targetId="
+					.. tostring(data.UserId) .. "&targetType=User"
+				local ok = openURL(url)
+				if abrir and abrir.Parent then
+					abrir.Text = "Abrir reporte de Roblox →"
+					abrir:SetAttribute("ocupado", nil)
+				end
+				if ok then
+					statusLabel.Text = "✓ Reporte abierto. La descripción está copiada: pégala en el formulario."
+					cerrar()
+				else
+					statusLabel.Text = "No disponible en tu executor. Te dejo el link para copiarlo."
+					showLinkModal(url)
+				end
+			end)
+		end))
+
+		local pie = Instance.new("TextLabel", card)
+		pie.Size = UDim2.new(1, -28, 0, 14)
+		pie.Position = UDim2.new(0, 14, 1, -66)
+		pie.BackgroundTransparency = 1
+		pie.Font = Enum.Font.Gotham; pie.TextSize = 10
+		pie.TextColor3 = C.subtext
+		pie.Text = "El reporte lo envías tú en la web de Roblox. Esta herramienta no manda nada en tu nombre."
+		pie.TextXAlignment = Enum.TextXAlignment.Left
+		pie.ZIndex = Z.sobre
+		themed(pie, "TextColor3", "subtext")
+
+		construirVars()
+		refrescar()
+		-- Se publica el repintado del modal abierto. El listener de tema se
+		-- registra UNA sola vez (abajo, fuera de esta función): si se registrara
+		-- aquí, cada apertura del modal añadiría otro a repaintExtra, que no
+		-- tiene forma de quitarlos y se recorre entero en cada cambio de tema.
+		P._repintarModal = function()
+			if velo and velo.Parent then pcall(refrescar) end
+		end
+	end
+
+	-- Listener de tema ÚNICO para el modal de reporte.
+	onRepaint(function()
+		if P._repintarModal then P._repintarModal() end
+	end)
+
+	_G.NXPlus = P
+end
+
+-- ====================== NX · USERNAME DECODER (motor local) ======================
+-- Infiere posibles NOMBRES REALES a partir de un username. Es una INFERENCIA
+-- heurística sobre texto PÚBLICO, jamás una confirmación de identidad. 100% local:
+-- no hace ninguna llamada de red ni envía el username a ningún servicio externo.
+-- Bloque autocontenido en do...end (sus locals se liberan al 'end', no gastan
+-- registros del chunk raíz). Se expone por _G.NXDecoder. Reversible: borrar este
+-- bloque y su tarjeta en render() devuelve el script a como estaba.
+do
+	local D = {}
+
+	-- Diccionario de nombres (español + internacionales frecuentes), SIN acentos.
+	-- Es el ancla ANTI-INVENCIÓN: si el token limpio no aparece aquí, el decoder NO
+	-- afirma un nombre; lo marca como "sin evidencia suficiente".
+	local NAMES = {}
+	for _, n in ipairs({
+		"alejandro","alonso","andres","angel","antonio","benjamin","bruno","carlos",
+		"cristian","cristobal","daniel","david","diego","eduardo","emiliano","enzo",
+		"esteban","fabian","felipe","fernando","francisco","gabriel","gael","gonzalo",
+		"guillermo","hector","hugo","ignacio","isaac","ivan","javier","joaquin","jorge",
+		"jose","juan","julian","leonardo","lucas","luis","manuel","marco","marcos",
+		"martin","mateo","matias","mauricio","miguel","nicolas","oscar","pablo","pedro",
+		"rafael","ramiro","raul","ricardo","roberto","rodrigo","ruben","salvador","samuel",
+		"santiago","sebastian","sergio","thiago","tomas","valentin","vicente","victor",
+		"abril","adriana","agustina","alejandra","ana","andrea","antonia","ariana",
+		"beatriz","camila","carla","carmen","carolina","catalina","clara","constanza",
+		"daniela","elena","emilia","emma","fernanda","florencia","gabriela","isabel",
+		"isabella","isidora","javiera","josefa","juana","julia","julieta","laura","lucia",
+		"luciana","maite","manuela","margarita","maria","mariana","martina","mia",
+		"micaela","monica","natalia","nicole","paula","paulina","pilar","rocio","romina",
+		"rosa","sofia","valentina","valeria","victoria","ximena",
+		"aaron","adam","alex","alice","amanda","andrew","anna","anthony","ashley",
+		"brandon","brian","chris","dylan","emily","eric","ethan","evan","jack","jacob",
+		"jake","james","jason","jayden","jennifer","jessica","john","jordan","joseph",
+		"josh","joshua","justin","kevin","liam","logan","luke","mark","mason","matthew",
+		"max","michael","mike","nathan","noah","oliver","peter","robert","ryan","sam",
+		"sarah","steven","thomas","tyler","william","zoe",
+	}) do NAMES[n] = true end
+
+	-- Relleno típico de usernames (gaming / Roblox / redes): se descarta, no aporta.
+	local FILLER = {
+		yt=true, ytb=true, ttv=true, tv=true, rblx=true, rbx=true, roblox=true,
+		pro=true, gamer=true, gaming=true, real=true, oficial=true, official=true,
+		its=true, im=true, the=true, xd=true, ff=true, op=true, god=true, king=true,
+		queen=true, boss=true, lord=true, mr=true, mrs=true, itz=true, iam=true, yes=true,
+	}
+
+	-- Sufijos diminutivos en español (largos primero): "rubencito" -> "ruben".
+	local DIMINUTIVES = { "chito","chita","cito","cita","illo","illa","ito","ita" }
+
+	-- Sustituciones leet. 1 opción = SÓLIDA; 2+ opciones = AMBIGUA (ramifica).
+	local LEET = {
+		["4"]={"a"}, ["3"]={"e"}, ["0"]={"o"}, ["7"]={"t"}, ["8"]={"b"},
+		["@"]={"a"}, ["$"]={"s"}, ["+"]={"t"},
+		["1"]={"i","l"}, ["5"]={"s"}, ["9"]={"g"}, ["6"]={"g"}, ["2"]={"z"},
+		["!"]={"i","l"}, ["|"]={"i","l"},
+	}
+
+	-- Acentos/ñ -> ascii, para comparar contra el diccionario (que va sin acentos).
+	local ACCENTS = {
+		["á"]="a",["é"]="e",["í"]="i",["ó"]="o",["ú"]="u",["ü"]="u",["ñ"]="n",
+	}
+	local function normalize(s)
+		s = tostring(s):lower()
+		for from, to in pairs(ACCENTS) do s = s:gsub(from, to) end
+		return s
+	end
+
+	-- Levenshtein acotado (una diferencia >2 no interesa): tolera 1-2 adornos/erratas.
+	local function editDistance(a, b)
+		local la, lb = #a, #b
+		if math.abs(la - lb) > 2 then return 99 end
+		local prev = {}
+		for j = 0, lb do prev[j] = j end
+		for i = 1, la do
+			local cur = { [0] = i }
+			local ca = a:byte(i)
+			for j = 1, lb do
+				local cost = (ca == b:byte(j)) and 0 or 1
+				cur[j] = math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + cost)
+			end
+			prev = cur
+		end
+		return prev[lb]
+	end
+
+	-- Mejor nombre del diccionario para un candidato: exacto (dist 0) o cercano (≤2).
+	local function matchName(cand)
+		if #cand < 3 then
+			if NAMES[cand] then return cand, 0 end   -- nombres cortos exactos (mia, ana, sam...)
+			return nil, 99
+		end
+		if NAMES[cand] then return cand, 0 end
+		local best, bestD = nil, 3
+		for name in pairs(NAMES) do
+			if math.abs(#name - #cand) <= 2 then
+				local d = editDistance(cand, name)
+				if d < bestD then best, bestD = name, d end
+			end
+		end
+		if best then return best, bestD end
+		return nil, 99
+	end
+
+	-- Expande las sustituciones leet de un token en varios candidatos (con tope).
+	local MAX_CAND = 24
+	local function deLeet(token)
+		local res = { { text = "", subs = {}, ambig = 0, solid = 0 } }
+		for i = 1, #token do
+			local ch = token:sub(i, i)
+			local opts = LEET[ch]
+			local nxt = {}
+			if opts then
+				local isAmbig = #opts > 1
+				for _, r in ipairs(res) do
+					for _, letter in ipairs(opts) do
+						if #nxt < MAX_CAND then
+							local subs = {}
+							for _, x in ipairs(r.subs) do subs[#subs + 1] = x end
+							subs[#subs + 1] = ch .. " → " .. letter
+							nxt[#nxt + 1] = {
+								text = r.text .. letter, subs = subs,
+								ambig = r.ambig + (isAmbig and 1 or 0),
+								solid = r.solid + (isAmbig and 0 or 1),
+							}
+						end
+					end
+				end
+			else
+				local keep = ch:match("%a") and ch or ""   -- letras se quedan; otros símbolos fuera
+				for _, r in ipairs(res) do
+					r.text = r.text .. keep
+					nxt[#nxt + 1] = r
+				end
+			end
+			res = nxt
+			if #res == 0 then break end
+		end
+		return res
+	end
+
+	local function stripDiminutive(w)
+		for _, suf in ipairs(DIMINUTIVES) do
+			if #w >= #suf + 3 and w:sub(-#suf) == suf then
+				return w:sub(1, #w - #suf), suf
+			end
+		end
+		return w, nil
+	end
+
+	local function levelOf(sc, matched)
+		if not matched then return "Insuficiente" end
+		if sc >= 75 then return "Alta"
+		elseif sc >= 50 then return "Media"
+		elseif sc >= 30 then return "Baja"
+		else return "Insuficiente" end
+	end
+
+	-- Analiza UN username. Devuelve { username, subs (del mejor), candidates[], hasEvidence }.
+	function D.analyze(username)
+		local out = { username = tostring(username or ""), subs = {}, candidates = {}, hasEvidence = false }
+		if out.username == "" then return out end
+
+		local s = normalize(out.username)
+		local ranked = {}            -- name -> mejor { score, level, subs }
+		local cleanedFallback = nil  -- token limpio si no hay ningún match de diccionario
+
+		for tok in s:gmatch("[%w@$!|+]+") do
+			-- 1) recorta afijos de borde: dígitos y 'x' de relleno (xX..Xx, año al final)
+			local core = tok:gsub("^[0-9x]+", ""):gsub("[0-9x]+$", "")
+			for _, base in ipairs({ tok, core }) do
+				if #base >= 2 and base:match("%a") then      -- ignora tokens sin letras (años tipo "2011")
+					local lettersOnly = base:gsub("[^a-z]", "")
+					if not FILLER[lettersOnly] then          -- descarta relleno puro ("yt", "pro"...)
+						if not cleanedFallback and #lettersOnly >= 2 then cleanedFallback = lettersOnly end
+						for _, c in ipairs(deLeet(base)) do
+							-- prueba el candidato tal cual y, si aplica, sin diminutivo
+							local variants = { { c.text, false } }
+							local baseWord, dim = stripDiminutive(c.text)
+							if dim then variants[#variants + 1] = { baseWord, true } end
+							for _, v in ipairs(variants) do
+								local cand, dist = matchName(v[1])
+								if cand then
+									local sc = 100 - 25 * dist - 22 * c.ambig - 4 * c.solid
+									if v[2] then sc = sc - 12 end   -- dependió de recortar diminutivo
+									sc = math.clamp(sc, 0, 100)
+									local prev = ranked[cand]
+									if not prev or sc > prev.score then
+										ranked[cand] = { score = sc, level = levelOf(sc, true), subs = c.subs }
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+
+		local list = {}
+		for name, info in pairs(ranked) do
+			list[#list + 1] = { name = name, score = info.score, level = info.level, subs = info.subs }
+		end
+		table.sort(list, function(a, b) return a.score > b.score end)
+
+		if list[1] then out.subs = list[1].subs; out.hasEvidence = true end
+		for i = 1, math.min(4, #list) do out.candidates[#out.candidates + 1] = list[i] end
+
+		-- Sin ningún match: ofrece el token limpio como inferencia DÉBIL y honesta.
+		if #out.candidates == 0 and cleanedFallback then
+			out.candidates[1] = { name = cleanedFallback, score = 15, level = "Insuficiente", subs = {} }
+		end
+		return out
+	end
+
+	_G.NXDecoder = D
+end
+
 local function render(data, skipEntrance)
 	clearScroll(profileScroll)
 	clearScroll(statsScroll)
 	clearScroll(itemsScroll)
 	clearScroll(analysisScroll)
 	currentData = data
+	-- La pestaña Huella se rellena sola al abrirla (carga perezosa). Aquí solo
+	-- se invalida lo que hubiera pintado del perfil anterior.
+	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
 	if not data then return end
 
 	-- Animación de entrada: la pestaña visible entra deslizándose suave al cargar
@@ -4107,9 +5357,14 @@ local function render(data, skipEntrance)
 	if ANIM.enabled and not skipEntrance then
 		for _, pg in ipairs({ profilePage, statsPage, itemsPage, analysisPage }) do
 			if pg.Visible then
-				pg.Position = UDim2.new(0, 0, 0, 12)
-				motionTween(pg, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				local sc = pg:FindFirstChild("PageScale")
+				if not sc then sc = Instance.new("UIScale", pg); sc.Name = "PageScale" end
+				sc.Scale = 0.98
+				pg.Position = UDim2.new(0, 0, 0, 14)
+				motionTween(pg, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 					{ Position = UDim2.new(0, 0, 0, 0) })
+				motionTween(sc, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					{ Scale = 1 })
 			end
 		end
 	end
@@ -4141,7 +5396,7 @@ local function render(data, skipEntrance)
 	viewCharBtn.Size = UDim2.new(0, 220, 0, 30)
 	viewCharBtn.Position = UDim2.new(0.5, -110, 0, 160)
 	viewCharBtn.BackgroundColor3 = C.accent
-	viewCharBtn.Text = "👤 Ver avatar"
+	viewCharBtn.Text = "Ver avatar"
 	viewCharBtn.Font = Enum.Font.GothamBold
 	viewCharBtn.TextSize = 13
 	viewCharBtn.TextColor3 = C.onAccent
@@ -4226,48 +5481,44 @@ local function render(data, skipEntrance)
 			nxChip.Visible = true
 			avatarFrame.Size = UDim2.new(1, -4, 0, 232)   -- hueco para el chip
 		end
-		-- Resuelve vía dispatcher (v2 -> legacy). Reintenta mientras CUALQUIER backend carga.
+		-- Resuelve vía dispatcher (v2 -> legacy).
 		local now = getNXTag(data.UserId)
 		if now then
 			applyTag(now)
 		else
-			task.spawn(function()
-				local tries = 0
-				local function pending()
-					if nxTags == nil then return true end
-					if _G.NXV2 and _G.NXV2.enabled and _G.NXV2.pending and _G.NXV2.pending() then return true end
-					return false
-				end
-				while pending() and tries < 60 do
-					task.wait(0.1); tries = tries + 1
-					local t = getNXTag(renderedFor)
-					if t then
-						if currentData and currentData.UserId == renderedFor then applyTag(t) end
-						return
-					end
-				end
-				if currentData and currentData.UserId == renderedFor then applyTag(getNXTag(renderedFor)) end
-			end)
+			-- Aún no hay tag porque algún backend sigue cargando. En vez de
+			-- sondear (antes: hasta 60 vueltas de task.wait(0.1)), nos
+			-- suscribimos a los dos y el primero que traiga algo lo pinta.
+			local function reintentar()
+				if currentData == nil or currentData.UserId ~= renderedFor then return end
+				if not nxChip.Parent then return end
+				applyTag(getNXTag(renderedFor))
+			end
+			_G.NXTagKit.alCargarLegacy(reintentar)
+			if _G.NXV2 and _G.NXV2.onReady then _G.NXV2.onReady(reintentar) end
 		end
 	end
 
-	-- Botón "Enviar solicitud de amistad" (solo si NO es tu propia cuenta)
-	if data.UserId ~= player.UserId then
-		buildFriendButton(profileScroll, data.UserId, 1)
-	end
 
-	-- Link
+	-- Link + acciones (v3.8.1 · reestructurado en DOS filas)
+	-- Antes: link + 3 botones de 88 px en UNA sola fila de 30 px. Al reducir la
+	-- ventana los botones se montaban sobre el link y el texto se salía. Ahora el
+	-- link ocupa una fila ENTERA arriba (siempre visible y completo) y los 2
+	-- botones (Abrir Perfil / Copiar link) van en una segunda fila a mitades con
+	-- un UIListLayout (nunca se solapan, se adaptan al ancho). El botón Reportar
+	-- se retiró a pedido del usuario. Los handlers son los de siempre.
 	local linkFrame = Instance.new("Frame", profileScroll)
 	linkFrame.LayoutOrder = 2
-	linkFrame.Size = UDim2.new(1, -4, 0, 30)
+	linkFrame.Size = UDim2.new(1, -4, 0, 66)
 	linkFrame.BackgroundColor3 = C.card
 	linkFrame.BorderSizePixel = 0
 	linkFrame.ClipsDescendants = true
 	Instance.new("UICorner", linkFrame).CornerRadius = UDim.new(0, 4)
+	themed(linkFrame, "BackgroundColor3", "card")
 
 	local linkBox = Instance.new("TextBox", linkFrame)
-	linkBox.Size = UDim2.new(1, -214, 1, -6)
-	linkBox.Position = UDim2.new(0, 6, 0, 3)
+	linkBox.Size = UDim2.new(1, -12, 0, 28)
+	linkBox.Position = UDim2.new(0, 6, 0, 4)
 	linkBox.BackgroundColor3 = C.link
 	linkBox.Font = Enum.Font.Code
 	linkBox.TextSize = 12
@@ -4276,19 +5527,62 @@ local function render(data, skipEntrance)
 	linkBox.ClearTextOnFocus = false
 	linkBox.TextEditable = false
 	linkBox.TextXAlignment = Enum.TextXAlignment.Left
+	linkBox.TextTruncate = Enum.TextTruncate.AtEnd
 	linkBox.BorderSizePixel = 0
+	themed(linkBox, "BackgroundColor3", "link")
 	Instance.new("UICorner", linkBox).CornerRadius = UDim.new(0, 4)
+	local lbPad = Instance.new("UIPadding", linkBox)
+	lbPad.PaddingLeft = UDim.new(0, 8); lbPad.PaddingRight = UDim.new(0, 8)
 
-	local copyLink = Instance.new("TextButton", linkFrame)
-	copyLink.Size = UDim2.new(0, 96, 1, -6)
-	copyLink.Position = UDim2.new(1, -102, 0, 3)
+	-- Segunda fila: los 3 botones en tercios iguales (el layout los separa).
+	local actRow = Instance.new("Frame", linkFrame)
+	actRow.Size = UDim2.new(1, -12, 0, 26)
+	actRow.Position = UDim2.new(0, 6, 0, 36)
+	actRow.BackgroundTransparency = 1
+	local actLay = Instance.new("UIListLayout", actRow)
+	actLay.FillDirection = Enum.FillDirection.Horizontal
+	actLay.Padding = UDim.new(0, 8)
+	actLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
+	actLay.SortOrder = Enum.SortOrder.LayoutOrder
+	local BTN = UDim2.new(0.5, -4, 1, 0)   -- media fila menos el aire (2 botones)
+
+	local openProfile = Instance.new("TextButton", actRow)
+	openProfile.LayoutOrder = 1
+	openProfile.Size = BTN
+	openProfile.BackgroundColor3 = C.neutral
+	openProfile.Text = "Abrir Perfil"
+	openProfile.Font = Enum.Font.GothamBold
+	openProfile.TextSize = 12
+	openProfile.TextColor3 = C.text
+	openProfile.BorderSizePixel = 0
+	openProfile.TextTruncate = Enum.TextTruncate.AtEnd
+	Instance.new("UICorner", openProfile).CornerRadius = UDim.new(0, 4)
+	themed(openProfile, "BackgroundColor3", "neutral")
+	themed(openProfile, "TextColor3", "text")
+	openProfile.MouseButton1Click:Connect(function()
+		local opened = openURL(data.ProfileUrl)
+		if opened then
+			statusLabel.Text = "✓ Perfil abierto en el navegador."
+		else
+			statusLabel.Text = "No disponible en tu executor. Te dejo el link para copiarlo."
+			showLinkModal(data.ProfileUrl)
+		end
+	end)
+
+	local copyLink = Instance.new("TextButton", actRow)
+	copyLink.LayoutOrder = 2
+	copyLink.Size = BTN
 	copyLink.BackgroundColor3 = C.accent
 	copyLink.Text = "Copiar link"
 	copyLink.Font = Enum.Font.GothamBold
 	copyLink.TextSize = 12
 	copyLink.TextColor3 = C.onAccent
 	copyLink.BorderSizePixel = 0
+	copyLink.TextTruncate = Enum.TextTruncate.AtEnd
 	Instance.new("UICorner", copyLink).CornerRadius = UDim.new(0, 4)
+	themed(copyLink, "BackgroundColor3", "accent")
+	themed(copyLink, "TextColor3", "onAccent")
 	copyLink.MouseButton1Click:Connect(function()
 		clipboard(data.ProfileUrl)
 		statusLabel.Text = "Link del perfil copiado"
@@ -4296,26 +5590,6 @@ local function render(data, skipEntrance)
 		task.delay(1.2, function()
 			if copyLink and copyLink.Parent then copyLink.Text = "Copiar link" end
 		end)
-	end)
-
-	local openProfile = Instance.new("TextButton", linkFrame)
-	openProfile.Size = UDim2.new(0, 96, 1, -6)
-	openProfile.Position = UDim2.new(1, -206, 0, 3)
-	openProfile.BackgroundColor3 = C.neutral
-	openProfile.Text = "Abrir Perfil"
-	openProfile.Font = Enum.Font.GothamBold
-	openProfile.TextSize = 12
-	openProfile.TextColor3 = C.text
-	openProfile.BorderSizePixel = 0
-	Instance.new("UICorner", openProfile).CornerRadius = UDim.new(0, 4)
-	openProfile.MouseButton1Click:Connect(function()
-		local opened = openURL(data.ProfileUrl)
-		if opened then
-			statusLabel.Text = "✓ Perfil abierto en el navegador."
-		else
-			statusLabel.Text = "☹ El executor " .. EXECUTOR_NAME .. " no permite abrir el navegador."
-			showLinkModal(data.ProfileUrl)
-		end
 	end)
 
 	-- Estado (presencia en tiempo real). Color re-derivado del TIPO (v3.1.0)
@@ -4332,7 +5606,7 @@ local function render(data, skipEntrance)
 		local joinBtn = Instance.new("TextButton", joinFrame)
 		joinBtn.Size = UDim2.new(1, 0, 1, 0)
 		joinBtn.BackgroundColor3 = C.good
-		joinBtn.Text = "🎮 Unirse a su servidor"
+		joinBtn.Text = "Unirse a su servidor"
 		joinBtn.Font = Enum.Font.GothamBold
 		joinBtn.TextSize = 14
 		joinBtn.TextColor3 = C.onAccent
@@ -4345,7 +5619,7 @@ local function render(data, skipEntrance)
 				TS:TeleportToPlaceInstance(data.PresencePlace, data.PresenceGame, player)
 			end)
 			if not ok then
-				statusLabel.Text = "☹ No se pudo unir (servidor lleno/privado o sin acceso)."
+				statusLabel.Text = "No disponible (servidor lleno, privado o sin acceso)."
 			end
 		end)
 	end
@@ -4354,19 +5628,21 @@ local function render(data, skipEntrance)
 	addRow(profileScroll, "Display Name", data.DisplayName, false).LayoutOrder = 6
 	addRow(profileScroll, "UserId", data.UserId, true).LayoutOrder = 7            -- botón Copiar ID
 	addRow(profileScroll, "Suscripción", data.Subscription, false).LayoutOrder = 8
-	addRow(profileScroll, "Verificado", data.Verified, false).LayoutOrder = 9
+	-- (v3.8.3) "Verificado" se movió al panel " Verificación" (que además cruza
+	-- las dos fuentes) para no mostrarlo duplicado aquí y allá.
 	addRow(profileScroll, "Baneado", data.Banned, false,
 		(data.Banned == "Sí") and C.bad or C.text).LayoutOrder = 10
 	addRow(profileScroll, "Creación", data.Created, false).LayoutOrder = 11
 	addRow(profileScroll, "Edad de cuenta", data.AccountAge, false).LayoutOrder = 12
 	addDescription(profileScroll, data.Description).LayoutOrder = 13
 
+
 	-- ---------- HISTORIAL DE NOMBRES (reincorporado en v3.1.0) ----------
 	-- Tarjeta con el nombre actual + nombres anteriores (API username-history).
 	-- Caché por-sección (data._namesCached) para no re-pedir al cambiar tema.
 	local historyFrame = Instance.new("Frame", profileScroll)
 	historyFrame.Name = "NameHistory"
-	historyFrame.LayoutOrder = 14
+	historyFrame.LayoutOrder = 15   -- 14 lo ocupa ahora el Panel de Identidad
 	historyFrame.Size = UDim2.new(1, -4, 0, 0)
 	historyFrame.BackgroundTransparency = 1
 	historyFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -4395,16 +5671,29 @@ local function render(data, skipEntrance)
 	loadingHist.TextXAlignment = Enum.TextXAlignment.Left
 
 	local historyFor = data.UserId
-	task.spawn(function()
-		local names, hasMore
-		if data._namesCached ~= nil then
-			names = data._namesCached or nil
-			hasMore = data._namesHasMore or false
-		else
-			names, hasMore = getNameHistory(data.UserId)
+	-- Pasa por el canal compartido de NX Plus: el Panel de Identidad pide lo
+	-- mismo y se dibuja a la vez, así que sin esto salían DOS peticiones a
+	-- username-history por perfil. Fallback al método directo si el módulo no
+	-- estuviera cargado, para no depender de él.
+	local function conNombres(cb)
+		-- Solo la DETECCIÓN va en pcall. Si se envolviera también la llamada, un
+		-- error dentro de cb haría creer que el módulo falló y dispararía además
+		-- el fallback: el historial se pintaría dos veces.
+		local viaModulo
+		pcall(function()
+			if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
+				viaModulo = _G.NXPlus.nombres
+			end
+		end)
+		if viaModulo then viaModulo(data, cb); return end
+		task.spawn(function()
+			local names, hasMore = getNameHistory(data.UserId)
 			data._namesCached = names or false
 			data._namesHasMore = hasMore or false
-		end
+			cb(names, hasMore)
+		end)
+	end
+	conNombres(function(names, hasMore)
 		if currentData == nil or currentData.UserId ~= historyFor then return end
 		if not historyFrame.Parent then return end
 		if loadingHist and loadingHist.Parent then loadingHist:Destroy() end
@@ -4417,7 +5706,7 @@ local function render(data, skipEntrance)
 			err.Font = Enum.Font.Gotham
 			err.TextSize = 12
 			err.TextColor3 = C.bad
-			err.Text = "No se pudo obtener el historial."
+			err.Text = "No disponible."
 			err.TextXAlignment = Enum.TextXAlignment.Left
 			return
 		end
@@ -4585,7 +5874,7 @@ local function render(data, skipEntrance)
 		end)
 	end
 
-	-- Feedback visual EN EL PROPIO BOTÓN: cambia a "✓"/"☹" un instante y vuelve.
+	-- Feedback visual EN EL PROPIO BOTÓN: cambia a "✓"/"" un instante y vuelve.
 	local function flashBtn(btn, msg)
 		local prev = btn.Text
 		btn.Text = msg
@@ -4602,8 +5891,8 @@ local function render(data, skipEntrance)
 				statusLabel.Text = "✓ Copiado a portapapeles (TXT)"
 				flashBtn(txtBtn, "Copiado ✓")
 			else
-				statusLabel.Text = "☹ No se pudo copiar (executor sin portapapeles)"
-				flashBtn(txtBtn, "Error ☹")
+				statusLabel.Text = "No disponible (tu executor no da acceso al portapapeles)."
+				flashBtn(txtBtn, "Error")
 			end
 		end)
 	end)
@@ -4616,26 +5905,26 @@ local function render(data, skipEntrance)
 				statusLabel.Text = "✓ Copiado a portapapeles (JSON)"
 				flashBtn(jsonBtn, "Copiado ✓")
 			else
-				statusLabel.Text = "☹ No se pudo copiar (executor sin portapapeles)"
-				flashBtn(jsonBtn, "Error ☹")
+				statusLabel.Text = "No disponible (tu executor no da acceso al portapapeles)."
+				flashBtn(jsonBtn, "Error")
 			end
 		end)
 	end)
 
 	-- ---------- PESTAÑA ITEMS (avatar + precio + grupos + badges + RAP) ----------
-	local priceCard = addNoteCard(itemsScroll, "💰 Precio del avatar", "Calculando...", C.good)
+	local priceCard = addNoteCard(itemsScroll, "Precio del avatar", "Calculando...", C.good)
 	priceCard.LayoutOrder = 1
 
-	local itemsCard = addNoteCard(itemsScroll, "🎽 Items equipados", "Cargando...", C.accent)
+	local itemsCard = addNoteCard(itemsScroll, "Items equipados", "Cargando...", C.accent)
 	itemsCard.LayoutOrder = 2
 
-	local groupsCard = addNoteCard(itemsScroll, "👥 Grupos", "Cargando...", C.accent)
+	local groupsCard = addNoteCard(itemsScroll, "Grupos", "Cargando...", C.accent)
 	groupsCard.LayoutOrder = 3
 
-	local badgesCard = addNoteCard(itemsScroll, "🏅 Badges recientes", "Cargando...", C.accent)
+	local badgesCard = addNoteCard(itemsScroll, "Badges recientes", "Cargando...", C.accent)
 	badgesCard.LayoutOrder = 4
 
-	local rapCard = addNoteCard(itemsScroll, "💎 RAP (valor limiteds)",
+	local rapCard = addNoteCard(itemsScroll, "RAP (valor limiteds)",
 		"Consultando Rolimon's (web externa)...", C.warn)
 	rapCard.LayoutOrder = 5
 
@@ -4726,7 +6015,7 @@ local function render(data, skipEntrance)
 			table.insert(lines, "• " .. g.name .. "  —  " .. g.role)
 		end
 		b.Text = #groups .. " grupo(s):\n" .. table.concat(lines, "\n")
-			.. ((descartados > 0) and ("\n⚠ " .. descartados .. " entrada(s) descartada(s) por NX Shields.") or "")
+			.. ((descartados > 0) and ("\n" .. descartados .. " entrada(s) descartada(s) por NX Shields.") or "")
 	end)
 
 	task.spawn(function()
@@ -4753,7 +6042,7 @@ local function render(data, skipEntrance)
 		local lines = {}
 		for _, bd in ipairs(badges) do table.insert(lines, "• " .. bd.name) end
 		b.Text = "Últimos " .. #badges .. ":\n" .. table.concat(lines, "\n")
-			.. ((descartados > 0) and ("\n⚠ " .. descartados .. " descartado(s) por NX Shields.") or "")
+			.. ((descartados > 0) and ("\n" .. descartados .. " descartado(s) por NX Shields.") or "")
 	end)
 
 	-- RAP COMPARTIDO. Antes, la tarjeta de RAP y el recálculo de Influencia
@@ -4771,7 +6060,8 @@ local function render(data, skipEntrance)
 		if data._rapInflight then return end       -- ya hay una petición en curso
 		data._rapInflight = true
 		task.spawn(function()
-			local rap = getRAP(data.UserId)
+			local rap, motivo = getRAP(data.UserId)
+			data._rapMotivo = motivo          -- por qué falta (lo lee la tarjeta)
 			local val = rap and tonumber(rap.rap) or nil
 			-- El RAP también se valida: un valor negativo o no numérico se descarta.
 			if Shield.flags.data and val ~= nil and (val < 0 or val ~= math.floor(val)) then
@@ -4796,7 +6086,16 @@ local function render(data, skipEntrance)
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		local b = bodyOf(rapCard); if not b then return end
 		if not rapVal or rapVal <= 0 then
-			b.Text = "No disponible (la web externa no respondió o tu executor la bloquea). No es un dato oficial de Roblox."
+			-- Mensaje según la causa REAL. Antes siempre culpaba al executor,
+			-- lo cual desde 2026-07 es falso: la API de Rolimon's se retiró.
+			local m = data._rapMotivo
+			if m == "movida" then
+				b.Text = "No disponible · Rolimon's retiró su API pública."
+			elseif m == "sin_respuesta" then
+				b.Text = "No disponible · la fuente externa no respondió."
+			else
+				b.Text = "No disponible · sin limiteds o sin valor publicado."
+			end
 			return
 		end
 		b.Text = "RAP estimado: " .. tostring(rapVal) .. " R$\n(Fuente: Rolimon's, valor aproximado, NO oficial.)"
@@ -4808,28 +6107,108 @@ local function render(data, skipEntrance)
 	do
 		local st = data._state or "verified"
 		local ETIQ = {
-			verified   = { "✓ Datos verificados",  C.good,    "Todas las respuestas pasaron la validación de estructura y formato." },
-			partial    = { "◑ Datos parciales",    C.warn,    "Algunas APIs no respondieron. Lo que falta se marca como 'No disponible', no se rellena con ceros." },
-			incomplete = { "⚠ Datos incompletos",  C.warn,    "Faltan campos clave del perfil." },
-			error      = { "✕ Error de validación", C.bad,    "Alguna respuesta llegó corrupta o con formato inválido y fue bloqueada." },
+			verified   = { "Datos verificados",     C.good, "Todas las respuestas pasaron la validación." },
+			partial    = { "Datos parciales",       C.warn, "Algunas consultas no respondieron. Lo que falta aparece como \"No disponible\"." },
+			incomplete = { "Datos incompletos",     C.warn, "Faltan campos clave del perfil." },
+			error      = { "Datos no verificables", C.bad,  "Parte de la respuesta no pasó la validación y no se muestra." },
 		}
 		local e = ETIQ[st] or ETIQ.verified
-		local cuerpo = e[3]
-		local probs = Shield.problemas(data)
-		if #probs > 0 then
-			cuerpo = cuerpo .. "\n\nDetalle:\n• " .. table.concat(probs, "\n• ")
+		-- En modo normal esta tarjeta solo aparece si hay algo que advertir: con
+		-- todo verificado no aporta nada y se come la primera pantalla.
+		if st ~= "verified" or Shield.adv() then
+			local cuerpo = e[3]
+			if Shield.adv() then
+				local probs = Shield.problemas(data)
+				if #probs > 0 then
+					cuerpo = cuerpo .. "\n\nDetalle:\n• " .. table.concat(probs, "\n• ")
+				end
+				if data._timedOut then
+					cuerpo = cuerpo .. "\n\nAlguna consulta superó el tiempo límite de 15 s."
+				end
+				if not Shield.flags.api or not Shield.flags.data then
+					local off = {}
+					if not Shield.flags.api  then off[#off + 1] = "Verificación API" end
+					if not Shield.flags.data then off[#off + 1] = "Validación de datos" end
+					cuerpo = cuerpo .. "\n\nProtección desactivada: " .. table.concat(off, " · ")
+						.. ". Los datos se muestran sin capa de verificación."
+				end
+			end
+			addNoteCard(analysisScroll, e[1], cuerpo, e[2]).LayoutOrder = 0
 		end
-		if data._timedOut then
-			cuerpo = cuerpo .. "\n\n⏱ Alguna consulta superó el tiempo límite de 15 s."
+	end
+
+	-- ---------- USERNAME DECODER (inferencia LOCAL, NO confirma identidad) ----------
+	-- Va AQUÍ (LayoutOrder 1, arriba) y ANTES del corte por datos incompletos: solo
+	-- necesita el username, que siempre existe, así que debe salir en TODO perfil
+	-- aunque las heurísticas de scoring no sean calculables. Todo local: no sale
+	-- ni un byte del username a la red.
+	do
+		local dec = _G.NXDecoder
+		if dec then
+			local function titulo(name)
+				return name:sub(1, 1):upper() .. name:sub(2)
+			end
+			local function fmtOne(res)
+				local lines = {}
+				if #res.subs > 0 then
+					lines[#lines + 1] = "Sustituciones: " .. table.concat(res.subs, ", ")
+				end
+				if #res.candidates == 0 then
+					lines[#lines + 1] = "Sin datos suficientes para inferir un nombre."
+				else
+					lines[#lines + 1] = "Posibles nombres:"
+					for i, c in ipairs(res.candidates) do
+						lines[#lines + 1] = string.format("  %d. %s — %s", i, titulo(c.name), c.level)
+					end
+				end
+				return table.concat(lines, "\n")
+			end
+
+			local cur = dec.analyze(data.Username)
+			local function buildBody(histLines)
+				local parts = { "Username: " .. tostring(data.Username), fmtOne(cur) }
+				if histLines and #histLines > 0 then
+					parts[#parts + 1] = "\nNombres previos (historial):\n" .. table.concat(histLines, "\n")
+				end
+				parts[#parts + 1] = "\n⚠ Es una INFERENCIA sobre texto público, NO una identidad confirmada."
+				return table.concat(parts, "\n")
+			end
+
+			local topLvl = (cur.candidates[1] and cur.candidates[1].level) or "Insuficiente"
+			local decColor = (topLvl == "Alta") and C.good
+				or ((topLvl == "Media") and C.accent or C.subtext)
+			local decCard = addNoteCard(analysisScroll, "🔤 Username Decoder", buildBody(nil), decColor)
+			decCard.LayoutOrder = 1
+
+			-- Historial: reutiliza el fetch compartido (deduplica y cachea; mismo
+			-- endpoint rate-limited que ya usan Identidad e Historial de nombres).
+			if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
+				local decFor = data.UserId
+				_G.NXPlus.nombres(data, function(lista)
+					if currentData == nil or currentData.UserId ~= decFor then return end
+					if not decCard.Parent then return end
+					local bodyLabel
+					for _, ch in ipairs(decCard:GetChildren()) do
+						if ch:IsA("TextLabel") and ch.LayoutOrder == 1 then bodyLabel = ch end
+					end
+					if not bodyLabel then return end
+					local extra, shown = {}, 0
+					for _, prevName in ipairs(lista or {}) do
+						if prevName ~= data.Username and shown < 6 then
+							local r = dec.analyze(prevName)
+							local top = r.candidates[1]
+							if top then
+								extra[#extra + 1] = string.format("• %s → %s (%s)", prevName, titulo(top.name), top.level)
+							else
+								extra[#extra + 1] = string.format("• %s → sin datos", prevName)
+							end
+							shown = shown + 1
+						end
+					end
+					if #extra > 0 then bodyLabel.Text = buildBody(extra) end
+				end)
+			end
 		end
-		if not Shield.flags.api or not Shield.flags.data then
-			local off = {}
-			if not Shield.flags.api  then off[#off + 1] = "Verificación API" end
-			if not Shield.flags.data then off[#off + 1] = "Validación de datos" end
-			cuerpo = cuerpo .. "\n\n⚠ Protección desactivada: " .. table.concat(off, " · ")
-				.. ". Los datos se muestran sin capa de verificación."
-		end
-		addNoteCard(analysisScroll, "🛡️ NX Shields · " .. e[1], cuerpo, e[2]).LayoutOrder = 0
 	end
 
 	-- ¿Hay base suficiente para puntuar? Si faltan 2+ pilares (amigos, badges,
@@ -4838,14 +6217,10 @@ local function render(data, skipEntrance)
 	local fiable, faltantes = Shield.scoresFiables(data)
 	if not fiable then
 		addNoteCard(analysisScroll,
-			"🚫 Análisis no calculable",
-			"NX Shields ha bloqueado el cálculo de Confianza / Actividad / Influencia / "
-				.. "Riesgo ALT porque faltan datos que son pilares del modelo:\n• "
+			"Análisis no calculable",
+			"Faltan datos que son pilares del modelo:\n• "
 				.. table.concat(faltantes, "\n• ")
-				.. "\n\nSin ellos, un fallo de API se contaría como \"0 amigos, 0 badges\" y "
-				.. "produciría un riesgo alto falso. Vuelve a analizar cuando la API responda, "
-				.. "o desactiva \"Validación de datos\" en el escudo para verlos igualmente "
-				.. "(sabiendo que no son fiables).",
+				.. "\n\nSin ellos el resultado no sería fiable, así que no se publica.",
 			C.bad).LayoutOrder = 1
 		return
 	end
@@ -4876,7 +6251,7 @@ local function render(data, skipEntrance)
 	advTitle.BackgroundTransparency = 1
 	advTitle.Font = Enum.Font.GothamBold; advTitle.TextSize = 14
 	advTitle.TextColor3 = C.accent
-	advTitle.Text = "🔍 Análisis avanzado"
+	advTitle.Text = "Puntuaciones"
 	advTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
@@ -4911,14 +6286,18 @@ local function render(data, skipEntrance)
 		end
 	end)
 
-	addNoteCard(analysisScroll,
-		"🛡️ Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")",
-		"Puntaje heurístico (NO oficial). Desglose:\n• " .. table.concat(trustReasons, "\n• "),
-		trustColor).LayoutOrder = 2
+	-- Los desgloses son la letra pequeña del modelo: solo en modo avanzado.
+	if Shield.adv() then
+		addNoteCard(analysisScroll,
+			"Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")",
+			"Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• "),
+			trustColor).LayoutOrder = 2
+	end
 
 	-- Riesgo ALT: explicación contextual (según nivel) + factores con ✓ +
 	-- desglose ponderado por área (transparencia del modelo).
 	local altContext
+	if Shield.adv() then
 	if altScore >= 61 then
 		altContext = "Esta cuenta presenta varias características comunes en cuentas "
 			.. "secundarias (alt)."
@@ -4936,14 +6315,15 @@ local function render(data, skipEntrance)
 		bd[#bd + 1] = string.format("• %s: %d/100 (peso %d%%)", b[1], b[2], b[3])
 	end
 	addNoteCard(analysisScroll,
-		"🧪 Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")",
+		"Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")",
 		altContext .. "\n\n" .. altFactorsTxt
 			.. "\n\nDesglose ponderado (riesgo por área):\n" .. table.concat(bd, "\n")
-			.. "\n\nHeurística sobre datos públicos: NO prueba que la cuenta sea un alt.",
+			.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt.",
 		altColor).LayoutOrder = 3
+	end
 
 	local mutualCard = addNoteCard(analysisScroll,
-		"👥 Amigos en común",
+		"Amigos en común",
 		(data.UserId == player.UserId) and "Estás viendo tu propia cuenta." or "Calculando...",
 		C.accent)
 	mutualCard.LayoutOrder = 4
@@ -4966,7 +6346,7 @@ local function render(data, skipEntrance)
 			end
 			if not bodyLabel then return end
 			if not mutual then
-				bodyLabel.Text = "No disponible (alguna lista de amigos es privada o falló la API)."
+				bodyLabel.Text = "No disponible."
 			elseif #mutual == 0 then
 				bodyLabel.Text = "No tienen amigos en común."
 			else
@@ -5012,7 +6392,7 @@ do
 	local thTitle = Instance.new("TextLabel", themeCard)
 	thTitle.LayoutOrder = 0; thTitle.Size = UDim2.new(1,0,0,20); thTitle.BackgroundTransparency = 1
 	thTitle.Font = Enum.Font.GothamBold; thTitle.TextSize = 14; thTitle.TextColor3 = C.accent
-	thTitle.Text = "🎨 Tema (se aplica al instante)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
+	thTitle.Text = "Tema (se aplica al instante)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(thTitle, "TextColor3", "accent")
 
 	-- Chips de tema que hacen wrap automáticamente (escala a muchos colores).
@@ -5087,13 +6467,13 @@ do
 	local nxTitle = Instance.new("TextLabel", nxCard)
 	nxTitle.LayoutOrder = 0; nxTitle.Size = UDim2.new(1, 0, 0, 20); nxTitle.BackgroundTransparency = 1
 	nxTitle.Font = Enum.Font.GothamBold; nxTitle.TextSize = 14; nxTitle.TextColor3 = C.accent
-	nxTitle.Text = "🏷️ NX Head Tags (todos)"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
+	nxTitle.Text = "NX Head Tags (todos)"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(nxTitle, "TextColor3", "accent")
 
 	local nxDesc = Instance.new("TextLabel", nxCard)
 	nxDesc.LayoutOrder = 1; nxDesc.Size = UDim2.new(1, 0, 0, 16); nxDesc.BackgroundTransparency = 1
 	nxDesc.Font = Enum.Font.Gotham; nxDesc.TextSize = 11; nxDesc.TextColor3 = C.subtext
-	nxDesc.Text = "Muestra/oculta los tags de TODOS (solo los ves tú). Para ocultar SOLO el tuyo, usa el icono 🪪 de la barra superior."
+	nxDesc.Text = "Muestra/oculta los tags de TODOS (solo los ves tú). Para ocultar SOLO el tuyo, usa el interruptor de tu tag en la barra superior."
 	nxDesc.TextXAlignment = Enum.TextXAlignment.Left
 	nxDesc.TextWrapped = true
 	themed(nxDesc, "TextColor3", "subtext")
@@ -5152,7 +6532,7 @@ do
 	local anTitle = Instance.new("TextLabel", animCard)
 	anTitle.LayoutOrder = 0; anTitle.Size = UDim2.new(1, 0, 0, 20); anTitle.BackgroundTransparency = 1
 	anTitle.Font = Enum.Font.GothamBold; anTitle.TextSize = 14; anTitle.TextColor3 = C.accent
-	anTitle.Text = "✨ Animaciones"; anTitle.TextXAlignment = Enum.TextXAlignment.Left
+	anTitle.Text = "Animaciones"; anTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(anTitle, "TextColor3", "accent")
 
 	local anDesc = Instance.new("TextLabel", animCard)
@@ -5191,7 +6571,7 @@ do
 	paintAnToggle()
 	onRepaint(paintAnToggle)
 
-	-- ====== 🛡️ NX Shields (las MISMAS protecciones del escudo del header) ======
+	-- ======  NX Shields (las MISMAS protecciones del escudo del header) ======
 	-- Estos switches y los del panel del escudo controlan el mismo estado
 	-- (Shield.flags) y se sincronizan por Shield.onChange: cambies donde cambies,
 	-- ambos se actualizan. Encender ejecuta una verificación REAL y la etiqueta
@@ -5214,7 +6594,7 @@ do
 	local shTitle = Instance.new("TextLabel", shCard)
 	shTitle.LayoutOrder = 0; shTitle.Size = UDim2.new(1, 0, 0, 20); shTitle.BackgroundTransparency = 1
 	shTitle.Font = Enum.Font.GothamBold; shTitle.TextSize = 14; shTitle.TextColor3 = C.accent
-	shTitle.Text = "🛡️ NX Shields"; shTitle.TextXAlignment = Enum.TextXAlignment.Left
+	shTitle.Text = "NX Shields"; shTitle.TextXAlignment = Enum.TextXAlignment.Left
 	themed(shTitle, "TextColor3", "accent")
 
 	local shDesc = Instance.new("TextLabel", shCard)
@@ -5261,7 +6641,7 @@ do
 					est.Text = "Activo ✓"; est.TextColor3 = C.good
 				else
 					est.Text = "Falló"; est.TextColor3 = C.bad
-					statusLabel.Text = "🛡️ " .. nombre .. ": " .. tostring(detalle)
+					statusLabel.Text = "" .. nombre .. ": " .. tostring(detalle)
 				end
 			end)
 		end)
@@ -5300,10 +6680,82 @@ do
 	shNota.TextWrapped = true
 	themed(shNota, "TextColor3", "subtext")
 
-	-- (La tarjeta "🎬 Intro de inicio" se retiró a pedido del usuario. La intro
+	-- (La tarjeta " Intro de inicio" se retiró a pedido del usuario. La intro
 	--  sigue existiendo: se controla por _G.NXIntro.play() / store.introEnabled.)
 
 	-- (La tarjeta "Signos · prueba de glifos" se quitó a pedido del usuario.)
+end
+
+-- ====================== AJUSTES · MODO AVANZADO ======================
+-- Va en su propio do...end DESPUÉS del bloque de Ajustes a propósito: allí ya
+-- hay ~35 locals vivos y el chunk anda cerca del límite de 200 de Luau. Aquí
+-- esos registros ya se liberaron.
+do
+	local card = Instance.new("Frame", settingsScroll)
+	card.LayoutOrder = 5
+	card.Size = UDim2.new(1, -4, 0, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = C.card
+	card.BorderSizePixel = 0
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+	themed(card, "BackgroundColor3", "card")
+	addDepth(card)
+	local pad = Instance.new("UIPadding", card)
+	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
+	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
+	local lay = Instance.new("UIListLayout", card)
+	lay.Padding = UDim.new(0, 6); lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local titulo = Instance.new("TextLabel", card)
+	titulo.LayoutOrder = 0; titulo.Size = UDim2.new(1, 0, 0, 20)
+	titulo.BackgroundTransparency = 1
+	titulo.Font = Enum.Font.GothamBold; titulo.TextSize = 14; titulo.TextColor3 = C.accent
+	titulo.Text = "Modo avanzado"; titulo.TextXAlignment = Enum.TextXAlignment.Left
+	themed(titulo, "TextColor3", "accent")
+
+	local desc = Instance.new("TextLabel", card)
+	desc.LayoutOrder = 1; desc.Size = UDim2.new(1, 0, 0, 0)
+	desc.AutomaticSize = Enum.AutomaticSize.Y
+	desc.BackgroundTransparency = 1
+	desc.Font = Enum.Font.Gotham; desc.TextSize = 11; desc.TextColor3 = C.subtext
+	desc.Text = "Añade los desgloses de las puntuaciones y la recolección profunda "
+		.. "de la pestaña Huella. Apagado, la interfaz muestra solo lo esencial."
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.TextWrapped = true
+	themed(desc, "TextColor3", "subtext")
+
+	local fila = Instance.new("Frame", card)
+	fila.LayoutOrder = 2; fila.Size = UDim2.new(1, 0, 0, 28); fila.BackgroundTransparency = 1
+	local filaLay = Instance.new("UIListLayout", fila)
+	filaLay.FillDirection = Enum.FillDirection.Horizontal
+	filaLay.VerticalAlignment = Enum.VerticalAlignment.Center
+	filaLay.Padding = UDim.new(0, 10)
+	filaLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local estado = Instance.new("TextLabel", fila)
+	estado.LayoutOrder = 2; estado.Size = UDim2.new(0, 160, 0, 20)
+	estado.BackgroundTransparency = 1
+	estado.Font = Enum.Font.GothamBold; estado.TextSize = 12
+	estado.TextXAlignment = Enum.TextXAlignment.Left
+
+	local function pintar()
+		local on = store.advanced == true
+		estado.Text = on and "Activado" or "Desactivado"
+		estado.TextColor3 = on and C.good or C.subtext
+	end
+
+	local sw = Shield.makeSwitch(fila, store.advanced == true, function(on)
+		store.advanced = on
+		saveStore()
+		pintar()
+		-- Efecto inmediato: el perfil que estés viendo se vuelve a pintar con el
+		-- nivel de detalle nuevo, sin tener que analizarlo otra vez.
+		if rerenderCurrent then pcall(rerenderCurrent) end
+		if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
+	end)
+	sw.LayoutOrder = 1
+	pintar()
+	onRepaint(pintar)
 end
 
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
@@ -5695,83 +7147,319 @@ end
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
 
--- ====================== ESCÁNER "FACE ID" (mientras carga un perfil) ======================
--- Overlay sutil con una banda/línea de luz que barre la interfaz de arriba a abajo
--- mientras se consultan las APIs. Se desvanece solo cuando termina el análisis.
-function NXWin.startScan()
-	if not ANIM.enabled then return end
-	local old = main:FindFirstChild("ScanOverlay")
-	if old then old:Destroy() end
+-- ====================== ANIMACIÓN DE ANÁLISIS · "NX Flow" ======================
+-- Escáner minimalista: TRES servidores en fila que representan el flujo del
+-- análisis —  [Request] -> [Processing] -> [Complete]  — con una línea entre
+-- cada par y un paquete de datos que viaja de uno al siguiente. Nada más: sin
+-- núcleo/hub, sin redes, sin efectos extra.
+--
+-- SEPARACIÓN DE RESPONSABILIDADES: toda la animación vive aquí (_G.NXScan). El
+-- analizador solo la abre con NXWin.startScan() y, cuando el trabajo REAL
+-- termina, llama a _G.NXScan.finish(cb); la animación cierra y ejecuta cb() (que
+-- pinta la info) YA sin overlay, así la información nunca sale encima. do...end:
+-- sus locals se liberan al cerrar (límite de 200 de Luau). Todo TweenService,
+-- sin RenderStepped propio.
+do
+	-- Tres nodos en fila horizontal, centrados. Etiqueta fija bajo cada uno.
+	local NODOS = {
+		{ label = "Request",    cx = 0.22, cy = 0.46 },
+		{ label = "Processing", cx = 0.50, cy = 0.46 },
+		{ label = "Complete",   cx = 0.78, cy = 0.46 },
+	}
+	local GROSOR = 2
 
-	local overlay = Instance.new("Frame")
-	overlay.Name = "ScanOverlay"
-	overlay.Position = UDim2.new(0, 0, 0, 34)        -- desde debajo de la barra de título
-	overlay.Size = UDim2.new(1, 0, 1, -34)
-	overlay.BackgroundColor3 = C.accent
-	overlay.BackgroundTransparency = 0.93            -- tinte muy sutil del color del tema
-	overlay.BorderSizePixel = 0
-	overlay.ClipsDescendants = true
-	overlay.Active = false
-	overlay.ZIndex = 50
-	overlay.Parent = main
-	themed(overlay, "BackgroundColor3", "accent")
+	-- Estado del bloque (singleton: un solo análisis a la vez, que garantiza el
+	-- propio analizador). Se reinicia en cada start().
+	local overlay, stage, statusLbl, sizeConn
+	local nodes, lines, packet = {}, {}, nil
+	local alive, finishing, startedAt, gen = false, false, 0, 0
 
-	-- Banda de luz (glow) que se desplaza.
-	local band = Instance.new("Frame")
-	band.AnchorPoint = Vector2.new(0, 0.5)
-	band.Size = UDim2.new(1, 0, 0, 60)
-	band.Position = UDim2.new(0, 0, -0.05, 0)
-	band.BackgroundColor3 = C.accent
-	band.BackgroundTransparency = 0.82
-	band.BorderSizePixel = 0
-	band.ZIndex = 51
-	band.Parent = overlay
-	themed(band, "BackgroundColor3", "accent")
-	local bgrad = Instance.new("UIGradient", band)
-	bgrad.Rotation = 90
-	bgrad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.5, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
+	-- "Rack" de servidor: tarjeta con dos barras y una luz. Devuelve body + borde.
+	local function makeRack(parent, w, h, accent)
+		local body = Instance.new("Frame", parent)
+		body.AnchorPoint = Vector2.new(0.5, 0)
+		body.Position = UDim2.new(0.5, 0, 0, 0)
+		body.Size = UDim2.fromOffset(w, h)
+		body.BackgroundColor3 = C.card
+		body.BorderSizePixel = 0
+		Instance.new("UICorner", body).CornerRadius = UDim.new(0, 6)
+		local grad = Instance.new("UIGradient", body)
+		grad.Rotation = 90
+		grad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(220, 220, 228))
+		grad.Transparency = NumberSequence.new(0.85)
+		local st = Instance.new("UIStroke", body)
+		st.Color = accent; st.Thickness = 1.2; st.Transparency = 0.35
+		for i = 1, 2 do
+			local bar = Instance.new("Frame", body)
+			bar.AnchorPoint = Vector2.new(0, 0.5)
+			bar.Size = UDim2.new(0, math.floor(w * 0.42), 0, 3)
+			bar.Position = UDim2.new(0, 8, i / 3, 0)
+			bar.BackgroundColor3 = C.subtext
+			bar.BackgroundTransparency = 0.4
+			bar.BorderSizePixel = 0
+			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+		end
+		local dot = Instance.new("Frame", body)
+		dot.AnchorPoint = Vector2.new(1, 0.5)
+		dot.Size = UDim2.fromOffset(5, 5)
+		dot.Position = UDim2.new(1, -8, 0.5, 0)
+		dot.BackgroundColor3 = accent
+		dot.BorderSizePixel = 0
+		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+		return body, st
+	end
 
-	-- Línea brillante central (el "haz" del escáner).
-	local line = Instance.new("Frame")
-	line.AnchorPoint = Vector2.new(0.5, 0.5)
-	line.Position = UDim2.new(0.5, 0, 0.5, 0)
-	line.Size = UDim2.new(1, 0, 0, 2)
-	line.BackgroundColor3 = C.accent
-	line.BackgroundTransparency = 0.05
-	line.BorderSizePixel = 0
-	line.ZIndex = 52
-	line.Parent = band
-	themed(line, "BackgroundColor3", "accent")
-	local lgrad = Instance.new("UIGradient", line)
-	lgrad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.15, 0.25),
-		NumberSequenceKeypoint.new(0.5, 0),
-		NumberSequenceKeypoint.new(0.85, 0.25),
-		NumberSequenceKeypoint.new(1, 1),
-	})
+	local function makeLabel(parent, y, size, color, txt)
+		local l = Instance.new("TextLabel", parent)
+		l.AnchorPoint = Vector2.new(0.5, 0)
+		l.Position = UDim2.new(0.5, 0, 0, y)
+		l.Size = UDim2.new(1, 12, 0, size + 4)
+		l.BackgroundTransparency = 1
+		l.Font = Enum.Font.GothamMedium
+		l.TextSize = size
+		l.TextColor3 = color
+		l.Text = txt
+		l.TextXAlignment = Enum.TextXAlignment.Center
+		l.TextTruncate = Enum.TextTruncate.AtEnd
+		return l
+	end
 
-	-- Barrido arriba→abajo→arriba en bucle.
-	local sweep = TweenService:Create(band,
-		TweenInfo.new(1.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Position = UDim2.new(0, 0, 1.05, 0) })
-	sweep:Play()
+	-- Recalcula posiciones (escala 0-1 -> px del overlay). 'port' = centro del
+	-- rack (la etiqueta va debajo), que es donde enganchan líneas y paquete.
+	local function layout()
+		if not stage then return end
+		local sz = stage.AbsoluteSize
+		if sz.X < 10 or sz.Y < 10 then return end
+		for _, n in ipairs(nodes) do
+			n.px = Vector2.new(n.def.cx * sz.X, n.def.cy * sz.Y)
+			n.port = Vector2.new(n.px.X, n.px.Y - 11)
+			n.holder.Position = UDim2.fromOffset(n.px.X, n.px.Y)
+		end
+		for _, ln in ipairs(lines) do
+			local a, b = nodes[ln.from].port, nodes[ln.to].port
+			local d = b - a
+			ln.len = d.Magnitude
+			ln.frame.Position = UDim2.fromOffset(a.X, a.Y)
+			ln.frame.Rotation = math.deg(math.atan(d.Y, d.X))
+			if ln.grown then ln.frame.Size = UDim2.fromOffset(ln.len, GROSOR) end
+		end
+	end
 
-	-- Cuando termina el análisis: fade-out y destruir.
-	task.spawn(function()
-		while analyzing and overlay.Parent do task.wait(0.05) end
-		if not overlay.Parent then return end
-		pcall(function() sweep:Cancel() end)
-		motionTween(band,    TweenInfo.new(0.3), { BackgroundTransparency = 1 })
-		motionTween(line,    TweenInfo.new(0.3), { BackgroundTransparency = 1 })
-		motionTween(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }, function()
-			if overlay then overlay:Destroy() end
+	local function lightNode(i, color)
+		local n = nodes[i]
+		if not n then return end
+		motionTween(n.stroke, TweenInfo.new(0.2), { Transparency = 0, Color = color or C.accent })
+	end
+	local function dimNode(i)
+		local n = nodes[i]
+		if not n then return end
+		motionTween(n.stroke, TweenInfo.new(0.2), { Transparency = 0.35 })
+	end
+
+	local function setStatus(txt, color)
+		if statusLbl then statusLbl.Text = txt; statusLbl.TextColor3 = color or C.accent end
+	end
+
+	-- El paquete recorre un tramo (nodo seg -> seg+1); al llegar enciende el nodo
+	-- y sigue. Tras el último, pausa, apaga los intermedios y repite. Sin bucles:
+	-- se encadena por el Completed del tween.
+	local function travel(seg, miGen)
+		if not alive or miGen ~= gen or finishing then return end
+		local a, b = nodes[seg].port, nodes[seg + 1].port
+		packet.Position = UDim2.fromOffset(a.X, a.Y)
+		packet.BackgroundTransparency = 0.05
+		packet.Visible = true
+		local dur = math.clamp((b - a).Magnitude / 220, 0.35, 0.7)
+		motionTween(packet, TweenInfo.new(dur, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+			{ Position = UDim2.fromOffset(b.X, b.Y) }, function()
+				if not alive or miGen ~= gen or finishing then return end
+				lightNode(seg + 1)
+				if seg + 1 < #nodes then
+					travel(seg + 1, miGen)
+				else
+					task.delay(0.35, function()
+						if not alive or finishing or miGen ~= gen then return end
+						dimNode(2); dimNode(3)
+						travel(1, miGen)
+					end)
+				end
+			end)
+	end
+
+	local function destroyNow()
+		alive = false
+		gen = gen + 1
+		if sizeConn then sizeConn:Disconnect(); sizeConn = nil end
+		if overlay then overlay:Destroy() end
+		overlay, stage, statusLbl, packet = nil, nil, nil, nil
+		nodes, lines = {}, {}
+	end
+
+	local M = {}
+
+	-- Cierre: converge a "Complete" (líneas y nodos en verde, paquete al final),
+	-- funde el escenario y, YA sin overlay, llama a cb() para que el analizador
+	-- pinte la info. cb SIEMPRE se llama (si no, el perfil no aparecería y la
+	-- herramienta quedaría bloqueada).
+	function M.finish(cb)
+		local function done() if cb then task.spawn(cb) end end
+		if not alive then done(); return end
+		if finishing then done(); return end
+		finishing = true
+		local miGen = gen
+		task.spawn(function()
+			local elapsed = os.clock() - startedAt
+			if elapsed < 1.0 then task.wait(1.0 - elapsed) end   -- mínimo en pantalla
+			if miGen ~= gen then done(); return end
+			for _, ln in ipairs(lines) do
+				motionTween(ln.frame, TweenInfo.new(0.3), { BackgroundColor3 = C.good })
+			end
+			for i = 1, #nodes do lightNode(i, C.good) end
+			if nodes[3] and nodes[3].label then nodes[3].label.TextColor3 = C.good end
+			if packet then
+				packet.BackgroundColor3 = C.good
+				local b = nodes[#nodes].port
+				motionTween(packet, TweenInfo.new(0.3), { Position = UDim2.fromOffset(b.X, b.Y) })
+			end
+			setStatus("Completed", C.good)
+			task.wait(0.45)
+			if miGen ~= gen then done(); return end
+			motionTween(stage, TweenInfo.new(0.3), { GroupTransparency = 1 })
+			motionTween(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }, function()
+				destroyNow()
+				done()
+			end)
 		end)
-	end)
+	end
+
+	function M.stop() destroyNow() end
+
+	function M.start()
+		if not ANIM.enabled then return end
+		destroyNow()
+		gen = gen + 1
+		local miGen = gen
+		alive, finishing, startedAt = true, false, os.clock()
+
+		-- Cubre SOLO el área de contenido (debajo de tabs/buscador) y es casi
+		-- opaco: la info del perfil anterior queda oculta mientras corre.
+		overlay = Instance.new("Frame")
+		overlay.Name = "ScanOverlay"
+		overlay.Position = UDim2.new(0, 0, 0, 0)
+		overlay.Size = UDim2.new(1, 0, 1, 0)
+		overlay.BackgroundColor3 = C.bg
+		overlay.BackgroundTransparency = 0.03
+		overlay.BorderSizePixel = 0
+		overlay.ClipsDescendants = true
+		overlay.Active = true
+		overlay.ZIndex = 50
+		overlay.Parent = content
+
+		stage = Instance.new("CanvasGroup")
+		stage.Size = UDim2.new(1, 0, 1, 0)
+		stage.BackgroundTransparency = 1
+		stage.BorderSizePixel = 0
+		stage.GroupTransparency = 0
+		stage.ZIndex = 51
+		stage.Parent = overlay
+
+		-- Estado global (una sola línea, arriba).
+		local pill = Instance.new("Frame", stage)
+		pill.AnchorPoint = Vector2.new(0.5, 0)
+		pill.Position = UDim2.new(0.5, 0, 0, 10)
+		pill.Size = UDim2.fromOffset(180, 24)
+		pill.BackgroundColor3 = C.card
+		pill.BackgroundTransparency = 0.1
+		pill.BorderSizePixel = 0
+		Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+		local pst = Instance.new("UIStroke", pill)
+		pst.Color = C.accent; pst.Transparency = 0.4
+		statusLbl = Instance.new("TextLabel", pill)
+		statusLbl.Size = UDim2.new(1, -16, 1, 0)
+		statusLbl.Position = UDim2.new(0, 8, 0, 0)
+		statusLbl.BackgroundTransparency = 1
+		statusLbl.Font = Enum.Font.GothamBold
+		statusLbl.TextSize = 12
+		statusLbl.TextColor3 = C.accent
+		statusLbl.Text = "Requesting Data..."
+		statusLbl.TextXAlignment = Enum.TextXAlignment.Center
+
+		-- Nodos (con su etiqueta fija debajo).
+		nodes, lines = {}, {}
+		for _, def in ipairs(NODOS) do
+			local holder = Instance.new("Frame", stage)
+			holder.AnchorPoint = Vector2.new(0.5, 0.5)
+			holder.Size = UDim2.fromOffset(92, 62)
+			holder.BackgroundTransparency = 1
+			holder.ZIndex = 3
+			local sc = Instance.new("UIScale", holder); sc.Scale = 0
+			local _, st = makeRack(holder, 84, 40, C.accent)
+			local lbl = makeLabel(holder, 44, 12, C.subtext, def.label)
+			nodes[#nodes + 1] = { def = def, holder = holder, scale = sc, stroke = st, label = lbl }
+		end
+
+		-- Líneas entre nodos consecutivos (1->2, 2->3).
+		for i = 1, #nodes - 1 do
+			local line = Instance.new("Frame", stage)
+			line.AnchorPoint = Vector2.new(0, 0.5)
+			line.Size = UDim2.fromOffset(0, GROSOR)
+			line.BackgroundColor3 = C.accent
+			line.BackgroundTransparency = 0.2
+			line.BorderSizePixel = 0
+			line.ZIndex = 2
+			local lg = Instance.new("UIGradient", line)
+			lg.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.5),
+				NumberSequenceKeypoint.new(0.5, 0),
+				NumberSequenceKeypoint.new(1, 0.5),
+			})
+			lines[#lines + 1] = { frame = line, from = i, to = i + 1, grown = false }
+		end
+
+		-- Paquete de datos.
+		packet = Instance.new("Frame", stage)
+		packet.AnchorPoint = Vector2.new(0.5, 0.5)
+		packet.Size = UDim2.fromOffset(8, 8)
+		packet.BackgroundColor3 = C.accent
+		packet.BorderSizePixel = 0
+		packet.Visible = false
+		packet.ZIndex = 5
+		Instance.new("UICorner", packet).CornerRadius = UDim.new(1, 0)
+		local pk = Instance.new("UIStroke", packet)
+		pk.Color = Color3.fromRGB(255, 255, 255); pk.Transparency = 0.4
+
+		layout()
+		sizeConn = stage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+
+		-- Aparición en cadena (izq -> der) + crecimiento de las líneas.
+		for i, n in ipairs(nodes) do
+			task.delay(0.12 * (i - 1), function()
+				if miGen ~= gen or not alive then return end
+				motionTween(n.scale, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+			end)
+		end
+		for i, ln in ipairs(lines) do
+			task.delay(0.12 * i, function()
+				if miGen ~= gen or not alive then return end
+				ln.grown = true
+				motionTween(ln.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ Size = UDim2.fromOffset(ln.len, GROSOR) })
+			end)
+		end
+		-- Nodo 1 encendido (origen) y arranque del tráfico de paquetes.
+		task.delay(0.42, function()
+			if miGen ~= gen or not alive then return end
+			lightNode(1)
+			travel(1, miGen)
+		end)
+	end
+
+	_G.NXScan = M
+end
+
+-- El analizador sigue llamando a esto y nada más; la animación es cosa de _G.NXScan.
+function NXWin.startScan()
+	if _G.NXScan then _G.NXScan.start() end
 end
 
 -- Texto de estado según el resultado REAL de las verificaciones del análisis.
@@ -5783,7 +7471,7 @@ function Shield.textoEstado(data)
 		local n = #Shield.problemas(data)
 		return "◑ Parcial · " .. n .. " dato(s) no disponibles."
 	end
-	if st == "incomplete" then return "⚠ Datos incompletos (faltan campos clave)." end
+	if st == "incomplete" then return "Datos incompletos (faltan campos clave)." end
 	if st == "error"      then return "✕ Error de validación en los datos." end
 	return "✓ Listo."
 end
@@ -5799,22 +7487,19 @@ analyze = function(input)
 	NXWin.startScan()
 
 	task.spawn(function()
-		-- TODO el flujo va dentro de un pcall: antes, cualquier error dentro de
-		-- esta corrutina la mataba y dejaba `analyzing = true` PARA SIEMPRE
-		-- (la herramienta no volvía a analizar nada en toda la sesión).
+		-- Se CALCULA el resultado, pero NO se pinta aún: la información aparece
+		-- DESPUÉS de que la animación termine y se desvanezca (el usuario lo pidió
+		-- así). Aquí solo se decide QUÉ pintar (outData) y con qué estado (outStatus);
+		-- los mensajes de progreso ("Buscando…", "Consultando…") sí se ven durante.
+		local outData, outStatus = nil, "No disponible."
 		local ok, err = pcall(function()
 			local userId = tonumber(input)
 			if not userId then
 				local id, _, errType = getUserIdByName(input)
 				if not id then
-					if errType == "not_found" then
-						statusLabel.Text = "☹ Usuario no encontrado."
-					elseif errType == "api_error" then
-						statusLabel.Text = "☹ Error temporal de Roblox API. Intenta más tarde."
-					else
-						statusLabel.Text = "☹ Error desconocido."
-					end
-					render(nil)
+					if errType == "not_found" then outStatus = "Usuario no encontrado."
+					elseif errType == "api_error" then outStatus = "No disponible. Vuelve a intentarlo en un momento."
+					else outStatus = "No disponible." end
 					return
 				end
 				userId = id
@@ -5822,48 +7507,52 @@ analyze = function(input)
 
 			-- Validación de entrada: un ID escrito a mano puede ser absurdo.
 			if Shield.flags.data and Shield.valid.userId(userId) == nil then
-				statusLabel.Text = "☹ UserId inválido."
-				render(nil)
+				outStatus = "UserId no válido."
 				return
 			end
 
-			-- CACHÉ CON CADUCIDAD: antes no expiraba nunca, así que "Listo (caché)"
-			-- podía mostrar la presencia (dato en tiempo real) congelada durante
-			-- horas. Pasados Shield.TTL segundos se vuelve a consultar.
+			-- CACHÉ CON CADUCIDAD (Shield.TTL): pasado ese tiempo se reconsulta.
 			local hit = profileCache[userId]
 			if hit and (os.time() - (hit._fetchedAt or 0)) < Shield.TTL then
-				Shield.run = hit._integrity or Shield.run   -- el escudo refleja lo que se ve
-				Shield.emit()
-				render(hit)
-				statusLabel.Text = Shield.textoEstado(hit) .. " (caché)"
+				Shield.run = hit._integrity or Shield.run
+				outData = hit
+				outStatus = Shield.textoEstado(hit) .. " (caché)"
 				return
 			end
 
 			statusLabel.Text = "Consultando APIs..."
 			local data, motivo = gatherData(userId)
 			if not data then
-				if motivo == "perfil_invalido" then
-					statusLabel.Text = "✕ Perfil rechazado por NX Shields (datos inválidos)."
-				elseif motivo == "sin_respuesta" then
-					statusLabel.Text = "☹ Sin respuesta de la API de Roblox."
-				else
-					statusLabel.Text = "☹ Error o usuario inexistente."
-				end
-				render(nil)
+				outStatus = (motivo == "perfil_invalido" or motivo == "sin_respuesta")
+					and "No disponible." or "Usuario no encontrado."
 			else
 				setCached(userId, data)
-				render(data)
-				statusLabel.Text = Shield.textoEstado(data)
+				outData = data
+				outStatus = Shield.textoEstado(data)
+				-- Historial de perfiles analizados (solo lo que se analizó BIEN).
+				pcall(function()
+					if _G.NXPlus and _G.NXPlus.recordar then
+						_G.NXPlus.recordar(data.UserId, data.Username, data.DisplayName)
+					end
+				end)
 			end
 		end)
-
 		if not ok then
-			statusLabel.Text = "☹ Fallo interno durante el análisis."
-			pcall(render, nil)
+			outData, outStatus = nil, "No disponible."
 			warn("[NX Analyzer] error en analyze: " .. tostring(err))
 		end
-		analyzing = false          -- SIEMPRE se libera, pase lo que pase
-		Shield.emit()
+
+		-- La info se pinta SOLO cuando la animación ha terminado y desaparecido:
+		-- así nunca se dibujan una encima de la otra. `analyzing` se libera aquí
+		-- dentro, de modo que la herramienta sigue "ocupada" durante toda la
+		-- animación (no se puede lanzar otro análisis a medias).
+		local function paint()
+			Shield.emit()
+			render(outData)
+			statusLabel.Text = outStatus
+			analyzing = false
+		end
+		if _G.NXScan then _G.NXScan.finish(paint) else paint() end
 	end)
 end
 
@@ -5872,10 +7561,443 @@ track(searchBox.FocusLost:Connect(function(enter)
 	if enter then analyze(searchBox.Text) end
 end))
 
+-- (v3.8.2) El auto-dropdown de "perfiles recientes al enfocar" también se retiró
+-- con el sistema de sugerencias. Los recientes siguen existiendo en _G.NXPlus.recientes
+-- (por si algún día hace falta una lista visible en un sitio que no tape las tabs).
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
+-- ║  NX OSINT · huella pública                                            ║
+-- ╠══════════════════════════════════════════════════════════════════════╣
+-- ║  Traducción al ecosistema de Roblox de tres herramientas clásicas:    ║
+-- ║                                                                       ║
+-- ║  Sherlock → "¿dónde EXISTE esta identidad?". Roblox es un universo    ║
+-- ║    cerrado, así que en vez de rastrear cientos de redes se comprueban ║
+-- ║    los espacios donde una cuenta de Roblox deja huella: DevForum,     ║
+-- ║    experiencias publicadas, grupos que dirige, catálogo e inventario. ║
+-- ║  Maigret → recolección profunda: listas completas y cifras totales,   ║
+-- ║    no las muestras de 10 que enseña la pestaña Items.                 ║
+-- ║  Holehe → Roblox NO expone el correo de NADIE, así que "¿en qué       ║
+-- ║    servicios está registrada esta dirección?" se traduce a "¿en qué   ║
+-- ║    estado está esta cuenta?", cruzando dos fuentes independientes.    ║
+-- ║                                                                       ║
+-- ║  REGLA DE LA PESTAÑA: una fuente que no contesta NO es un negativo.   ║
+-- ║  Se distingue siempre entre "No encontrado" (la fuente respondió y no ║
+-- ║  está) y "No disponible" (la fuente no respondió). Nunca un error.    ║
+-- ║                                                                       ║
+-- ║  do...end: sus registros se liberan al cerrar y no cuentan contra el  ║
+-- ║  límite de 200 locals de Luau del chunk.                              ║
+-- ╚══════════════════════════════════════════════════════════════════════╝
+do
+	if _G.NXOSINT and _G.NXOSINT.stop then pcall(_G.NXOSINT.stop) end
+
+	local page = Instance.new("Frame", content)
+	page.Size = UDim2.new(1, 0, 1, 0)
+	page.BackgroundTransparency = 1
+	page.Visible = false
+	local scroll = makeScroll(page)
+
+	local pintadoPara = nil    -- UserId ya dibujado (carga perezosa)
+	local gen = 0              -- generación: descarta respuestas de un perfil viejo
+	local res = {}             -- resultados crudos, para el informe
+
+	-- GET + JSON crudo. NO pasa por apiGet a propósito: la validación de NX
+	-- Shields está escrita contra la forma de las respuestas de Roblox, y
+	-- fuentes como el DevForum tienen otra. Devuelve (tabla|nil, códigoHTTP).
+	local function getJSON(url)
+		local body, st = rawGet(url)
+		if not body then return nil, tonumber(st) end
+		local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
+		if not ok or type(t) ~= "table" then return nil, tonumber(st) end
+		return t, tonumber(st)
+	end
+
+	-- ── piezas de UI ────────────────────────────────────────────────────────
+	local function tarjeta(orden, titulo, subtitulo)
+		local card = Instance.new("Frame", scroll)
+		card.LayoutOrder = orden
+		card.Size = UDim2.new(1, -4, 0, 0)
+		card.AutomaticSize = Enum.AutomaticSize.Y
+		card.BackgroundColor3 = C.card
+		card.BorderSizePixel = 0
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+		themed(card, "BackgroundColor3", "card")
+		addDepth(card)
+		local pad = Instance.new("UIPadding", card)
+		pad.PaddingTop = UDim.new(0, 9); pad.PaddingBottom = UDim.new(0, 9)
+		pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
+		local lay = Instance.new("UIListLayout", card)
+		lay.Padding = UDim.new(0, 5); lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local h = Instance.new("TextLabel", card)
+		h.LayoutOrder = 0; h.Size = UDim2.new(1, 0, 0, 20)
+		h.BackgroundTransparency = 1
+		h.Font = Enum.Font.GothamBold; h.TextSize = 14; h.TextColor3 = C.accent
+		h.Text = titulo; h.TextXAlignment = Enum.TextXAlignment.Left
+		themed(h, "TextColor3", "accent")
+
+		if subtitulo then
+			local s = Instance.new("TextLabel", card)
+			s.LayoutOrder = 1; s.Size = UDim2.new(1, 0, 0, 0)
+			s.AutomaticSize = Enum.AutomaticSize.Y
+			s.BackgroundTransparency = 1
+			s.Font = Enum.Font.Gotham; s.TextSize = 11; s.TextColor3 = C.subtext
+			s.Text = subtitulo; s.TextXAlignment = Enum.TextXAlignment.Left
+			s.TextWrapped = true
+			themed(s, "TextColor3", "subtext")
+		end
+		return card
+	end
+
+	-- Fila etiqueta/valor. Devuelve el label del valor para rellenarlo async.
+	local function fila(card, orden, etiqueta, url)
+		local f = Instance.new("Frame", card)
+		f.LayoutOrder = orden
+		f.Size = UDim2.new(1, 0, 0, 24)
+		f.BackgroundTransparency = 1
+
+		local et = Instance.new("TextLabel", f)
+		et.Size = UDim2.new(0, 150, 1, 0)
+		et.BackgroundTransparency = 1
+		et.Font = Enum.Font.Gotham; et.TextSize = 12; et.TextColor3 = C.subtext
+		et.Text = etiqueta; et.TextXAlignment = Enum.TextXAlignment.Left
+		et.TextTruncate = Enum.TextTruncate.AtEnd
+		themed(et, "TextColor3", "subtext")
+
+		local anchoBoton = url and 62 or 0
+		local v = Instance.new("TextLabel", f)
+		v.Size = UDim2.new(1, -154 - anchoBoton, 1, 0)
+		v.Position = UDim2.new(0, 154, 0, 0)
+		v.BackgroundTransparency = 1
+		v.Font = Enum.Font.GothamBold; v.TextSize = 12; v.TextColor3 = C.subtext
+		v.Text = "Comprobando…"; v.TextXAlignment = Enum.TextXAlignment.Left
+		v.TextTruncate = Enum.TextTruncate.AtEnd
+
+		if url then
+			local b = Instance.new("TextButton", f)
+			b.AnchorPoint = Vector2.new(1, 0.5)
+			b.Position = UDim2.new(1, 0, 0.5, 0)
+			b.Size = UDim2.new(0, 58, 0, 20)
+			b.BackgroundColor3 = C.neutral
+			b.Text = "Abrir"
+			b.Font = Enum.Font.GothamBold; b.TextSize = 11; b.TextColor3 = C.text
+			b.BorderSizePixel = 0
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+			themed(b, "BackgroundColor3", "neutral")
+			themed(b, "TextColor3", "text")
+			b.MouseButton1Click:Connect(function()
+				if openURL(url) then
+					statusLabel.Text = "Abierto en el navegador."
+				else
+					clipboard(url)
+					statusLabel.Text = "No disponible en tu executor. Link copiado."
+				end
+			end)
+		end
+		return v
+	end
+
+	-- Estados. "nd" (no disponible) NUNCA se pinta como negativo: una fuente
+	-- caída no es prueba de ausencia, y esa diferencia es el 90% del valor de
+	-- una herramienta OSINT honesta.
+	local function marcar(lbl, clave, texto)
+		if not lbl or not lbl.Parent then return end
+		if clave == "si" then
+			lbl.Text = texto or "Presente";      lbl.TextColor3 = C.good
+		elseif clave == "no" then
+			lbl.Text = texto or "No encontrado"; lbl.TextColor3 = C.subtext
+		else
+			lbl.Text = texto or "No disponible"; lbl.TextColor3 = C.warn
+		end
+	end
+
+	-- Lanza una comprobación en paralelo y la escribe en su fila cuando llega.
+	-- El guardia de generación evita que la respuesta de un perfil anterior
+	-- pinte encima del que estás viendo ahora.
+	local function comprobar(miGen, lbl, clave, fn)
+		task.spawn(function()
+			local ok, estado, texto, crudo = pcall(fn)
+			if not ok then estado, texto = "nd", nil end
+			if miGen ~= gen then return end
+			res[clave] = { estado = estado, texto = texto, datos = crudo }
+			marcar(lbl, estado, texto)
+		end)
+	end
+
+	-- ── construcción de la pestaña ──────────────────────────────────────────
+	local function construir()
+		local data = currentData
+		clearScroll(scroll)
+		res = {}
+		gen = gen + 1
+		local miGen = gen
+
+		if not data then
+			pintadoPara = nil
+			local vacio = Instance.new("TextLabel", scroll)
+			vacio.LayoutOrder = 0
+			vacio.Size = UDim2.new(1, -4, 0, 40)
+			vacio.BackgroundTransparency = 1
+			vacio.Font = Enum.Font.Gotham; vacio.TextSize = 12; vacio.TextColor3 = C.subtext
+			vacio.Text = "Analiza un perfil para ver su huella pública."
+			vacio.TextXAlignment = Enum.TextXAlignment.Left
+			themed(vacio, "TextColor3", "subtext")
+			return
+		end
+
+		pintadoPara = data.UserId
+		local uid  = data.UserId
+		local user = tostring(data.Username or "")
+
+		-- ── 1) PRESENCIA (Sherlock) ────────────────────────────────────────
+		local cPres = tarjeta(0, "Presencia",
+			"Espacios de Roblox donde esta cuenta deja huella pública.")
+
+		-- El perfil es el punto de partida: si estamos aquí, existe.
+		marcar(fila(cPres, 2, "Perfil de Roblox", data.ProfileUrl), "si")
+
+		local lDev = fila(cPres, 3, "DevForum",
+			"https://devforum.roblox.com/u/" .. user)
+		comprobar(miGen, lDev, "devforum", function()
+			if user == "" then return "nd" end
+			local t, code = getJSON("https://devforum.roblox.com/u/" .. user .. ".json")
+			if t and type(t.user) == "table" then
+				local nivel = tonumber(t.user.trust_level)
+				return "si", nivel and ("Presente · nivel de confianza " .. nivel) or "Presente", t.user
+			end
+			if code == 404 then return "no" end
+			return "nd"
+		end)
+
+		local lJuegos = fila(cPres, 4, "Experiencias publicadas",
+			"https://www.roblox.com/users/" .. uid .. "/profile")
+		comprobar(miGen, lJuegos, "juegos", function()
+			local t = getJSON("https://games.roblox.com/v2/users/" .. uid
+				.. "/games?accessFilter=Public&limit=50&sortOrder=Desc")
+			if not t or type(t.data) ~= "table" then return "nd" end
+			local n = #t.data
+			if n == 0 then return "no", "Ninguna pública" end
+			local mas = (t.nextPageCursor and t.nextPageCursor ~= "") and "+" or ""
+			return "si", n .. mas .. " experiencia(s)", t.data
+		end)
+
+		local lGrupos = fila(cPres, 5, "Grupos que dirige")
+		comprobar(miGen, lGrupos, "grupos", function()
+			local t = getJSON("https://groups.roblox.com/v2/users/" .. uid .. "/groups/roles")
+			if not t or type(t.data) ~= "table" then return "nd" end
+			local propios, total = {}, #t.data
+			for _, e in ipairs(t.data) do
+				local g = e.group
+				if type(g) == "table" and type(g.owner) == "table"
+					and tonumber(g.owner.userId) == tonumber(uid) then
+					propios[#propios + 1] = g.name or ("Grupo " .. tostring(g.id))
+				end
+			end
+			if #propios == 0 then
+				return "no", (total == 0) and "En ningún grupo" or ("Miembro de " .. total .. ", dueño de 0")
+			end
+			return "si", "Dueño de " .. #propios .. " de " .. total, { propios = propios, todos = t.data }
+		end)
+
+		local lCat = fila(cPres, 6, "Items en el catálogo")
+		comprobar(miGen, lCat, "catalogo", function()
+			local t = getJSON("https://catalog.roblox.com/v1/search/items?category=All"
+				.. "&creatorTargetId=" .. uid .. "&creatorType=User&limit=10")
+			if not t or type(t.data) ~= "table" then return "nd" end
+			if #t.data == 0 then return "no", "Nada a la venta" end
+			local mas = (t.nextPageCursor and t.nextPageCursor ~= "") and "+" or ""
+			return "si", #t.data .. mas .. " item(s) creados", t.data
+		end)
+
+		local lInv = fila(cPres, 7, "Inventario público",
+			"https://www.roblox.com/users/" .. uid .. "/inventory")
+		comprobar(miGen, lInv, "inventario", function()
+			local t = getJSON("https://inventory.roblox.com/v1/users/" .. uid
+				.. "/can-view-inventory")
+			if not t or type(t.canView) ~= "boolean" then return "nd" end
+			if t.canView then return "si", "Visible" end
+			return "no", "Privado"
+		end)
+
+		local lRol = fila(cPres, 8, "Rolimon's",
+			"https://www.rolimons.com/player/" .. uid)
+		marcar(lRol, "nd", "No verificable desde el script")
+		res.rolimons = { estado = "nd", texto = "API pública retirada" }
+
+		-- ── 2) ESTADO DE LA CUENTA (Holehe) ────────────────────────────────
+		-- Aquí vive lo que antes era la tarjeta "Verificación" de la pestaña
+		-- Perfil: es su sitio natural, junto al resto de comprobaciones.
+		local cEst = tarjeta(1, "Estado de la cuenta",
+			"Roblox no publica el correo de nadie, así que en vez de rastrear "
+			.. "direcciones se cruza el estado de la cuenta entre dos fuentes.")
+
+		local lEstado = fila(cEst, 2, "Estado")
+		if data.Banned == "Sí" then
+			marcar(lEstado, "no", "Baneada")
+			lEstado.TextColor3 = C.bad
+		elseif data.IsDeleted == true then
+			marcar(lEstado, "no", "Borrada")
+			lEstado.TextColor3 = C.bad
+		elseif data.IsDeleted == false then
+			marcar(lEstado, "si", "Activa")
+		else
+			marcar(lEstado, "nd", "No comprobable")
+		end
+		res.estado = { texto = lEstado.Text }
+
+		local lVer = fila(cEst, 3, "Insignia verificada")
+		local vLegacy = (data.Verified == "Sí")
+		if data.VerifiedApi ~= nil and data.VerifiedApi ~= vLegacy then
+			marcar(lVer, "nd", "Las dos fuentes no coinciden")
+		elseif vLegacy then
+			marcar(lVer, "si", "Sí")
+		else
+			marcar(lVer, "no", "No")
+		end
+		res.verificada = { texto = lVer.Text }
+
+		local lCoin = fila(cEst, 4, "Nombre visible")
+		if tostring(data.DisplayName):lower() ~= tostring(data.Username):lower() then
+			marcar(lCoin, "no", "Distinto del @usuario")
+		else
+			marcar(lCoin, "si", "Igual al @usuario")
+		end
+
+		local lPrev = fila(cEst, 5, "Nombres previos")
+		do
+			local paraPrev = uid
+			local function recibir(lista)
+				if miGen ~= gen or paraPrev ~= uid then return end
+				if lista == nil then
+					marcar(lPrev, "nd")
+				elseif #lista == 0 then
+					marcar(lPrev, "no", "Ninguno")
+				else
+					marcar(lPrev, "si", #lista .. " anterior(es)")
+				end
+				res.nombres = { datos = lista }
+			end
+			if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
+				_G.NXPlus.nombres(data, recibir)
+			else
+				task.spawn(function() recibir(getNameHistory(uid)) end)
+			end
+		end
+
+		-- ── 3) RECOLECCIÓN PROFUNDA (Maigret) · solo en modo avanzado ──────
+		if Shield.adv() then
+			local cRec = tarjeta(2, "Recolección profunda",
+				"Cifras completas, no las muestras de 10 de la pestaña Items.")
+
+			local lBadges = fila(cRec, 2, "Badges (total)")
+			comprobar(miGen, lBadges, "badgesTotal", function()
+				local n = countPaged("https://badges.roblox.com/v1/users/" .. uid .. "/badges", 100)
+				if n == nil then return "nd" end
+				return "si", tostring(n)
+			end)
+
+			local lRed = fila(cRec, 3, "Red social")
+			marcar(lRed, "si", string.format("%s amigos · %s seguidores · sigue a %s",
+				tostring(data.Friends or "?"), tostring(data.Followers or "?"),
+				tostring(data.Following or "?")))
+
+			local lTop = fila(cRec, 4, "Experiencia más visitada")
+			comprobar(miGen, lTop, "topJuego", function()
+				local t = getJSON("https://games.roblox.com/v2/users/" .. uid
+					.. "/games?accessFilter=Public&limit=50&sortOrder=Desc")
+				if not t or type(t.data) ~= "table" or #t.data == 0 then return "nd" end
+				local mejor, visitas = nil, -1
+				for _, g in ipairs(t.data) do
+					local v = tonumber(g.placeVisits) or 0
+					if v > visitas then mejor, visitas = g.name, v end
+				end
+				if not mejor then return "nd" end
+				return "si", string.format("%s (%d visitas)", tostring(mejor), visitas)
+			end)
+
+			local lCreada = fila(cRec, 5, "Cuenta creada")
+			marcar(lCreada, "si", tostring(data.Created or "No disponible")
+				.. " · " .. tostring(data.AccountAge or ""))
+		end
+
+		-- ── 4) INFORME ─────────────────────────────────────────────────────
+		local cInf = tarjeta(3, "Informe",
+			"Vuelca a texto todo lo que hay en esta pestaña, ya resuelto.")
+		local btn = Instance.new("TextButton", cInf)
+		btn.LayoutOrder = 2
+		btn.Size = UDim2.new(1, 0, 0, 28)
+		btn.BackgroundColor3 = C.accent
+		btn.Text = "Copiar informe"
+		btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextColor3 = C.onAccent
+		btn.BorderSizePixel = 0
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+		themed(btn, "BackgroundColor3", "accent")
+		themed(btn, "TextColor3", "onAccent")
+		btn.MouseButton1Click:Connect(function()
+			local l = {}
+			l[#l + 1] = "HUELLA PUBLICA · " .. tostring(data.Username)
+				.. " (UserId " .. tostring(uid) .. ")"
+			l[#l + 1] = "Perfil: " .. tostring(data.ProfileUrl)
+			l[#l + 1] = ""
+			l[#l + 1] = "PRESENCIA"
+			for _, k in ipairs({ "devforum", "juegos", "grupos", "catalogo",
+			                     "inventario", "rolimons" }) do
+				local r = res[k]
+				local v = r and (r.texto or ({ si = "Presente", no = "No encontrado" })[r.estado])
+				l[#l + 1] = "  " .. k .. ": " .. tostring(v or "No disponible")
+			end
+			l[#l + 1] = ""
+			l[#l + 1] = "ESTADO DE LA CUENTA"
+			l[#l + 1] = "  estado: " .. tostring(res.estado and res.estado.texto or "No disponible")
+			l[#l + 1] = "  insignia verificada: "
+				.. tostring(res.verificada and res.verificada.texto or "No disponible")
+			local nm = res.nombres and res.nombres.datos
+			l[#l + 1] = "  nombres previos: "
+				.. (nm and ((#nm > 0) and table.concat(nm, ", ") or "ninguno") or "No disponible")
+			if res.badgesTotal then
+				l[#l + 1] = ""
+				l[#l + 1] = "RECOLECCION"
+				l[#l + 1] = "  badges: " .. tostring(res.badgesTotal.texto or "No disponible")
+				if res.topJuego then
+					l[#l + 1] = "  experiencia top: " .. tostring(res.topJuego.texto or "No disponible")
+				end
+			end
+			clipboard(table.concat(l, "\n"))
+			statusLabel.Text = "Informe copiado."
+			btn.Text = "Copiado"
+			task.delay(1.2, function()
+				if btn and btn.Parent then btn.Text = "Copiar informe" end
+			end)
+		end)
+	end
+
+	-- Carga perezosa: la pestaña solo pide datos cuando la abres, y solo si el
+	-- perfil cambió desde la última vez. Sin esto, cada análisis dispararía 6
+	-- peticiones más contra endpoints que ya van justos de rate limit.
+	local function alMostrar()
+		local uid = currentData and currentData.UserId or nil
+		if uid == pintadoPara and (uid ~= nil or pintadoPara ~= nil) then return end
+		construir()
+	end
+
+	_G.NXOSINT = {
+		page  = page,
+		onShow = alMostrar,
+		-- render() la llama al cargar otro perfil: invalida lo pintado y corta
+		-- las respuestas en vuelo del perfil anterior.
+		reset = function()
+			gen = gen + 1
+			pintadoPara = nil
+			if page.Visible then construir() end
+		end,
+		stop = function() gen = gen + 1 end,
+	}
+end
+
 createTab("Perfil", profilePage)
 createTab("Estadísticas", statsPage)
 createTab("Items", itemsPage)
 createTab("Análisis", analysisPage)
+createTab("Huella", _G.NXOSINT.page, _G.NXOSINT.onShow)
 createTab("Ajustes", settingsPage)
 
 -- ====================== PUENTE PÚBLICO (lo usa la Lista de Jugadores) ======================
@@ -5931,6 +8053,7 @@ track(header.InputBegan:Connect(function(input)
 	local startMouse = input.Position
 	local startPos = main.Position
 	stopDrag()
+	NXWin.setDragSquish(true)
 	dragInputConn = UserInputService.InputChanged:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseMovement
 			or i.UserInputType == Enum.UserInputType.Touch then
@@ -5942,7 +8065,9 @@ track(header.InputBegan:Connect(function(input)
 		end
 	end)
 	dragEndedConn = input.Changed:Connect(function()
-		if input.UserInputState == Enum.UserInputState.End then stopDrag() end
+		if input.UserInputState == Enum.UserInputState.End then
+			stopDrag(); NXWin.setDragSquish(false)
+		end
 	end)
 end))
 
@@ -6051,7 +8176,7 @@ end
 --     _G.NXBroadcast.modal({ title="Error al unirse", body="...", errorCode=600 })
 do
     local CONFIG = {
-        -- 👇 EDITA esta URL a tu repo de avisos (raw de GitHub).
+        --  EDITA esta URL a tu repo de avisos (raw de GitHub).
         URL     = "https://raw.githubusercontent.com/dreennx/nx-messages/refs/heads/main/messages.json",
         REFRESH = 120,   -- seg entre re-descargas (avisos nuevos en vivo). 0 = solo al iniciar.
         RETRY   = 20,    -- seg para reintentar si la primera descarga falla.
@@ -6091,10 +8216,10 @@ do
     local function typeColor(t) return C[typeRole(t)] or C.accent end
     local function typeEmoji(t)
         t = tostring(t or "info"):lower()
-        if t == "warn" or t == "warning" then return "⚠️" end
-        if t == "error" or t == "bad" or t == "danger" then return "⛔" end
-        if t == "success" or t == "ok" or t == "good" then return "✅" end
-        return "🔔"
+        if t == "warn" or t == "warning" then return "" end
+        if t == "error" or t == "bad" or t == "danger" then return "" end
+        if t == "success" or t == "ok" or t == "good" then return "" end
+        return ""
     end
 
     -- ---- normaliza la imagen opcional (acepta número, "123" o "rbxassetid://123") ----
@@ -6725,7 +8850,7 @@ do
 end
 
 
-print(("[Profile Analyzer v3.5.0] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
+print(("[Profile Analyzer v3.8.3] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -6811,7 +8936,7 @@ do
     -- CONFIG  (tweak everything here)
     --==========================================================================
     local CONFIG = {
-        TAGS_URL          = "https://raw.githubusercontent.com/dreennx/nx-tags/main/tags.json",
+        TAGS_URL          = _G.NXTagRepo.tags,
         REFRESH_INTERVAL  = 300,   -- seconds between re-downloads. 0 = download once, never refresh.
         RETRY_INTERVAL    = 10,    -- seconds between retries if the first download fails.
         HEAD_WAIT_TIMEOUT = 10,    -- seconds to wait for a character's Head part.
@@ -6856,125 +8981,19 @@ do
     --==========================================================================
     -- NAMED COLORS  (color field accepts: a name below, "#RRGGBB", or {r,g,b})
     --==========================================================================
-    local NAMED_COLORS = {
-        white   = Color3.fromRGB(255, 255, 255),
-        black   = Color3.fromRGB(0, 0, 0),
-        red     = Color3.fromRGB(255, 60, 60),
-        green   = Color3.fromRGB(80, 220, 120),
-        blue    = Color3.fromRGB(70, 150, 255),
-        cyan    = Color3.fromRGB(0, 255, 255),
-        gold    = Color3.fromRGB(255, 215, 0),
-        yellow  = Color3.fromRGB(255, 225, 60),
-        orange  = Color3.fromRGB(255, 150, 40),
-        purple  = Color3.fromRGB(170, 120, 255),
-        pink    = Color3.fromRGB(255, 110, 200),
-        magenta = Color3.fromRGB(255, 0, 200),
-        teal    = Color3.fromRGB(0, 200, 180),
-        silver  = Color3.fromRGB(200, 200, 210),
-        lime    = Color3.fromRGB(160, 255, 80),
-    }
-
-    --==========================================================================
-    -- ROLE PRESETS  (Discord hierarchy)
-    -- These fill in defaults so the JSON can be minimal. A JSON entry of just
-    -- { "tag": "NX OWNER" } will inherit this icon/color/animation/priority.
-    -- Anything the JSON DOES specify always wins over the preset.
-    --==========================================================================
-    local ROLE_PRESETS = {
-    ["OWNER"]                = { color = Color3.fromRGB(255, 215, 90),  icon = "",  priority = 100, animation = "elite_gold"     },
-    ["OWNER'S ASSISTANT"]    = { color = Color3.fromRGB(200, 160, 255), icon = "⭐", priority = 95,  animation = "elite_platinum" },
-    ["SUPPORT SPECIALIST"]   = { color = Color3.fromRGB(90, 230, 150),  icon = "⌘",  priority = 90,  animation = "luxe"           },
-    ["UI DESIGNER"]          = { color = Color3.fromRGB(120, 230, 160), icon = "🎨", priority = 85,  animation = "gradient"       },
-    ["CYBER SECURITY"]       = { color = Color3.fromRGB(90, 160, 255),  icon = "🛡️", priority = 80,  animation = "elite_cyber"    },
-    ["DEVELOPER UPDATES"]    = { color = Color3.fromRGB(255, 80, 80),   icon = "🛠️", priority = 78,  animation = "luxe"           },
-    ["TESTER"]               = { color = Color3.fromRGB(110, 235, 150), icon = "🧪", priority = 75,  animation = "pulse"          },
-    ["MODS"]                 = { color = Color3.fromRGB(90, 150, 255),  icon = "⚒️", priority = 70,  animation = "elite_cyan"     },
-    ["SERVER BOOSTER"]       = { color = Color3.fromRGB(235, 130, 245), icon = "🚀", priority = 65,  animation = "gradient"       },
-    ["SPECIAL ACCESS"]       = { color = Color3.fromRGB(80, 180, 255),  icon = "💎", priority = 60,  animation = "elite_crystal"  },
-    ["NX CONTRIBUTOR"]       = { color = Color3.fromRGB(120, 230, 140), icon = "🧩", priority = 55,  animation = "gradient"       },
-    ["INTEGRANTES"]          = { color = Color3.fromRGB(140, 235, 160), icon = "👥", priority = 50,  animation = "glow"           },
-    ["AMIGO/A"]              = { color = Color3.fromRGB(255, 90, 220),  icon = "🦊", priority = 45,  animation = "shine"          },
-    ["NX HELPER BOT"]        = { color = Color3.fromRGB(120, 230, 150), icon = "🤖", priority = 40,  animation = "glow"           },
-    ["CREADOR DE CONTENIDO"] = { color = Color3.fromRGB(220, 90, 90),   icon = "🎥", priority = 38,  animation = "shine"          },
-    ["PENDING"]              = { color = Color3.fromRGB(235, 235, 235), icon = "⏳", priority = 35,  animation = "glow"           },
-    ["TICKETS SUPPORT"]      = { color = Color3.fromRGB(180, 185, 195), icon = "🎫", priority = 30,  animation = "glow"           },
-    ["TICKETS ADMIN"]        = { color = Color3.fromRGB(170, 175, 185), icon = "🎟️", priority = 28,  animation = "glow"           },
-    ["APPS"]                 = { color = Color3.fromRGB(235, 235, 235), icon = "📱", priority = 25,  animation = "glow"           },
-    ["ROBLOX UPDATE"]        = { color = Color3.fromRGB(180, 185, 195), icon = "🔔", priority = 22,  animation = "glow"           },
-    ["AUTHORIZED"]           = { color = Color3.fromRGB(90, 200, 120),  icon = "✅", priority = 20,  animation = "glow"           },
-    ["TRIAL SUPPORT"]        = { color = Color3.fromRGB(120, 220, 150), icon = "🎫", priority = 18,  animation = "glow"           },
-}
-
-    -- Alias: nombres antiguos siguen funcionando con el mismo estilo (compatibilidad).
-    ROLE_PRESETS["NX OWNER"]        = ROLE_PRESETS["OWNER"]
-    ROLE_PRESETS["OWNER ASSISTANT"] = ROLE_PRESETS["OWNER'S ASSISTANT"]
-    ROLE_PRESETS["NX MOD"]          = ROLE_PRESETS["MODS"]
-    ROLE_PRESETS["MEMBER"]          = ROLE_PRESETS["INTEGRANTES"]
-    ROLE_PRESETS["CONTRIBUTOR"]     = ROLE_PRESETS["NX CONTRIBUTOR"]
-    ROLE_PRESETS["CONTENT CREATOR"] = ROLE_PRESETS["CREADOR DE CONTENIDO"]
-
-    --==========================================================================
-    -- SMALL HELPERS
-    --==========================================================================
-    local function lerp(a, b, t)
-        return a + (b - a) * t
-    end
-
-    local function normalizeRole(name)
-        name = tostring(name or "")
-        name = name:gsub("%s+", " ")                 -- collapse internal whitespace
-        name = name:match("^%s*(.-)%s*$") or name    -- trim ends
-        return string.upper(name)
-    end
-
-    local function resolveColor(value, fallback)
-        fallback = fallback or Color3.fromRGB(255, 255, 255)
-        if typeof(value) == "Color3" then
-            return value
-        end
-        if type(value) == "table" then
-            local r = value[1] or value.r or value.R
-            local g = value[2] or value.g or value.G
-            local b = value[3] or value.b or value.B
-            if r and g and b then
-                if r <= 1 and g <= 1 and b <= 1 then
-                    return Color3.new(r, g, b)
-                end
-                return Color3.fromRGB(r, g, b)
-            end
-            return fallback
-        end
-        if type(value) == "string" then
-            local s = string.lower((value:gsub("%s", "")))
-            if NAMED_COLORS[s] then
-                return NAMED_COLORS[s]
-            end
-            local hex = (s:gsub("#", ""))
-            if #hex == 6 and string.match(hex, "^%x+$") then
-                return Color3.fromRGB(
-                    tonumber(string.sub(hex, 1, 2), 16),
-                    tonumber(string.sub(hex, 3, 4), 16),
-                    tonumber(string.sub(hex, 5, 6), 16)
-                )
-            end
-        end
-        return fallback
-    end
+    -- La paleta y el parseo de color viven en _G.NXTagKit: aquí había una tabla
+    -- de nombres DISTINTA de la del panel (red, blue, cyan, gold… no coincidían),
+    -- así que un mismo tag salía de un color en el chip del perfil y de otro
+    -- sobre la cabeza. Ahora los dos leen del mismo sitio.
+    local resolveColor = _G.NXTagKit.color
 
     -- HTTP GET that works in executor environments (game:HttpGet) and falls
     -- back to standard HttpService. Matches whatever your profile system uses.
+    -- Este módulo traía su propia cadena de intentos (game:HttpGet /
+    -- HttpService:GetAsync). rawGet ya hace eso y además prueba el 'request'
+    -- del executor, que es el único que funciona en varios de ellos.
     local function httpGet(url)
-        local attempts = {
-            function() return game:HttpGet(url, true) end,
-            function() return HttpService:GetAsync(url, true) end,
-        }
-        for _, fn in ipairs(attempts) do
-            local ok, res = pcall(fn)
-            if ok and type(res) == "string" and #res > 0 then
-                return res
-            end
-        end
-        return nil
+        return (rawGet(url))
     end
 
     --==========================================================================
@@ -6988,25 +9007,15 @@ do
 
     -- Normaliza el campo de imagen: acepta número, "123" o "rbxassetid://123".
     -- Devuelve nil si no hay imagen (entonces se usa el emoji/texto de 'icon').
-    local function normalizeImage(v)
-        if v == nil then return nil end
-        if type(v) == "number" then return "rbxassetid://" .. v end
-        v = tostring(v)
-        if v == "" or v == "rbxassetid://0" then return nil end
-        if v:match("^rbxassetid://%d+") or v:match("^rbxthumb") or v:match("^http") then return v end
-        local digits = v:match("^(%d+)$")
-        if digits then return "rbxassetid://" .. digits end
-        return v
-    end
+    local normalizeImage = _G.NXTagKit.imagen
 
     function TagDatabase:_resolveEntry(raw)
         local roleName  = raw.tag or raw.role or "MEMBER"
         local preset    = ROLE_PRESETS[normalizeRole(roleName)] or {}
 
         local color     = resolveColor(raw.color, preset.color or Color3.fromRGB(255, 255, 255))
-        local icon      = tostring(raw.icon or preset.icon or ""):gsub("👑", "")          -- NX: mata corona emoji
-        local iconImage = normalizeImage(raw.iconImage or raw.image or preset.iconImage)  -- NUEVO
-        if iconImage and tostring(iconImage):find("98710143344488", 1, true) then iconImage = nil end  -- NX: mata imagen-corona
+        local icon      = _G.NXTagKit.icono(raw.icon or preset.icon)
+        local iconImage = normalizeImage(raw.iconImage or raw.image or preset.iconImage)
         local animation = preset.animation or raw.animation or CONFIG.DEFAULT_ANIMATION
         animation       = string.lower(tostring(animation))
         local priority  = tonumber(raw.priority) or preset.priority or 0
@@ -8055,7 +10064,7 @@ if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled and store.animations == 
 end
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
--- ║  ✦ PRISM LOOK · capa visual premium (glass + borde neón + ripple)     ║
+-- ║   PRISM LOOK · capa visual premium (glass + borde neón + ripple)     ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  Capa ADITIVA. No toca tu arquitectura: reusa tus hooks de tema       ║
 -- ║  (themed/onRepaint/C => todo sale de C.accent y cambia EN VIVO con    ║
@@ -8078,9 +10087,9 @@ end
 		popOpen      = true,   -- animación de apertura (escala + rebote)
 		ripple       = true,   -- onda al pulsar botones
 		blurSize     = 12,     -- intensidad del cristal (0–24)
-		spinSpeed    = 24,     -- velocidad del borde neón (grados/seg)
-		strokeAlpha  = 0.30,   -- transparencia del borde (0 = sólido)
-		strokeWidth  = 1.6,    -- grosor del borde neón
+		spinSpeed    = 18,     -- (v3.8.3) borde neón más calmado (antes 24 g/seg)
+		strokeAlpha  = 0.55,   -- (v3.8.3) borde MÁS transparente = menos saturado (antes 0.30)
+		strokeWidth  = 1.4,    -- (v3.8.3) borde un pelín más fino (antes 1.6)
 	}
 	-- ▲▲▲ ───────────────────────────────────────────────────────── ▲▲▲
 
@@ -8251,7 +10260,7 @@ end
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
--- ║  ✦ PRISM HUD + NX  ·  barra superior · logo NX · TP-al-tocar-el-tag   ║
+-- ║   PRISM HUD + NX  ·  barra superior · logo NX · TP-al-tocar-el-tag   ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  · Barra HUD arriba (score · ms · fps) que se ADAPTA al tema (C).     ║
 -- ║  · Logo NX en la cabecera del panel (tu marca siempre presente).      ║
@@ -8304,46 +10313,14 @@ end)()
 		end))
 	end
 
-	-- ── 1) LOGO NX a la DERECHA de la cabecera del panel ─────────────────
-	pcall(function()
-		local badge = Instance.new("Frame")
-		badge.Name = "NXBadge"
-		badge.AnchorPoint = Vector2.new(1, 0.5)
-		badge.Position = UDim2.new(1, -12, 0.5, 0)        -- esquina DERECHA del header
-		badge.Size = UDim2.fromOffset(30, 20)
-		badge.BackgroundColor3 = C.card                      -- fondo SINCRONIZADO con el tema
-		themed(badge, "BackgroundColor3", "card")
-		badge.BackgroundTransparency = 0.1
-		badge.ZIndex = 4
-		badge.Parent = header
-		local bc = Instance.new("UICorner", badge); bc.CornerRadius = UDim.new(0, 6)
-		local bs = Instance.new("UIStroke", badge); bs.Thickness = 1.4; bs.Color = C.accent
-		themed(bs, "Color", "accent")                     -- borde = color del tema
-		local bl = Instance.new("TextLabel", badge)
-		bl.BackgroundTransparency = 1
-		bl.Size = UDim2.fromScale(1, 1)
-		bl.Font = Enum.Font.GothamBold
-		bl.Text = "NX"
-		bl.TextSize = 12
-		bl.TextColor3 = Color3.fromRGB(255, 255, 255)      -- NX blanco (respaldo)
-		bl.ZIndex = 5
-		-- Logo NX subido (rbxassetid). Mientras Roblox MODERA el asset, la imagen
-		-- no carga y se ve el texto "NX" de respaldo debajo. Al aprobarse, el logo
-		-- (fondo negro = igual que el badge) cubre el texto sin costuras.
-		local bImg = Instance.new("ImageLabel", badge)
-		bImg.Name = "NXLogo"
-		bImg.BackgroundTransparency = 1
-		bImg.Size = UDim2.fromScale(1, 1)
-		bImg.Image = "rbxassetid://97974702902814"         -- logo N/X
-		bImg.ScaleType = Enum.ScaleType.Fit
-		bImg.ZIndex = 6
-		title.Position = UDim2.new(0, 80, 0, 0)            -- título vuelve a su sitio
-		-- Reserva a la derecha: logo NX + 3 controles + escudo NX Shields.
-		title.Size     = UDim2.new(1, -262, 1, 0)
-	end)
+	-- ── 1) LOGO NX de la esquina: RETIRADO (v3.8.1) ─────────────────────────
+	-- El usuario pidió quitar el logo de la esquina y reaprovechar el espacio.
+	-- Sin el badge, los controles de ventana pasan a la esquina derecha del
+	-- todo (ver abajo) y el título recupera el ancho que ocupaba el logo.
 
 	-- ── 1.5) CONTROLES DE VENTANA (minimizar / expandir / cerrar) ───────────
-	-- A la IZQUIERDA del logo NX. Iconos DIBUJADOS con Frames (no glifos) para que
+	-- En la ESQUINA DERECHA del header (antes iban a la izquierda del logo NX,
+	-- que ya no existe). Iconos DIBUJADOS con Frames (no glifos) para que
 	-- NUNCA salga el cuadrito "tofu"; la X de cerrar es letra (siempre renderiza).
 	-- Mismo estilo que el panel de buscar nombres. TextButton → consumen el clic
 	-- y no arrancan el arrastre de la ventana.
@@ -8356,7 +10333,7 @@ end)()
 		local ctrls = Instance.new("Frame")
 		ctrls.Name = "NXWindowControls"
 		ctrls.AnchorPoint = Vector2.new(1, 0.5)
-		ctrls.Position = UDim2.new(1, -50, 0.5, 0)         -- a la izquierda del badge NX
+		ctrls.Position = UDim2.new(1, -10, 0.5, 0)         -- esquina derecha del header
 		ctrls.Size = UDim2.fromOffset(24 * 3 + 6 * 2, 24)  -- 3 botones de 24 + 2 gaps de 6
 		ctrls.BackgroundTransparency = 1
 		ctrls.ZIndex = 4
@@ -8441,7 +10418,7 @@ end)()
 	end)
 
 	-- ╔════════════════════════════════════════════════════════════════════╗
-	-- ║  🛡️ NX SHIELDS · escudo del header + panel estilo extensión         ║
+	-- ║   NX SHIELDS · escudo del header + panel estilo extensión         ║
 	-- ╠════════════════════════════════════════════════════════════════════╣
 	-- ║  El icono vive a la izquierda de los controles de ventana, como la  ║
 	-- ║  barra de extensiones de Chrome/Brave. Su punto de estado NO es      ║
@@ -8464,7 +10441,7 @@ end)()
 		local sBtn = Instance.new("TextButton")
 		sBtn.Name = "NXShieldButton"
 		sBtn.AnchorPoint = Vector2.new(1, 0.5)
-		sBtn.Position = UDim2.new(1, -140, 0.5, 0)       -- a la izquierda de los 3 controles
+		sBtn.Position = UDim2.new(1, -100, 0.5, 0)       -- a la izquierda de los 3 controles
 		sBtn.Size = UDim2.fromOffset(26, 24)
 		sBtn.AutoButtonColor = false
 		sBtn.Text = ""
@@ -8612,8 +10589,8 @@ end)()
 		end
 		linea(1)
 
-		-- 🔒 Usuario Roblox — datos REALES de la sesión, pasados por los validadores.
-		etiqueta(2, "🔒 Usuario Roblox", 12, "subtext", true)
+		--  Usuario Roblox — datos REALES de la sesión, pasados por los validadores.
+		etiqueta(2, "Usuario Roblox", 12, "subtext", true)
 		local usrOk   = Shield.valid.username(player.Name) ~= nil
 		local idOk    = Shield.valid.userId(player.UserId) ~= nil
 		local usrLbl  = etiqueta(3, "", 12, "text", true)
@@ -8622,7 +10599,7 @@ end)()
 		local execLbl = etiqueta(4, "Executor: " .. EXECUTOR_NAME, 10, "subtext")
 
 		linea(5)
-		etiqueta(6, "⚡ Verificaciones", 12, "subtext", true)
+		etiqueta(6, "Verificaciones", 12, "subtext", true)
 
 		-- Fila de protección con switch real
 		local filas = {}
@@ -8811,7 +10788,7 @@ end)()
 	-- Iconos con emoji (tu script ya usa emojis => renderizan). Para iconos
 	-- monocromos EXACTOS como la imagen, pásame los rbxassetid y los cambio.
 	local DISCORD_INVITE  = "https://discord.gg/JgsW2M6322"   -- (se copia al click + intenta abrir)
-	local DISCORD_LOGO_ID = ""   -- pega aquí TU logo Discord (rbxassetid). "" = usa el icono 💬
+	local DISCORD_LOGO_ID = ""   -- pega aquí TU logo Discord (rbxassetid). "" = usa el icono 
 	local pingLabel, fpsLabel, playersLabel
 	pcall(function()
 		local hud = Instance.new("Frame")
@@ -8930,9 +10907,9 @@ end)()
 			end
 		end
 
-		playersLabel = cell("👥", "—/—", Color3.fromRGB(236, 238, 242))
+		playersLabel = cell("", "—/—", Color3.fromRGB(236, 238, 242))
 		divider()
-		pingLabel    = cell("🕐", "— ms", Color3.fromRGB(236, 238, 242))
+		pingLabel    = cell("", "— ms", Color3.fromRGB(236, 238, 242))
 		divider()
 		fpsLabel     = cell(nil, "— fps", Color3.fromRGB(120, 230, 150), drawBars)
 
@@ -9012,7 +10989,7 @@ end)()
 
 		-- OCULTAR / MOSTRAR **SOLO TU PROPIO TAG** (rápido, desde la barra). Persiste.
 		-- El interruptor maestro que oculta los tags de TODOS vive en
-		-- Ajustes → 🏷️ NX Head Tags (todos). Aquí solo se quita/pone el tuyo.
+		-- Ajustes →  NX Head Tags (todos). Aquí solo se quita/pone el tuyo.
 		local ownOn = (store.ownTag ~= false)
 		local ownIcon
 		local function setOwnTag(on)
@@ -9022,9 +10999,9 @@ end)()
 			if _G.NXHeadTags and _G.NXHeadTags.SetShowOwnTag then
 				pcall(_G.NXHeadTags.SetShowOwnTag, on)
 			end
-			if ownIcon then ownIcon.Text = on and "🪪" or "🙈" end
+			if ownIcon then ownIcon.Text = on and "" or "" end
 		end
-		local ownBtn, oi = iconButton(ownOn and "🪪" or "🙈", nil, function() setOwnTag(not ownOn) end)
+		local ownBtn, oi = iconButton(ownOn and "" or "", nil, function() setOwnTag(not ownOn) end)
 		ownIcon = oi
 		attachTip(ownBtn, ownOn and "Tu tag: visible (click = ocultar)" or "Tu tag: oculto (click = mostrar)")
 
@@ -9148,7 +11125,7 @@ end)()
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
--- ║  ✦ PRISM TOPBAR ULTRA · cabecera premium (logo · divisiones · título) ║
+-- ║   PRISM TOPBAR ULTRA · cabecera premium (logo · divisiones · título) ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  Capa ADITIVA y FINAL: corre DESPUÉS de PRISM LOOK + PRISM HUD, así    ║
 -- ║  manda sobre la geometría del título. Arregla que el texto se SALGA    ║
@@ -9248,7 +11225,10 @@ end)()
 	-- ancho REAL disponible y elige el texto MÁS LARGO que quepa entero.
 	local FORMS = { "Roblox Profile Analyzer", "Profile Analyzer", "Analyzer", "NX" }
 	title.Position       = UDim2.new(0, 106, 0, 0)
-	title.Size           = UDim2.new(1, -258, 1, 0)   -- 106 izq + 152 der (controles)
+	-- Reserva derecha reducida (v3.8.1): ya no está el logo NX. A la derecha solo
+	-- quedan el escudo (~-100) y los 3 controles (~-94..-10), así que el título
+	-- puede crecer hasta -140 y así entra la forma larga con más frecuencia.
+	title.Size           = UDim2.new(1, -140, 1, 0)
 	title.TextTruncate   = Enum.TextTruncate.AtEnd
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	local function widthOf(s)
@@ -9369,11 +11349,11 @@ end)()
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
--- ║  ✦ NX INTRO  ·  animación de bienvenida (logo NX + sonido suave)      ║
+-- ║   NX INTRO  ·  animación de bienvenida (logo NX + sonido suave)      ║
 -- ╠══════════════════════════════════════════════════════════════════════╣
 -- ║  Splash premium glass/neón que aparece SOLO la primera vez (se        ║
 -- ║  recuerda con store.introSeen). Se apaga o se re-ve desde Ajustes ›   ║
--- ║  "🎬 Intro de inicio". API: _G.NXIntro.play(true) la fuerza,          ║
+-- ║  " Intro de inicio". API: _G.NXIntro.play(true) la fuerza,          ║
 -- ║  _G.NXIntro.reset() la vuelve a marcar como NO vista.                 ║
 -- ║  IIFE: registros aislados (no toca el límite de 200 locals).          ║
 -- ╚══════════════════════════════════════════════════════════════════════╝
@@ -9387,7 +11367,7 @@ end)()
 	-- Suena UNA sola vez al abrir la intro. Nada de doble tono (eso sonaba a
 	-- timbre). Volumen bajo = discreto y agradable. Assets INTERNOS de Roblox
 	-- (siempre disponibles, sin moderación).
-	-- 👉 Para PROBAR otro, cambia SOUND_PACK por cualquier nombre de SOUND_PACKS.
+	--  Para PROBAR otro, cambia SOUND_PACK por cualquier nombre de SOUND_PACKS.
 	local SOUND_PACKS = {
 		suave    = { id = "rbxasset://sounds/button.wav",              vol = 0.22, pitch = 0.95 },
 		pop      = { id = "rbxasset://sounds/electronicpingshort.wav", vol = 0.22, pitch = 0.60 },
@@ -9657,7 +11637,7 @@ end)()
 	_G.NXIntro = NXIntro
 
 	-- ── AUTO-ARRANQUE ──
-	-- ⚠ MODO PRUEBA: con TEST_FORCE = true la intro sale en CADA ejecución
+	--  MODO PRUEBA: con TEST_FORCE = true la intro sale en CADA ejecución
 	-- (ignora el "ya vista"). Cuando termines de probar, ponlo en false y
 	-- volverá a salir SOLO la primera vez (recordado en ProfileAnalyzer_data.json).
 	-- AUTO-ARRANQUE de la intro. TEST_FORCE = true → sale en CADA ejecución.
@@ -9686,7 +11666,7 @@ end)()
    --------------------------------------------------------------------------
    Cambios en v2.3 (sobre v2.2): integración con el Analyzer (una sola
    ejecución) + BÚSQUEDA GLOBAL en todo Roblox (API users/search) con
-   sección "🌐 Roblox" y botón "Analizar" (→ _G.NXAnalyze).
+   sección " Roblox" y botón "Analizar" (→ _G.NXAnalyze).
    Se mantiene TODO lo de v2.2: carga al instante, orden por secciones,
    sugerencias, arrastre y live update al entrar/salir jugadores.
 ============================================================================ ]]
@@ -9840,6 +11820,9 @@ end)()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	-- Por encima de la UI del juego, pero UNO por debajo del Analyzer, para que
+	-- al solaparse mande siempre la ventana principal.
+	gui.DisplayOrder = 2147482
 	gui.Parent = playerGui
 
 	-- ====================== VENTANA PRINCIPAL ======================
@@ -10103,7 +12086,7 @@ end)()
 	local tarjetas = {}       -- [Player] = { frame, userId, username, displayName, ... }
 	local hayVisiblesLocal = false
 	local numGlobales = 0     -- cuántos resultados globales hay pintados ahora
-	local globalActivo = false -- true cuando hay sección "🌐 Roblox" en pantalla
+	local globalActivo = false -- true cuando hay sección " Roblox" en pantalla
 	                           -- (declarado arriba a propósito: lo capturan
 	                           --  actualizarSinResultados, crear/limpiarGlobales)
 
@@ -10235,9 +12218,9 @@ end)()
 		for _, plr in ipairs(jugadoresVisibles) do
 			local datos = tarjetas[plr]
 			-- Al BUSCAR, agrupamos a los del servidor bajo un único header claro
-			-- ("En este servidor"), bien dividido del bloque global "🌐 Roblox".
+			-- ("En este servidor"), bien dividido del bloque global " Roblox".
 			-- Sin filtro, se mantienen las secciones alfabéticas de siempre.
-			local seccion = hayFiltro and "👥 En este servidor" or obtenerSeccion(datos.displayName)
+			local seccion = hayFiltro and "En este servidor" or obtenerSeccion(datos.displayName)
 			if seccion ~= ultimaSeccion then
 				local header = Instance.new("Frame", scroll)
 				header.Name = "Seccion_" .. seccion
@@ -10493,7 +12476,7 @@ end)()
 		end
 
 		limpiarGlobales()
-		crearHeaderGlobal("🌐 Roblox — buscando…")
+		crearHeaderGlobal("Roblox — buscando…")
 		actualizarSinResultados()
 
 		hiloGlobal = task.delay(0.45, function()
@@ -10528,12 +12511,18 @@ end)()
 			end
 
 			-- 2) DIFUSO por keyword (GET): coincidencias parciales en todo Roblox
+			-- FIX (2026-07-26): Roblox solo acepta limit = 10, 25, 50 o 100. Con
+			-- GLOBAL_MAX (12) la petición salía 400 y la búsqueda global entera
+			-- estaba muerta. Se pide 25 y se recorta a GLOBAL_MAX al añadir.
 			local url = "https://users.roblox.com/v1/users/search?keyword="
-				.. HttpService:UrlEncode(texto) .. "&limit=" .. GLOBAL_MAX
+				.. HttpService:UrlEncode(texto) .. "&limit=25"
 			local data = apiGet(url)
 			if myId ~= busquedaGlobalId then return end
 			if data and type(data.data) == "table" then
-				for _, u in ipairs(data.data) do add(u, false) end
+				for _, u in ipairs(data.data) do
+					if #resultados >= GLOBAL_MAX then break end
+					add(u, false)
+				end
 			end
 
 			-- exactos primero, luego el resto (orden estable)
@@ -10545,13 +12534,13 @@ end)()
 			limpiarGlobales()
 			if #resultados == 0 then
 				if not exactData and not data then
-					crearHeaderGlobal("🌐 Roblox — sin conexión a la API")
+					crearHeaderGlobal("Roblox — sin conexión a la API")
 				else
-					crearHeaderGlobal("🌐 Roblox — sin resultados")
+					crearHeaderGlobal("Roblox — sin resultados")
 				end
 				numGlobales = 0
 			else
-				crearHeaderGlobal("🌐 Roblox (" .. #resultados .. ")")
+				crearHeaderGlobal("Roblox (" .. #resultados .. ")")
 				local orden = BASE_ORDEN_GLOBAL + 1
 				for _, u in ipairs(resultados) do
 					crearTarjetaGlobal(u, orden)
@@ -10717,3 +12706,5 @@ end)()
 
 	print("[Lista de Jugadores v2.4] Cargada · colores sincronizados + controles navegador.")
 end)()
+
+-- ╔══════════════════════════════════════════════════════════════════════╗
