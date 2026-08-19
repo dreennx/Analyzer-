@@ -9009,6 +9009,20 @@ do
     -- Devuelve nil si no hay imagen (entonces se usa el emoji/texto de 'icon').
     local normalizeImage = _G.NXTagKit.imagen
 
+    -- ROLE_PRESETS + normalizeRole se usaban abajo pero se habían quedado sin
+    -- definir tras el refactor a v2/roles.json, así que _resolveEntry lanzaba
+    -- "attempt to call a nil value" en cuanto Load() recorría la primera entrada
+    -- (dejando _resolved sin llenar y matando el refresh loop). El LOOK del rol
+    -- ahora vive en v2/roles.json; las entradas del legacy (main/tags.json) ya
+    -- traen su propio color/icon/animation/priority, así que un preset vacío es
+    -- suficiente: _resolveEntry lee esos campos del raw. normalizeRole replica
+    -- el normRole de la capa v2 (trim + espacios colapsados + MAYÚSCULAS).
+    local function normalizeRole(s)
+        s = tostring(s or ""):gsub("%s+", " ")
+        return string.upper(s:match("^%s*(.-)%s*$") or s)
+    end
+    local ROLE_PRESETS = {}
+
     function TagDatabase:_resolveEntry(raw)
         local roleName  = raw.tag or raw.role or "MEMBER"
         local preset    = ROLE_PRESETS[normalizeRole(roleName)] or {}
