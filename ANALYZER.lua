@@ -2004,18 +2004,42 @@ local function computeTrust(data)
 end
 
 -- ====================== AMIGOS EN COMÚN ======================
+-- Forward-declaración: resolveNames() es un `local function` que se define más
+-- ABAJO en el archivo (resolución de nombres en lote). getMutualFriends necesita
+-- referirlo aquí arriba, así que lo declaramos ahora y allí se ASIGNA (sin `local`).
+local resolveNames
+-- Caché de la lista de amigos del propio jugador: no cambia dentro de la sesión,
+-- así que no hace falta re-pedirla cada vez que se abre "Amigos en común".
+local myFriendsCache
+local function getMyFriendIds()
+	if myFriendsCache then return myFriendsCache end
+	local mine = apiGet("https://friends.roblox.com/v1/users/" .. player.UserId .. "/friends")
+	if not mine or not mine.data then return nil end
+	myFriendsCache = {}
+	for _, f in ipairs(mine.data) do if f.id then myFriendsCache[f.id] = true end end
+	return myFriendsCache
+end
+
 local function getMutualFriends(userId)
 	if userId == player.UserId then return nil end
-	local mine = apiGet("https://friends.roblox.com/v1/users/" .. player.UserId .. "/friends")
+	local mySet  = getMyFriendIds()
 	local theirs = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends")
-	if not mine or not mine.data or not theirs or not theirs.data then return nil end
-	local mySet = {}
-	for _, f in ipairs(mine.data) do mySet[f.id] = true end
-	local mutual = {}
+	if not mySet or not theirs or not theirs.data then return nil end
+
+	-- El endpoint /friends ya NO trae name/displayName (Roblox los quitó el
+	-- 2024-10-21: ahora solo devuelve id/isDeleted). Recogemos los IDs en común
+	-- y resolvemos los nombres en lote, igual que hace el explorador de amigos.
+	local ids = {}
 	for _, f in ipairs(theirs.data) do
-		if mySet[f.id] then
-			table.insert(mutual, f.displayName or f.name)
-		end
+		if f.id and mySet[f.id] then ids[#ids + 1] = f.id end
+	end
+	if #ids == 0 then return {} end
+
+	local nameMap = resolveNames(ids)
+	local mutual = {}
+	for _, id in ipairs(ids) do
+		local m = nameMap[id]
+		mutual[#mutual + 1] = (m and (m.displayName or m.name)) or ("Usuario " .. id)
 	end
 	return mutual
 end
@@ -4066,7 +4090,9 @@ end
 -- La lista de amigos a veces NO trae name/displayName (datos parciales sin
 -- sesión). Este endpoint (IDs -> usuarios) sí los devuelve siempre. Lo
 -- pedimos en lotes de 100. Es la razón por la que antes salían vacíos.
-local function resolveNames(ids)
+-- Sin `local`: se ASIGNA a la forward-declaración de arriba (junto a
+-- getMutualFriends), que la usa antes de este punto del archivo.
+function resolveNames(ids)
 	local map = {}
 	local chunk = {}
 	local function flush()
@@ -5350,6 +5376,22 @@ local function render(data, skipEntrance)
 	-- La pestaña Huella se rellena sola al abrirla (carga perezosa). Aquí solo
 	-- se invalida lo que hubiera pintado del perfil anterior.
 	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
+
+	-- Compactación de roleMap: themed() añade una entrada por instancia en CADA
+	-- render, pero la limpieza de entradas muertas (inst == nil, lo pone el
+	-- Destroying de themed()) solo la hacía repaint(), que únicamente corre al
+	-- cambiar de tema. Analizar muchos perfiles sin tocar el tema dejaba miles de
+	-- entradas muertas apiladas. Los clearScroll de arriba ya destruyeron el
+	-- contenido anterior (Destroying es síncrono), así que aquí ya están en nil.
+	if #roleMap > 800 then
+		local n = 0
+		for i = 1, #roleMap do
+			local e = roleMap[i]
+			if e.inst then n = n + 1; roleMap[n] = e end
+		end
+		for i = #roleMap, n + 1, -1 do roleMap[i] = nil end
+	end
+
 	if not data then return end
 
 	-- Animación de entrada: la pestaña visible entra deslizándose suave al cargar
