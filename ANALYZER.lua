@@ -1,5 +1,54 @@
 --[[
-   Roblox Public Profile Analyzer  v3.9.1
+   Roblox Public Profile Analyzer  v3.9.3
+   ---------------------------------------------------------------
+   Cambios en v3.9.3 (sobre v3.9.2) — UI PREMIUM + ANIMACIONES + CORRECCIONES:
+     • NX Scan (3 nodos) corre SIEMPRE, incluso con animaciones OFF.
+       Es la animación identitaria; solo las decorativas respetan el toggle.
+     • Transición entre tabs mejorada: la pestaña que sale hace fade-out
+       rápido (0.1s) antes de que entre la nueva con su smoosh + fade-in.
+     • Aparición escalonada de tarjetas (stagger): cada tarjeta en render()
+       entra con delay incremental de 60ms (slide Y +8 + fade), textos
+       0.05s después del fondo. Solo en entrada fresca (no re-render tema).
+     • Smoosh drag snappier: rebote al soltar con Back Out 0.38s (era 0.5s).
+     • Hover en botones: UIStroke con fade suave (0.12s in / 0.15s out)
+       al pasar/salir el cursor. Registrado con themed().
+     • FIX: Shield.setFlag callback ya NO escribe detalle técnico en la
+       barra de estado. Muestra "nombre: No disponible" en vez del error.
+     • FIX: themed() añadido a TODAS las tarjetas de Análisis (advCard,
+       tCard, aCard, summaryLbl, addNoteCard, addScoreBar) + tabBar
+       scrollbar. Los colores ahora se actualizan al cambiar tema en vivo.
+     • FIX: emoji 🔤 en Username Decoder (renderizaba como □ en Gotham)
+       reemplazado por glifo ▸.
+     • UIStroke unificado: tarjetas normales con C.border/1/0.5, destacadas
+       (Puntuaciones, Intel) con C.accent/1.2/0.35. Todas con themed().
+     • UICorner unificado: tarjetas 8px, botones/chips 6px. Score bars
+       con corners 7px en track y fill + mínimo visual para scores < 5%.
+   ---------------------------------------------------------------
+   Cambios en v3.9.2 (sobre v3.9.1) — USERNAME INTELLIGENCE:
+     • NUEVO: NX Intel (Username History + Intelligence). Tarjeta
+       dentro de la pestaña Análisis que muestra: timeline visual de
+       usernames (actual ● / previos ○) con fechas de observación del
+       script, cambios detectados entre snapshots (ej: followers
+       520 → 580), fuentes de cada dato y fecha de recolección.
+       Disclaimer explícito: las fechas son de observación, no de Roblox.
+     • NUEVO: persistencia en ProfileAnalyzer_intel.json (patrón
+       principal + .bak.json, fail-open). Máx 50 perfiles (evicción
+       LRU), máx 20 snapshots por perfil. Dedup: si el snapshot nuevo
+       es idéntico al último, solo actualiza last_seen.
+       Recolección SIN requests extra: extrae snapshot de currentData
+       (0 peticiones), reutiliza _G.NXPlus.nombres() (cachea y
+       deduplica) o fallback a getNameHistory().
+     • REORGANIZACIÓN de la pestaña Análisis:
+       - Bloque IDENTIDAD (arriba): Username Decoder (1), Username
+         Intelligence (2).
+       - Bloque SCORING (medio): Puntuaciones (3), desgloses
+         avanzados (4) — ahora COLAPSABLES (plegados por defecto,
+         toggle sutil "Detalle ▸" / "▾ Ocultar").
+       - Bloque SOCIAL: Amigos en común (5).
+       - Bloque INTEGRIDAD (abajo): Shield status (6) — movido al
+         final, mismo contenido y lógica.
+     • El módulo va en do...end, expuesto como _G.NXIntel. Invalidación
+       al cambiar de perfil (patrón gen anti-race-condition).
    ---------------------------------------------------------------
    Cambios en v3.9.1 (sobre v3.9.0) — ANIMACIONES:
      • NUEVO escáner de análisis "NX Flow": sustituye la banda/haz que
@@ -1132,7 +1181,7 @@ end
 -- ================================================================
 local NXCore = (function()
 	local NX_BASE    = _G.NXTagRepo.base
-	local NX_VERSION = "3.4.0"
+	local NX_VERSION = "3.9.3"
 
 	local state = {
 		licenses    = {},
@@ -2582,17 +2631,32 @@ end
 -- el nombre de la función para no tocar los sitios donde ya se llamaba.
 local function addHoverStroke(btn)
 	btn.AutoButtonColor = false
+	btn:SetAttribute("NXHoverDone", true)
 	if not ANIM.enabled then return end
-	-- Micro-feedback al pulsar: se hunde un pelín y vuelve al soltar. A propósito
-	-- muy sutil (el usuario lo pidió poco notorio). Usa una UIScale propia; en
-	-- reposo no toca ni color ni layout, así que no pelea con paintTabs ni themed.
+	-- Micro-feedback al pulsar: se hunde un pelín y vuelve al soltar.
 	local sc = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
 	local function to(s, d)
 		motionTween(sc, TweenInfo.new(d, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = s })
 	end
+	-- Hover: borde aparece con fade suave; leave: se desvanece.
+	local hStroke = btn:FindFirstChildOfClass("UIStroke")
+	if not hStroke then
+		hStroke = Instance.new("UIStroke", btn)
+		hStroke.Color = C.accent; hStroke.Thickness = 1
+		hStroke.Transparency = 1
+		themed(hStroke, "Color", "accent")
+	end
+	btn.MouseEnter:Connect(function()
+		motionTween(hStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Transparency = 0.3 })
+	end)
+	btn.MouseLeave:Connect(function()
+		motionTween(hStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Transparency = 1 })
+		to(1, 0.12)
+	end)
 	btn.MouseButton1Down:Connect(function() to(0.95, 0.07) end)
 	btn.MouseButton1Up:Connect(function() to(1, 0.12) end)
-	btn.MouseLeave:Connect(function() to(1, 0.12) end)
 end
 
 -- Profundidad sutil para tarjetas: gradiente vertical (arriba algo más claro,
@@ -2840,7 +2904,7 @@ do
 		if on then
 			motionTween(introScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.985 })
 		else
-			motionTween(introScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+			motionTween(introScale, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 		end
 	end
 
@@ -3033,6 +3097,7 @@ themed(tabBar, "BackgroundColor3", "bg")
 tabBar.BorderSizePixel = 0
 tabBar.ScrollBarThickness = 3
 tabBar.ScrollBarImageColor3 = C.accent
+themed(tabBar, "ScrollBarImageColor3", "accent")
 tabBar.ScrollingDirection = Enum.ScrollingDirection.X
 tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
 tabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
@@ -3085,21 +3150,40 @@ onRepaint(paintTabs)
 
 -- Muestra una pestaña por código (la usa el Explorador para saltar a "Perfil").
 local function showPage(page)
-	for _, p in pairs(pages) do p.Visible = false end
-	page.Visible = true
-	-- La pestaña entra con "smoosh": sube un pelín + un micro pop de escala que
-	-- rebota (Back). Reusa una UIScale propia de la página (PageScale) para no
-	-- crear una nueva en cada cambio de sección.
 	if ANIM.enabled then
+		-- Fade-out rápido de la pestaña que sale.
+		local saliente
+		for _, p in pairs(pages) do
+			if p.Visible and p ~= page then saliente = p; break end
+		end
+		if saliente then
+			-- Fade-out sutil: opacidad baja rápido y luego se oculta.
+			motionTween(saliente, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{}, function()
+					saliente.Visible = false
+				end)
+		end
+		for _, p in pairs(pages) do p.Visible = false end
+		page.Visible = true
+		-- Fade-in + smoosh: la pestaña entra con deslizamiento, micro pop de escala
+		-- y un fade sutil staggered después del scale.
 		local sc = page:FindFirstChild("PageScale")
 		if not sc then sc = Instance.new("UIScale", page); sc.Name = "PageScale" end
 		sc.Scale = 0.985
 		page.Position = UDim2.new(0, 0, 0, 12)
+		-- Empezar invisible para el fade-in.
+		for _, ch in ipairs(page:GetChildren()) do
+			if ch:IsA("ScrollingFrame") or ch:IsA("Frame") then
+				ch.GroupTransparency = ch:IsA("CanvasGroup") and 1 or 0
+			end
+		end
 		motionTween(page, TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{ Position = UDim2.new(0, 0, 0, 0) })
 		motionTween(sc, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 			{ Scale = 1 })
 	else
+		for _, p in pairs(pages) do p.Visible = false end
+		page.Visible = true
 		page.Position = UDim2.new(0, 0, 0, 0)
 	end
 	activeTab = tabByPage[page]
@@ -3122,7 +3206,7 @@ local function createTab(name, page, onShow)
 	btn.TextSize = 13
 	btn.TextColor3 = C.text
 	btn.BorderSizePixel = 0
-	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 	local tp = Instance.new("UIPadding", btn)
 	tp.PaddingLeft = UDim.new(0, 14); tp.PaddingRight = UDim.new(0, 14)
 	addHoverStroke(btn)
@@ -3816,6 +3900,7 @@ local function addRow(parent, label, value, copyable, valueColor)
 	frame.BorderSizePixel = 0
 	frame.ClipsDescendants = true
 	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
+	themed(frame, "BackgroundColor3", "card")
 
 	local lbl = Instance.new("TextLabel", frame)
 	lbl.Size = UDim2.new(0.42, -10, 1, 0)
@@ -3827,6 +3912,7 @@ local function addRow(parent, label, value, copyable, valueColor)
 	lbl.Text = label
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.TextTruncate = Enum.TextTruncate.AtEnd
+	themed(lbl, "TextColor3", "subtext")
 
 	local valWidthOffset = copyable and -78 or -10
 	local val = Instance.new("TextLabel", frame)
@@ -3836,6 +3922,7 @@ local function addRow(parent, label, value, copyable, valueColor)
 	val.Font = Enum.Font.GothamBold
 	val.TextSize = 13
 	val.TextColor3 = valueColor or C.text
+	if not valueColor then themed(val, "TextColor3", "text") end
 	val.Text = tostring(value == nil and "No disponible" or value)
 	val.TextXAlignment = Enum.TextXAlignment.Right
 	val.TextTruncate = Enum.TextTruncate.AtEnd
@@ -4000,10 +4087,13 @@ local function addNoteCard(parent, titleText, bodyText, accentColor)
 	card.BackgroundColor3 = C.card
 	card.BorderSizePixel = 0
 	card.ClipsDescendants = true
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+	themed(card, "BackgroundColor3", "card")
 	local barStroke = Instance.new("UIStroke", card)
-	barStroke.Color = accentColor or C.accent
-	barStroke.Transparency = 0.4
+	barStroke.Color = C.border
+	barStroke.Thickness = 1
+	barStroke.Transparency = 0.5
+	themed(barStroke, "Color", "border")
 	local pad = Instance.new("UIPadding", card)
 	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
 	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
@@ -4033,6 +4123,7 @@ local function addNoteCard(parent, titleText, bodyText, accentColor)
 	b.TextXAlignment = Enum.TextXAlignment.Left
 	b.TextYAlignment = Enum.TextYAlignment.Top
 	b.Text = bodyText
+	themed(b, "TextColor3", "text")
 	return card
 end
 
@@ -4051,22 +4142,28 @@ local function addScoreBar(parent, label, score, levelTxt, color, order)
 	lab.TextColor3 = C.subtext
 	lab.Text = label
 	lab.TextXAlignment = Enum.TextXAlignment.Left
+	themed(lab, "TextColor3", "subtext")
 
 	local track_ = Instance.new("Frame", row)
 	track_.Position = UDim2.new(0, 92, 0.5, -7)
 	track_.Size = UDim2.new(1, -210, 0, 14)
 	track_.BackgroundColor3 = C.neutral
 	track_.BorderSizePixel = 0
-	Instance.new("UICorner", track_).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", track_).CornerRadius = UDim.new(0, 7)
+	themed(track_, "BackgroundColor3", "neutral")
 
 	local fill = Instance.new("Frame", track_)
-	fill.Size = UDim2.new(0, 0, 1, 0)        -- arranca en 0 y se anima
+	-- Score muy bajo (< 5%): mínimo visual para que el corner no se coma la barra.
+	local clampedScore = math.clamp(score / 100, 0, 1)
+	fill.Size = UDim2.new(0, 0, 1, 0)
 	fill.BackgroundColor3 = color
 	fill.BorderSizePixel = 0
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 4)
+	fill.ClipsDescendants = true
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 7)
 	-- barra de progreso animada
+	local fillTarget = math.max(clampedScore, score > 0 and 0.04 or 0)
 	motionTween(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-		{ Size = UDim2.new(math.clamp(score / 100, 0, 1), 0, 1, 0) })
+		{ Size = UDim2.new(fillTarget, 0, 1, 0) })
 
 	local val = Instance.new("TextLabel", row)
 	val.Position = UDim2.new(1, -112, 0, 0)
@@ -5151,66 +5248,414 @@ do
 	_G.NXPlus = P
 end
 
--- ====================== NX · USERNAME DECODER (motor local) ======================
+-- ====================== NX · USERNAME DECODER v2 (motor local) ======================
 -- Infiere posibles NOMBRES REALES a partir de un username. Es una INFERENCIA
 -- heurística sobre texto PÚBLICO, jamás una confirmación de identidad. 100% local:
 -- no hace ninguna llamada de red ni envía el username a ningún servicio externo.
--- Bloque autocontenido en do...end (sus locals se liberan al 'end', no gastan
--- registros del chunk raíz). Se expone por _G.NXDecoder. Reversible: borrar este
--- bloque y su tarjeta en render() devuelve el script a como estaba.
+-- v2: diccionario indexado por prefijo (nombres + apellidos), tokenizer camelCase/
+-- dígitos, detección de año (nombre+año) y de compuestos nombre+apellido. Bloque
+-- autocontenido en do...end (sus locals se liberan al 'end', no gastan registros del
+-- chunk raíz). Se expone por _G.NXDecoder. Reversible: borrar este bloque y su
+-- tarjeta en render() devuelve el script a como estaba.
 do
 	local D = {}
 
-	-- Diccionario de nombres (español + internacionales frecuentes), SIN acentos.
-	-- Es el ancla ANTI-INVENCIÓN: si el token limpio no aparece aquí, el decoder NO
-	-- afirma un nombre; lo marca como "sin evidencia suficiente".
-	local NAMES = {}
-	for _, n in ipairs({
-		"alejandro","alonso","andres","angel","antonio","benjamin","bruno","carlos",
-		"cristian","cristobal","daniel","david","diego","eduardo","emiliano","enzo",
-		"esteban","fabian","felipe","fernando","francisco","gabriel","gael","gonzalo",
-		"guillermo","hector","hugo","ignacio","isaac","ivan","javier","joaquin","jorge",
-		"jose","juan","julian","leonardo","lucas","luis","manuel","marco","marcos",
-		"martin","mateo","matias","mauricio","miguel","nicolas","oscar","pablo","pedro",
-		"rafael","ramiro","raul","ricardo","roberto","rodrigo","ruben","salvador","samuel",
-		"santiago","sebastian","sergio","thiago","tomas","valentin","vicente","victor",
-		"abril","adriana","agustina","alejandra","ana","andrea","antonia","ariana",
-		"beatriz","camila","carla","carmen","carolina","catalina","clara","constanza",
-		"daniela","elena","emilia","emma","fernanda","florencia","gabriela","isabel",
-		"isabella","isidora","javiera","josefa","juana","julia","julieta","laura","lucia",
-		"luciana","maite","manuela","margarita","maria","mariana","martina","mia",
-		"micaela","monica","natalia","nicole","paula","paulina","pilar","rocio","romina",
-		"rosa","sofia","valentina","valeria","victoria","ximena",
-		"aaron","adam","alex","alice","amanda","andrew","anna","anthony","ashley",
-		"brandon","brian","chris","dylan","emily","eric","ethan","evan","jack","jacob",
-		"jake","james","jason","jayden","jennifer","jessica","john","jordan","joseph",
-		"josh","joshua","justin","kevin","liam","logan","luke","mark","mason","matthew",
-		"max","michael","mike","nathan","noah","oliver","peter","robert","ryan","sam",
-		"sarah","steven","thomas","tyler","william","zoe",
-	}) do NAMES[n] = true end
+	-- ══ DICCIONARIO: 650 nombres propios indexados por prefijo ══
+	local FIRST_IDX = {
+		["aa"]={"aaron"},
+		["ab"]={"aba","abu","aby"},
+		["ad"]={"adam","adrian"},
+		["ah"]={"ahl","ahmed"},
+		["ai"]={"aia","aid","aiden"},
+		["al"]={"ala","ale","alejandro","alex","alexander","alexis","alf","ali","alo","alonso","aly"},
+		["am"]={"ami","amir","amr","amy"},
+		["an"]={"andres","andrew","angel","ani","anthony","any"},
+		["ar"]={"ari","aria","arjun","ark","art","arturo"},
+		["as"]={"asa","ase","ash"},
+		["au"]={"aun","austin"},
+		["ax"]={"axe","axel"},
+		["ay"]={"ayo"},
+		["ba"]={"bab","bah","ban","bar","bay"},
+		["be"]={"bee","bel","benjamin","ber","bev"},
+		["bi"]={"bik","bil"},
+		["bl"]={"blake"},
+		["bo"]={"box"},
+		["br"]={"brandon","brayan","brian","bruno","bryan","bryce"},
+		["bu"]={"bum"},
+		["ca"]={"caleb","cameron","camila","carla","carlos","carolina","carter","catalina","caz"},
+		["ce"]={"ced","cesar","ceu"},
+		["ch"]={"cha","charles","chase","chen","chloe","chris","christian","christopher","chu"},
+		["ci"]={"cia","cid","cin"},
+		["cl"]={"claudia"},
+		["co"]={"cob","cody","coe","coh","cole","colin","con","connor","cooper","corey","cox"},
+		["cr"]={"cristian","cristobal"},
+		["cy"]={"cyb","cyd","cyn"},
+		["da"]={"dakota","dam","damian","dan","daniel","daniela","dar","david"},
+		["de"]={"deb","dei","der","derek","des","dev","devon","dew","dex"},
+		["di"]={"dia","dib","diego","din","dix"},
+		["do"]={"doa","doe","dominic","dot","dow","doy"},
+		["dr"]={"dru","dry"},
+		["du"]={"dun","dur"},
+		["dy"]={"dylan"},
+		["eb"]={"eba"},
+		["ed"]={"eda","eduardo","edward"},
+		["ek"]={"eka","eki"},
+		["el"]={"ela","eli","elijah","ella","els"},
+		["em"]={"emi","emiliano","emily","emma"},
+		["en"]={"ena","ene","eng","eni","eno","enzo"},
+		["er"]={"era","eri","eric","ern","ero","erv"},
+		["es"]={"esteban"},
+		["et"]={"eta","ethan","etz"},
+		["ev"]={"eva","evan","evi"},
+		["ew"]={"ewa"},
+		["fa"]={"fabian","fan","fatima","fax","fay"},
+		["fc"]={"fco"},
+		["fe"]={"fei","felipe","felix","fernanda","fernando"},
+		["fi"]={"fia","finn","fiz"},
+		["fo"]={"fox","foy"},
+		["fr"]={"francisco","fry"},
+		["fu"]={"ful"},
+		["ga"]={"gabriel","gad","gae","gael","gal","gan","gav","gavin","gaw","gay"},
+		["ge"]={"gen","george"},
+		["gi"]={"gia"},
+		["go"]={"gonzalo"},
+		["gr"]={"grace","grant","grayson","gro"},
+		["gu"]={"guillermo","gustavo","gut"},
+		["ha"]={"hae","hai","hailey","haj","hak","ham","hana","hannah","harrison","hassan","hayden"},
+		["he"]={"hector","hen","henry"},
+		["hi"]={"him"},
+		["ho"]={"hoi","hoo","hoz"},
+		["hr"]={"hra"},
+		["hu"]={"hug","hugo","hui","hunter","hut"},
+		["hw"]={"hwu"},
+		["ia"]={"ian"},
+		["ib"]={"ibo","ibrahim"},
+		["ic"]={"ico"},
+		["id"]={"ida","idy"},
+		["ie"]={"ier","iey"},
+		["ig"]={"ignacio"},
+		["im"]={"ima"},
+		["in"]={"ina"},
+		["io"]={"ion","iow"},
+		["ir"]={"irv"},
+		["is"]={"isa","isaac","isabella","isaiah","isla"},
+		["it"]={"ita"},
+		["iv"]={"ivan","ive","ivo"},
+		["ja"]={"jac","jack","jackson","jacob","jad","jai","jake","james","jared","jason","javier","jay","jayden"},
+		["je"]={"jeffrey","jem","jeremy","jesse","jesus"},
+		["ji"]={"jia","jiang","jit"},
+		["jo"]={"joaquin","joe","joel","john","jon","jonathan","jordan","jorge","jose","josefa","joseph","josh","joshua","joy"},
+		["ju"]={"juan","jud","jue","julian","julieta","jun","justin"},
+		["ka"]={"kai","kam","kan","kayden"},
+		["ke"]={"kee","keith","kelly","ken","kendall","kenneth","ker","kev","kevin"},
+		["kh"]={"khalid"},
+		["ki"]={"kia","kin","kit"},
+		["ko"]={"koa","koh"},
+		["ku"]={"kum"},
+		["ky"]={"kyd","kyl","kyle"},
+		["la"]={"lad","lah","lai","lal","lan","landon","lat","laura","law"},
+		["le"]={"lea","lee","lei","leo","leonardo","les","let","lew","ley"},
+		["li"]={"lia","liam","lie","lily","lin","liu"},
+		["lo"]={"logan","lot","lou","low","loy"},
+		["lu"]={"lua","luc","luca","lucas","lucia","luciana","lue","luis","luke","luna","luo","lur","lux"},
+		["ly"]={"lys"},
+		["ma"]={"mac","maddie","madison","maj","mak","man","manuel","mar","marco","marcos","marcus","maria","mariana","mario","mark","martin","mason","mateo","matias","matthew","mauricio","max","maxwell"},
+		["me"]={"mee","mei","melissa"},
+		["mi"]={"mia","michael","miguel","mil","miles","milo","mir"},
+		["mo"]={"moe","mohammed","monica","mor"},
+		["mu"]={"mui","mun","mur"},
+		["na"]={"nat","natalia","nathan","nathaniel"},
+		["ne"]={"nea","ned","ney"},
+		["ng"]={"nga","ngo"},
+		["ni"]={"nic","nicholas","nico","nicolas","nio","nit","niu"},
+		["no"]={"noa","noah","noe","nolan","nora","nova"},
+		["nu"]={"nuo","nur","nut"},
+		["ob"]={"oba","obe"},
+		["od"]={"odd","odo","ody"},
+		["og"]={"ogg"},
+		["ol"]={"ola","oliver"},
+		["om"]={"omar"},
+		["on"]={"ona","ong","oni"},
+		["or"]={"ori","orm","oro","orr","orv"},
+		["os"]={"oscar","osi","osy"},
+		["ot"]={"oto","otto"},
+		["ou"]={"oum"},
+		["ow"]={"owen"},
+		["pa"]={"pablo","pan","par","parker","pas","pat","patrick","pau","paul","paula","paulina"},
+		["pe"]={"pea","pedro","peg","pen","pep","per","pet","peter"},
+		["ph"]={"phi"},
+		["pi"]={"pia","pilar","pio"},
+		["po"]={"pon"},
+		["pr"]={"pry"},
+		["pu"]={"pul","puy"},
+		["qi"]={"qiu"},
+		["qu"]={"qun"},
+		["ra"]={"rab","raf","rafael","raj","ram","ramiro","ran","rao","rap","ras","raul","ravi","raymond"},
+		["re"]={"rea","ree","remy","ren","reo","rew","rex","rey"},
+		["ri"]={"ricardo","richard","riley","rio"},
+		["ro"]={"roa","robert","roberto","roc","rocio","rodrigo","roe","roman","ron","ros","rosa","row","rox","roz"},
+		["ru"]={"ruben"},
+		["ry"]={"ryan","rye","rym"},
+		["sa"]={"salvador","sam","sami","samuel","san","santiago","sara","sau","saw","sax"},
+		["se"]={"sean","sebastian","see","sem","sen","sergio","set","seth","sev"},
+		["si"]={"sia","sib","sig","simon"},
+		["sl"]={"sly"},
+		["so"]={"sofia","som","sow"},
+		["sp"]={"spencer"},
+		["st"]={"steven","stu"},
+		["su"]={"sue","suh","sun","sup"},
+		["sy"]={"syd","syl"},
+		["ta"]={"tai","tal","tat","tay","taylor"},
+		["te"]={"tem","ten","teo"},
+		["th"]={"the","theo","thiago","thomas"},
+		["ti"]={"timothy"},
+		["to"]={"toh","toi","tom","tomas","tony","tor","toy"},
+		["tr"]={"travis","trevor","tri","tristan"},
+		["ts"]={"tse"},
+		["tu"]={"tut"},
+		["ty"]={"tye","tyler"},
+		["ud"]={"udo"},
+		["ue"]={"uel"},
+		["ug"]={"ugo"},
+		["ui"]={"uis"},
+		["ul"]={"ula","ule"},
+		["um"]={"ume"},
+		["ur"]={"uri","urs"},
+		["ut"]={"ute"},
+		["va"]={"val","valentin","valentina","valeria","van","vas"},
+		["ve"]={"ver"},
+		["vi"]={"victor","victoria","vincent"},
+		["vo"]={"voe"},
+		["wa"]={"wan","wang","wat","way"},
+		["we"]={"wei"},
+		["wi"]={"william"},
+		["wu"]={"wun"},
+		["wy"]={"wyatt","wye","wyn"},
+		["xa"]={"xan","xavier"},
+		["xi"]={"ximena","xin","xiu"},
+		["ya"]={"yan","yang","yasmin"},
+		["ye"]={"yeo","yer"},
+		["yi"]={"yim","yin"},
+		["yo"]={"yoo"},
+		["yu"]={"yuki","yup","yuu"},
+		["za"]={"zachary","zane","zara"},
+		["ze"]={"zel"},
+		["zh"]={"zhang","zhe","zhi"},
+		["zo"]={"zoey"},
+	}
 
-	-- Relleno típico de usernames (gaming / Roblox / redes): se descarta, no aporta.
+	-- ══ DICCIONARIO: 350 apellidos indexados por prefijo ══
+	local SUR_IDX = {
+		["aa"]={"aas"},
+		["ab"]={"abo"},
+		["ac"]={"acosta"},
+		["ad"]={"adams"},
+		["ag"]={"age","aguilar"},
+		["ah"]={"ahn"},
+		["ai"]={"aid","ais"},
+		["ak"]={"ake","aki"},
+		["al"]={"allen","alvarez"},
+		["an"]={"anderson","ani"},
+		["ap"]={"ape","apo","apt"},
+		["ar"]={"arellano","arp","art"},
+		["as"]={"ash"},
+		["at"]={"ato"},
+		["au"]={"aul","aun"},
+		["ay"]={"ayala","ayo"},
+		["ba"]={"bai","bailey","baker","bar","bay"},
+		["be"]={"bee","beltran","bennett"},
+		["bl"]={"blanco"},
+		["bo"]={"box"},
+		["br"]={"brooks","brown"},
+		["bu"]={"bun"},
+		["ca"]={"cabrera","campbell","campos","cardenas","carrillo","carter","castillo","castro","cay"},
+		["ce"]={"ceo"},
+		["ch"]={"cha","chavez"},
+		["cl"]={"clark"},
+		["co"]={"collins","contreras","cook","cooper","cox"},
+		["cr"]={"cruz"},
+		["cu"]={"cui"},
+		["da"]={"dae","dai","dam","dan","davis"},
+		["de"]={"delgado"},
+		["di"]={"diaz","din"},
+		["do"]={"dominguez"},
+		["dr"]={"dry"},
+		["du"]={"duran"},
+		["ea"]={"ear"},
+		["eb"]={"eby"},
+		["ed"]={"edo","edwards"},
+		["ei"]={"eid"},
+		["el"]={"ela","elk"},
+		["en"]={"ena","ene","eng","enz"},
+		["er"]={"ero"},
+		["es"]={"espinoza"},
+		["ev"]={"evans"},
+		["ey"]={"eye"},
+		["fa"]={"faz"},
+		["fe"]={"fernandez"},
+		["fi"]={"fiz"},
+		["fl"]={"flores"},
+		["fo"]={"foster","fox"},
+		["fr"]={"fra"},
+		["fu"]={"fuentes","fus"},
+		["ga"]={"gab","gallegos","garcia","gau","gaw"},
+		["gi"]={"gin","gip"},
+		["go"]={"goh","gol","gomez","gonzalez","gou","goy"},
+		["gr"]={"gray","green"},
+		["gu"]={"guerrero","gutierrez"},
+		["ha"]={"hall","ham","haq","harris","haz"},
+		["he"]={"hem","hernandez","herrera"},
+		["hi"]={"hill","him","hin"},
+		["ho"]={"howard","hoz"},
+		["hu"]={"hughes","huh"},
+		["ib"]={"ibarra"},
+		["in"]={"ina"},
+		["io"]={"ion"},
+		["it"]={"ito"},
+		["ja"]={"jackson","james"},
+		["je"]={"jex"},
+		["ji"]={"jimenez"},
+		["jo"]={"johnson","jones","joy"},
+		["ju"]={"jun"},
+		["ka"]={"kan","kap"},
+		["ke"]={"kee","kelly","kew"},
+		["kh"]={"kha","khu"},
+		["ki"]={"kid","kie","kim","king"},
+		["ko"]={"kot"},
+		["ku"]={"kua","kue","kut"},
+		["la"]={"lab","lah","lai","lal","lat","law"},
+		["le"]={"lee","leon","lewis"},
+		["li"]={"lia"},
+		["lo"]={"loe","loi","long","lopez","low","loy"},
+		["lu"]={"luc","luo","luu"},
+		["ly"]={"lym"},
+		["ma"]={"mak","martin","martinez","mau","max"},
+		["me"]={"medina","mee","mejia","men","mendez","mendoza"},
+		["mi"]={"miller","mis","mitchell"},
+		["mo"]={"molina","mom","montoya","moore","mor","morales","moreno","morgan","morris","mow"},
+		["mu"]={"mun","munoz","mur","murphy"},
+		["my"]={"myers"},
+		["na"]={"navarro"},
+		["ne"]={"nelson","ney","nez"},
+		["ng"]={"nguyen"},
+		["ni"]={"nik","niu"},
+		["oa"]={"oas"},
+		["ob"]={"obi"},
+		["oc"]={"och","ochoa"},
+		["oe"]={"oen"},
+		["og"]={"oge"},
+		["oh"]={"ohm","ohs"},
+		["oj"]={"ojo"},
+		["ol"]={"olp"},
+		["om"]={"oms"},
+		["on"]={"ong"},
+		["or"]={"ori","ork","ortiz","ory"},
+		["ot"]={"ots"},
+		["ou"]={"oum"},
+		["pa"]={"pacheco","pan","pao","parker","pat","patel"},
+		["pe"]={"pea","ped","pen","perez","peterson","pew","pey"},
+		["ph"]={"phi","phillips"},
+		["pi"]={"pio"},
+		["pl"]={"plo"},
+		["po"]={"pon"},
+		["pr"]={"price"},
+		["pu"]={"pua","puc","puy"},
+		["py"]={"pye","pyo"},
+		["qi"]={"qiu"},
+		["ra"]={"ramirez","ramos","ran","rav","raz"},
+		["re"]={"ree","reed","res","rew","rex","rey","reyes"},
+		["ri"]={"richardson","rios","rivas","rivera"},
+		["ro"]={"roberts","robinson","rodriguez","roe","rogers","rojas","romero","ross","row"},
+		["ru"]={"ruiz"},
+		["sa"]={"saa","salazar","sanchez","sanders","sandoval","santos","sar","sas","sax"},
+		["sc"]={"scott"},
+		["se"]={"serrano","seu"},
+		["si"]={"silva","sin"},
+		["sm"]={"smith"},
+		["so"]={"solis","sor","soto"},
+		["st"]={"stewart"},
+		["su"]={"suh","sus","sut"},
+		["ta"]={"taj","taylor"},
+		["te"]={"teo"},
+		["th"]={"thomas","thompson"},
+		["ti"]={"tin","tio","tix"},
+		["to"]={"tok","torres"},
+		["tr"]={"tre","tri"},
+		["ts"]={"tse"},
+		["tu"]={"turner"},
+		["uh"]={"uhl"},
+		["uo"]={"uoy"},
+		["ur"]={"ura","ure"},
+		["uy"]={"uya"},
+		["va"]={"valdez","van","vargas","vasquez","vay"},
+		["ve"]={"vega","velasquez","ven","ver"},
+		["wa"]={"walker","ward","watson"},
+		["wh"]={"white"},
+		["wi"]={"williams","wilson"},
+		["wo"]={"wood"},
+		["wr"]={"wright"},
+		["ya"]={"yap","yau"},
+		["ye"]={"yem"},
+		["yi"]={"yin","yip","yiu"},
+		["yo"]={"yoh","young"},
+		["yu"]={"yus"},
+		["za"]={"zar"},
+		["zo"]={"zou"},
+		["zu"]={"zuk","zuniga"},
+	}
+
+	-- Relleno típico de usernames (gaming / Roblox / redes): se descarta
 	local FILLER = {
 		yt=true, ytb=true, ttv=true, tv=true, rblx=true, rbx=true, roblox=true,
 		pro=true, gamer=true, gaming=true, real=true, oficial=true, official=true,
 		its=true, im=true, the=true, xd=true, ff=true, op=true, god=true, king=true,
 		queen=true, boss=true, lord=true, mr=true, mrs=true, itz=true, iam=true, yes=true,
+		dev=true, noob=true, dark=true, shadow=true, fire=true, ice=true, epic=true,
+		super=true, mega=true, ultra=true, mini=true, big=true, lil=true, old=true,
+		new=true, red=true, blue=true, black=true, white=true, gold=true, toxic=true,
+		cool=true, fast=true, crazy=true, ninja=true, sniper=true, beast=true, killer=true,
+		legend=true, alpha=true, beta=true, omega=true, clan=true, team=true, squad=true,
+		vip=true, og=true, ez=true, gg=true, fn=true, mc=true, cod=true, fps=true,
 	}
 
-	-- Sufijos diminutivos en español (largos primero): "rubencito" -> "ruben".
+	-- Sufijos diminutivos (español): largos primero para greedy match
 	local DIMINUTIVES = { "chito","chita","cito","cita","illo","illa","ito","ita" }
 
-	-- Sustituciones leet. 1 opción = SÓLIDA; 2+ opciones = AMBIGUA (ramifica).
+	-- Sufijos estilísticos de usernames: letras que se agregan por estética
+	local STYLE_SUFFIXES = { "zz","xx","xd","gg","ss","tt","nn","ll","rr","yy","ii","oo","ee","aa" }
+	local STYLE_SUFFIX_SINGLE = { z=true, x=true, o=true, q=true, v=true, w=true, y=true }
+
+	-- Prefijos decorativos de usernames
+	local STYLE_PREFIXES = { "xx","xd","ii","el","la","los","las","mc","dr","dj" }
+	local STYLE_PREFIX_SINGLE = { i=true, x=true, o=true }
+
+	-- Leet speak expandido con clusters
 	local LEET = {
 		["4"]={"a"}, ["3"]={"e"}, ["0"]={"o"}, ["7"]={"t"}, ["8"]={"b"},
 		["@"]={"a"}, ["$"]={"s"}, ["+"]={"t"},
 		["1"]={"i","l"}, ["5"]={"s"}, ["9"]={"g"}, ["6"]={"g"}, ["2"]={"z"},
 		["!"]={"i","l"}, ["|"]={"i","l"},
 	}
+	-- Clusters leet (se procesan ANTES de las sustituciones individuales)
+	local LEET_CLUSTERS = {
+		{ pat="ph", rep="f" },
+		{ pat="vv", rep="w" },  -- o "v" sola
+		{ pat="kk", rep="k" },
+		{ pat="cc", rep="k" },
+		{ pat="nn", rep="n" },
+		{ pat="ll", rep="l" },
+		{ pat="ss", rep="s" },
+		{ pat="tt", rep="t" },
+		{ pat="rr", rep="r" },
+		{ pat="ee", rep="e" },
+		{ pat="oo", rep="o" },
+		{ pat="ii", rep="i" },
+	}
 
-	-- Acentos/ñ -> ascii, para comparar contra el diccionario (que va sin acentos).
+	-- Acentos/ñ -> ascii
 	local ACCENTS = {
-		["á"]="a",["é"]="e",["í"]="i",["ó"]="o",["ú"]="u",["ü"]="u",["ñ"]="n",
+		["a\204\129"]="a",["e\204\129"]="e",["i\204\129"]="i",["o\204\129"]="o",
+		["u\204\129"]="u",["u\204\136"]="u",["n\204\131"]="n",
 	}
 	local function normalize(s)
 		s = tostring(s):lower()
@@ -5218,7 +5663,7 @@ do
 		return s
 	end
 
-	-- Levenshtein acotado (una diferencia >2 no interesa): tolera 1-2 adornos/erratas.
+	-- Levenshtein acotado (dist >2 no interesa)
 	local function editDistance(a, b)
 		local la, lb = #a, #b
 		if math.abs(la - lb) > 2 then return 99 end
@@ -5236,25 +5681,106 @@ do
 		return prev[lb]
 	end
 
-	-- Mejor nombre del diccionario para un candidato: exacto (dist 0) o cercano (≤2).
-	local function matchName(cand)
-		if #cand < 3 then
-			if NAMES[cand] then return cand, 0 end   -- nombres cortos exactos (mia, ana, sam...)
-			return nil, 99
+	-- Lookup en diccionario indexado por prefijo
+	local function inDict(word, idx)
+		if #word < 2 then return false end
+		local bucket = idx[word:sub(1,2)]
+		if not bucket then return false end
+		for _, n in ipairs(bucket) do
+			if n == word then return true end
 		end
-		if NAMES[cand] then return cand, 0 end
-		local best, bestD = nil, 3
-		for name in pairs(NAMES) do
-			if math.abs(#name - #cand) <= 2 then
-				local d = editDistance(cand, name)
-				if d < bestD then best, bestD = name, d end
-			end
-		end
-		if best then return best, bestD end
-		return nil, 99
+		return false
 	end
 
-	-- Expande las sustituciones leet de un token en varios candidatos (con tope).
+	-- matchName: exacto > fuzzy (acotado por longitud) > prefijo (stem de un nombre).
+	-- Devuelve (name, dist, mtype) con mtype en {"exact","fuzzy","prefix"}.
+	-- Tokens cortos (<4) SOLO aceptan match exacto: un editDistance de 1 sobre 3
+	-- letras cambia un tercio de la palabra y produce falsos "Alta" tipo bry->bay.
+	local function matchNameIdx(cand, idx)
+		local n = #cand
+		if n < 2 then return nil, 99, nil end
+		if inDict(cand, idx) then return cand, 0, "exact" end
+		if n < 3 then return nil, 99, nil end
+
+		local c1 = cand:sub(1, 1)
+		local best, bestD = nil, 3
+		local pfx, pfxLen = nil, math.huge   -- mejor prefijo = completion mas corta
+		for b = string.byte("a"), string.byte("z") do
+			local bucket = idx[c1 .. string.char(b)]
+			if bucket then
+				for _, name in ipairs(bucket) do
+					-- prefijo: 'cand' es el principio de un nombre mas largo
+					if #name > n and name:sub(1, n) == cand and #name < pfxLen then
+						pfx, pfxLen = name, #name
+					end
+					-- fuzzy acotado por diferencia de longitud
+					if math.abs(#name - n) <= 2 then
+						local d = editDistance(cand, name)
+						if d < bestD then best, bestD = name, d end
+					end
+				end
+			end
+		end
+
+		-- Fuzzy solo si el error relativo es bajo: dist 1 exige >=4 letras,
+		-- dist 2 exige >=6. Asi 'bry' (3) nunca cae en 'bay'.
+		local fuzzyOK = best and ((bestD == 1 and n >= 4) or (bestD == 2 and n >= 6))
+		if fuzzyOK and bestD == 1 then return best, 1, "fuzzy" end
+		if pfx then return pfx, 0, "prefix" end
+		if fuzzyOK then return best, bestD, "fuzzy" end
+		return nil, 99, nil
+	end
+
+	-- Aplica clusters leet al token antes de las sustituciones individuales
+	local function applyClusters(token)
+		local result = token
+		local applied = {}
+		for _, cl in ipairs(LEET_CLUSTERS) do
+			if result:find(cl.pat, 1, true) then
+				result = result:gsub(cl.pat, cl.rep)
+				applied[#applied+1] = cl.pat .. " → " .. cl.rep
+			end
+		end
+		return result, applied
+	end
+
+	-- Recorta sufijos estilísticos ("kevvzz" → "kevv" → clusters → "kev")
+	local function stripStyleSuffix(w)
+		local stripped = {}
+		for _, suf in ipairs(STYLE_SUFFIXES) do
+			if #w >= #suf + 3 and w:sub(-#suf) == suf then
+				w = w:sub(1, #w - #suf)
+				stripped[#stripped+1] = suf
+				break
+			end
+		end
+		if #w >= 4 and STYLE_SUFFIX_SINGLE[w:sub(-1)] then
+			local last = w:sub(-1)
+			w = w:sub(1, -2)
+			stripped[#stripped+1] = last
+		end
+		return w, stripped
+	end
+
+	-- Recorta prefijos decorativos ("xxkevin" → "kevin")
+	local function stripStylePrefix(w)
+		local stripped = {}
+		for _, pre in ipairs(STYLE_PREFIXES) do
+			if #w >= #pre + 3 and w:sub(1, #pre) == pre then
+				w = w:sub(#pre + 1)
+				stripped[#stripped+1] = pre
+				break
+			end
+		end
+		if #w >= 4 and STYLE_PREFIX_SINGLE[w:sub(1,1)] then
+			local first = w:sub(1,1)
+			w = w:sub(2)
+			stripped[#stripped+1] = first
+		end
+		return w, stripped
+	end
+
+	-- Expande sustituciones leet de un token en candidatos (con tope)
 	local MAX_CAND = 24
 	local function deLeet(token)
 		local res = { { text = "", subs = {}, ambig = 0, solid = 0 } }
@@ -5279,7 +5805,7 @@ do
 					end
 				end
 			else
-				local keep = ch:match("%a") and ch or ""   -- letras se quedan; otros símbolos fuera
+				local keep = ch:match("%a") and ch or ""
 				for _, r in ipairs(res) do
 					r.text = r.text .. keep
 					nxt[#nxt + 1] = r
@@ -5300,6 +5826,105 @@ do
 		return w, nil
 	end
 
+	-- Detecta patrones "nombre+año" ("kevin2009" → "kevin", año=2009)
+	local function splitNameYear(s)
+		local name, year = s:match("^(.-)(%d%d%d%d)$")
+		if name and #name >= 3 then
+			local y = tonumber(year)
+			if y and y >= 1980 and y <= 2026 then
+				return name, y
+			end
+		end
+		-- Intenta con 2 dígitos ("kevin09")
+		name, year = s:match("^(.-)(%d%d)$")
+		if name and #name >= 3 then
+			local y = tonumber(year)
+			if y then
+				local full = y >= 80 and (1900 + y) or (2000 + y)
+				if full >= 1980 and full <= 2026 then
+					return name, full
+				end
+			end
+		end
+		return s, nil
+	end
+
+	-- Tokenizer inteligente: separa por camelCase, _, -, ., y transición letra↔dígito
+	local function smartTokenize(s)
+		-- Paso 1: separar por delimitadores obvios
+		local parts = {}
+		for chunk in s:gmatch("[^_%.%-]+") do
+			parts[#parts+1] = chunk
+		end
+		-- Paso 2: separar camelCase y transiciones letra↔dígito dentro de cada chunk
+		local tokens = {}
+		for _, part in ipairs(parts) do
+			local buf = ""
+			for i = 1, #part do
+				local ch = part:sub(i,i)
+				local prev = buf:sub(-1)
+				local split = false
+				if #buf > 0 then
+					-- Transición letra→dígito o dígito→letra
+					if (prev:match("%a") and ch:match("%d")) or (prev:match("%d") and ch:match("%a")) then
+						split = true
+					-- camelCase: minúscula seguida de mayúscula
+					elseif prev:match("%l") and ch:match("%u") then
+						split = true
+					end
+				end
+				if split then
+					if #buf >= 2 then tokens[#tokens+1] = buf end
+					buf = ch:lower()
+				else
+					buf = buf .. ch:lower()
+				end
+			end
+			if #buf >= 2 then tokens[#tokens+1] = buf end
+		end
+		return tokens
+	end
+
+	-- Intenta separar un token largo en nombre+apellido ("juangarcia" -> "juan"+"garcia").
+	-- Solo acepta mitades con match EXACTO o fuzzy dist <=1; NO prefijos (evita
+	-- inventar compuestos a partir de stems ambiguos).
+	local function trySplitCompound(word)
+		local results = {}
+		for i = 3, #word - 3 do
+			local left = word:sub(1, i)
+			local right = word:sub(i + 1)
+			local lName, lDist, lType = matchNameIdx(left, FIRST_IDX)
+			if lName and lType ~= "prefix" and lDist <= 1 then
+				-- Derecha puede ser apellido O segundo nombre
+				local rName, rDist, rType = matchNameIdx(right, SUR_IDX)
+				if not rName or rType == "prefix" or rDist > 1 then
+					rName, rDist, rType = matchNameIdx(right, FIRST_IDX)
+				end
+				if rName and rType ~= "prefix" and rDist <= 1 then
+					local score = 100 - 20*(lDist + rDist)
+					results[#results+1] = {
+						first = lName, second = rName,
+						score = math.clamp(score, 0, 100),
+						dist = lDist + rDist,
+					}
+				end
+			end
+		end
+		if #results > 0 then
+			table.sort(results, function(a,b) return a.score > b.score end)
+			return results[1]
+		end
+		return nil
+	end
+
+	-- Orden de niveles para poder "capar" (bajar) el nivel de matches debiles.
+	local LVL_ORD = { Insuficiente = 0, Baja = 1, Media = 2, Alta = 3 }
+	local function capLevel(lvl, cap)
+		if not cap then return lvl end
+		if LVL_ORD[lvl] > LVL_ORD[cap] then return cap end
+		return lvl
+	end
+
 	local function levelOf(sc, matched)
 		if not matched then return "Insuficiente" end
 		if sc >= 75 then return "Alta"
@@ -5308,38 +5933,128 @@ do
 		else return "Insuficiente" end
 	end
 
-	-- Analiza UN username. Devuelve { username, subs (del mejor), candidates[], hasEvidence }.
+	-- ══ ANALIZADOR PRINCIPAL ══
 	function D.analyze(username)
-		local out = { username = tostring(username or ""), subs = {}, candidates = {}, hasEvidence = false }
+		local out = {
+			username = tostring(username or ""),
+			subs = {}, candidates = {}, hasEvidence = false,
+			yearGuess = nil,          -- año de nacimiento inferido
+			compound = nil,           -- nombre+apellido detectado
+		}
 		if out.username == "" then return out end
 
 		local s = normalize(out.username)
-		local ranked = {}            -- name -> mejor { score, level, subs }
-		local cleanedFallback = nil  -- token limpio si no hay ningún match de diccionario
+		local ranked = {}
+		local cleanedFallback = nil
 
-		for tok in s:gmatch("[%w@$!|+]+") do
-			-- 1) recorta afijos de borde: dígitos y 'x' de relleno (xX..Xx, año al final)
-			local core = tok:gsub("^[0-9x]+", ""):gsub("[0-9x]+$", "")
-			for _, base in ipairs({ tok, core }) do
-				if #base >= 2 and base:match("%a") then      -- ignora tokens sin letras (años tipo "2011")
-					local lettersOnly = base:gsub("[^a-z]", "")
-					if not FILLER[lettersOnly] then          -- descarta relleno puro ("yt", "pro"...)
-						if not cleanedFallback and #lettersOnly >= 2 then cleanedFallback = lettersOnly end
-						for _, c in ipairs(deLeet(base)) do
-							-- prueba el candidato tal cual y, si aplica, sin diminutivo
-							local variants = { { c.text, false } }
-							local baseWord, dim = stripDiminutive(c.text)
-							if dim then variants[#variants + 1] = { baseWord, true } end
-							for _, v in ipairs(variants) do
-								local cand, dist = matchName(v[1])
-								if cand then
-									local sc = 100 - 25 * dist - 22 * c.ambig - 4 * c.solid
-									if v[2] then sc = sc - 12 end   -- dependió de recortar diminutivo
-									sc = math.clamp(sc, 0, 100)
-									local prev = ranked[cand]
-									if not prev or sc > prev.score then
-										ranked[cand] = { score = sc, level = levelOf(sc, true), subs = c.subs }
-									end
+		-- Ano a nivel de username completo: el tokenizer separa los digitos del
+		-- nombre mas abajo, asi que aqui (antes de tokenizar) buscamos "nombre+ano"
+		-- sobre el string entero y sobre cada trozo (kevin2009, ana_2010...).
+		do
+			local _, y = splitNameYear(s)
+			if not y then
+				for chunk in s:gmatch("[^_%.%-]+") do
+					local _, yy = splitNameYear(chunk)
+					if yy then y = yy; break end
+				end
+			end
+			if y then out.yearGuess = y end
+		end
+
+		-- Tokenizar de forma inteligente
+		local tokens = smartTokenize(s)
+		-- Si el tokenizer no separó nada útil, usar el username entero
+		if #tokens == 0 then tokens = { s } end
+
+		for tokIdx, tok in ipairs(tokens) do
+			-- Posición del token influye en el score (inicio = más probable nombre real)
+			local posBonus = (tokIdx == 1) and 8 or 0
+
+			-- Detectar patrón nombre+año
+			local namepart, yearGuess = splitNameYear(tok)
+			if yearGuess and not out.yearGuess then out.yearGuess = yearGuess end
+
+			-- Recortar decoraciones estilísticas
+			local stripped, _ = stripStylePrefix(namepart)
+			stripped, _ = stripStyleSuffix(stripped)
+
+			-- Aplicar clusters leet ("vv"→"w", "ph"→"f")
+			local clustered, clusterSubs = applyClusters(stripped)
+
+			-- Probar variantes: original, sin clusters, con clusters
+			local bases = { tok, namepart, stripped, clustered }
+			-- Deduplicar
+			local seen = {}
+			local uniqueBases = {}
+			for _, b in ipairs(bases) do
+				if #b >= 2 and b:match("%a") and not seen[b] then
+					seen[b] = true
+					uniqueBases[#uniqueBases+1] = b
+				end
+			end
+
+			for _, base in ipairs(uniqueBases) do
+				local lettersOnly = base:gsub("[^a-z]", "")
+				if not FILLER[lettersOnly] and #lettersOnly >= 2 then
+					if not cleanedFallback and #lettersOnly >= 2 then cleanedFallback = lettersOnly end
+
+					-- Intentar separar compuesto ("juangarcia")
+					if #lettersOnly >= 6 and not out.compound then
+						local comp = trySplitCompound(lettersOnly)
+						if comp and comp.score >= 60 then
+							out.compound = comp
+							local compName = comp.first
+							local prev = ranked[compName]
+							local sc = comp.score + posBonus
+							if not prev or sc > prev.score then
+								ranked[compName] = { score = sc, level = levelOf(sc, true), subs = clusterSubs, compound = comp }
+							end
+						end
+					end
+
+					-- deLeet individual
+					for _, c in ipairs(deLeet(base)) do
+						local variants = { { c.text, false } }
+						local baseWord, dim = stripDiminutive(c.text)
+						if dim then variants[#variants + 1] = { baseWord, true } end
+						for _, v in ipairs(variants) do
+							-- Buscar en nombres Y apellidos
+							local cand, dist, mtype = matchNameIdx(v[1], FIRST_IDX)
+							local isFirstName = true
+							if not cand then
+								cand, dist, mtype = matchNameIdx(v[1], SUR_IDX)
+								isFirstName = false
+							end
+							if cand then
+								local L = #v[1]
+								local sc, cap
+								if mtype == "exact" then
+									sc, cap = 100, "Alta"
+								elseif mtype == "prefix" then
+									-- stem de un nombre: util pero ambiguo, nunca "Alta"
+									sc = 52 + math.min(L - 3, 3) * 6      -- 52..70
+									cap = "Media"
+								else
+									-- fuzzy: penaliza por error RELATIVO (dist/longitud),
+									-- no fijo. Corto+1typo se hunde; largo+1typo aguanta.
+									sc = 100 - math.floor(dist * (140 / L))
+									if L >= 8 then cap = "Alta"
+									elseif L >= 6 and dist <= 1 then cap = "Alta"
+									elseif L >= 4 then cap = "Media"
+									else cap = "Baja" end
+								end
+								sc = sc - 22*c.ambig - 4*c.solid
+								if v[2] then sc = sc - 12 end            -- dependio de recortar diminutivo
+								if not isFirstName then sc = sc - 6 end  -- apellido solo = menos confianza
+								sc = sc + posBonus
+								sc = math.clamp(sc, 0, 100)
+								local lvl = capLevel(levelOf(sc, true), cap)
+								local allSubs = {}
+								for _, x in ipairs(clusterSubs) do allSubs[#allSubs+1] = x end
+								for _, x in ipairs(c.subs) do allSubs[#allSubs+1] = x end
+								local prev = ranked[cand]
+								if not prev or sc > prev.score then
+									ranked[cand] = { score = sc, level = lvl, subs = allSubs }
 								end
 							end
 						end
@@ -5348,16 +6063,17 @@ do
 			end
 		end
 
+		-- Construir lista de candidatos ordenada por score
 		local list = {}
 		for name, info in pairs(ranked) do
-			list[#list + 1] = { name = name, score = info.score, level = info.level, subs = info.subs }
+			list[#list + 1] = { name = name, score = info.score, level = info.level, subs = info.subs, compound = info.compound }
 		end
 		table.sort(list, function(a, b) return a.score > b.score end)
 
 		if list[1] then out.subs = list[1].subs; out.hasEvidence = true end
 		for i = 1, math.min(4, #list) do out.candidates[#out.candidates + 1] = list[i] end
 
-		-- Sin ningún match: ofrece el token limpio como inferencia DÉBIL y honesta.
+		-- Sin ningún match: ofrece el token limpio como inferencia DÉBIL
 		if #out.candidates == 0 and cleanedFallback then
 			out.candidates[1] = { name = cleanedFallback, score = 15, level = "Insuficiente", subs = {} }
 		end
@@ -5365,6 +6081,383 @@ do
 	end
 
 	_G.NXDecoder = D
+end
+
+-- ====================== NX INTEL — Username Intelligence + Persistencia ======================
+-- Bloque autocontenido en do...end: sus locals viven solo aquí dentro y NO gastan
+-- registros del chunk raíz. Se expone por _G.NXIntel. Reversible: borrar este bloque
+-- y sus llamadas en render() devuelve el script a como estaba.
+-- Persistencia: ProfileAnalyzer_intel.json (principal + .bak.json, fail-open).
+-- Estructura por UserId (string): snapshots[] + usernameTimeline[].
+-- Máx 50 perfiles (evicción LRU por last_seen), máx 20 snapshots por perfil.
+do
+	if _G.NXIntel and _G.NXIntel.stop then pcall(_G.NXIntel.stop) end
+	local I = {}
+	local INTEL_FILE = "ProfileAnalyzer_intel.json"
+	local INTEL_BAK  = "ProfileAnalyzer_intel.bak.json"
+	local MAX_PROFILES  = 50
+	local MAX_SNAPSHOTS = 20
+	local db = {}
+	local gen = 0
+
+	local function saveIntel()
+		if not hasFS then return end
+		pcall(function()
+			local json = HttpService:JSONEncode(db)
+			writefile(INTEL_FILE, json)
+			writefile(INTEL_BAK, json)
+		end)
+	end
+
+	local function loadIntel()
+		if not hasFS then return end
+		pcall(function()
+			local raw
+			if isfile(INTEL_FILE) then raw = readfile(INTEL_FILE) end
+			local ok, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+			if (not ok or type(decoded) ~= "table") and isfile(INTEL_BAK) then
+				ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(INTEL_BAK)) end)
+			end
+			if ok and type(decoded) == "table" then db = decoded end
+		end)
+	end
+	loadIntel()
+
+	local function evictLRU()
+		local keys = {}
+		for k in pairs(db) do keys[#keys + 1] = k end
+		if #keys <= MAX_PROFILES then return end
+		table.sort(keys, function(a, b)
+			local la = db[a] and db[a].lastSeen or 0
+			local lb = db[b] and db[b].lastSeen or 0
+			return la < lb
+		end)
+		while #keys > MAX_PROFILES do
+			db[keys[1]] = nil
+			table.remove(keys, 1)
+		end
+	end
+
+	local TRACKED = { "username", "displayName", "verified", "banned", "deleted",
+		"friends", "followers", "following", "groups", "badges" }
+
+	local function snapEqual(a, b)
+		if not a or not b then return false end
+		for _, f in ipairs(TRACKED) do
+			if tostring(a[f] or "") ~= tostring(b[f] or "") then return false end
+		end
+		return true
+	end
+
+	local function buildSnapshot(data)
+		local now = os.time()
+		return {
+			username    = data.Username,
+			displayName = data.DisplayName,
+			friends     = data.Friends,
+			followers   = data.Followers,
+			following   = data.Following,
+			groups      = data.Groups,
+			badges      = data.Badges,
+			verified    = (data.Verified == "Sí"),
+			banned      = (data.Banned == "Sí"),
+			deleted     = (data.IsDeleted == true),
+			collected_at = now,
+			first_seen   = now,
+			last_seen    = now,
+			sources = {
+				username  = "users.roblox.com/v1/users/{id}",
+				friends   = "friends.roblox.com/v1/users/{id}/friends/count",
+				followers = "friends.roblox.com/v1/users/{id}/followers/count",
+				following = "friends.roblox.com/v1/users/{id}/followings/count",
+				groups    = "groups.roblox.com/v1/users/{id}/groups/roles",
+				badges    = "badges.roblox.com/v1/users/{id}/badges",
+			},
+		}
+	end
+
+	local function mergeTimeline(entry, apiNames)
+		local tl = entry.usernameTimeline or {}
+		-- Mapa nombre → índice para acceso O(1) en vez de recorrer tl por cada snap.
+		local seen = {}
+		for i, t in ipairs(tl) do seen[t.name] = i end
+		if apiNames then
+			for _, n in ipairs(apiNames) do
+				if not seen[n] then
+					tl[#tl + 1] = { name = n, first_seen = 0, last_seen = 0 }
+					seen[n] = #tl
+				end
+			end
+		end
+		for _, snap in ipairs(entry.snapshots or {}) do
+			if snap.username then
+				local idx = seen[snap.username]
+				if not idx then
+					tl[#tl + 1] = { name = snap.username, first_seen = snap.first_seen or 0, last_seen = snap.last_seen or 0 }
+					seen[snap.username] = #tl
+				else
+					local t = tl[idx]
+					if snap.first_seen and (t.first_seen == 0 or snap.first_seen < t.first_seen) then
+						t.first_seen = snap.first_seen
+					end
+					if snap.last_seen and snap.last_seen > t.last_seen then
+						t.last_seen = snap.last_seen
+					end
+				end
+			end
+		end
+		entry.usernameTimeline = tl
+		return tl
+	end
+
+	function I.record(data, apiNames)
+		if not data or not data.UserId then return end
+		local uid = tostring(data.UserId)
+		local entry = db[uid] or { snapshots = {}, usernameTimeline = {} }
+		db[uid] = entry
+
+		local snap = buildSnapshot(data)
+		local snaps = entry.snapshots or {}
+		entry.snapshots = snaps
+
+		local last = snaps[#snaps]
+		if snapEqual(last, snap) then
+			last.last_seen = snap.last_seen
+		else
+			if last then snap.first_seen = snap.collected_at end
+			snaps[#snaps + 1] = snap
+			while #snaps > MAX_SNAPSHOTS do table.remove(snaps, 1) end
+		end
+
+		entry.lastSeen = os.time()
+		mergeTimeline(entry, apiNames)
+		evictLRU()
+		saveIntel()
+	end
+
+	function I.getChanges(data)
+		if not data or not data.UserId then return {} end
+		local uid = tostring(data.UserId)
+		local entry = db[uid]
+		if not entry then return {} end
+		local snaps = entry.snapshots or {}
+		if #snaps < 2 then return {} end
+		local prev = snaps[#snaps - 1]
+		local curr = snaps[#snaps]
+		local changes = {}
+		for _, f in ipairs(TRACKED) do
+			local o = prev[f]
+			local n = curr[f]
+			if tostring(o or "") ~= tostring(n or "") then
+				changes[#changes + 1] = {
+					field = f, old = o, new = n,
+					detected_at = curr.collected_at or os.time(),
+				}
+			end
+		end
+		return changes
+	end
+
+	function I.getTimeline(data)
+		if not data or not data.UserId then return {} end
+		local uid = tostring(data.UserId)
+		local entry = db[uid]
+		if not entry then return {} end
+		return entry.usernameTimeline or {}
+	end
+
+	function I.getEntry(data)
+		if not data or not data.UserId then return nil end
+		return db[tostring(data.UserId)]
+	end
+
+	function I.reset()
+		gen = gen + 1
+	end
+
+	function I.stop()
+		gen = gen + 1
+	end
+
+	function I.buildCard(parent, data, layoutOrder)
+		local myGen = gen
+		local uid = data.UserId
+		local card = Instance.new("Frame", parent)
+		card.Name = "NXIntelCard"
+		card.LayoutOrder = layoutOrder
+		card.Size = UDim2.new(1, -4, 0, 0)
+		card.AutomaticSize = Enum.AutomaticSize.Y
+		card.BackgroundColor3 = C.card
+		card.BorderSizePixel = 0
+		card.ClipsDescendants = true
+		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
+		themed(card, "BackgroundColor3", "card")
+		local cStroke = Instance.new("UIStroke", card)
+		cStroke.Color = C.accent; cStroke.Thickness = 1.2; cStroke.Transparency = 0.35
+		themed(cStroke, "Color", "accent")
+		local cPad = Instance.new("UIPadding", card)
+		cPad.PaddingTop = UDim.new(0, 8); cPad.PaddingBottom = UDim.new(0, 8)
+		cPad.PaddingLeft = UDim.new(0, 10); cPad.PaddingRight = UDim.new(0, 10)
+		local cLay = Instance.new("UIListLayout", card)
+		cLay.Padding = UDim.new(0, 4); cLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local h = Instance.new("TextLabel", card)
+		h.LayoutOrder = 0; h.Size = UDim2.new(1, 0, 0, 20)
+		h.BackgroundTransparency = 1
+		h.Font = Enum.Font.GothamBold; h.TextSize = 14
+		h.TextColor3 = C.accent; h.Text = "Username History + Intelligence"
+		h.TextXAlignment = Enum.TextXAlignment.Left
+		themed(h, "TextColor3", "accent")
+
+		local body = Instance.new("TextLabel", card)
+		body.Name = "IntelBody"
+		body.LayoutOrder = 1
+		body.Size = UDim2.new(1, 0, 0, 0)
+		body.AutomaticSize = Enum.AutomaticSize.Y
+		body.BackgroundTransparency = 1
+		body.Font = Enum.Font.Gotham; body.TextSize = 13
+		body.TextColor3 = C.text; body.TextWrapped = true
+		body.TextXAlignment = Enum.TextXAlignment.Left
+		body.TextYAlignment = Enum.TextYAlignment.Top
+		body.Text = "Recopilando..."
+		themed(body, "TextColor3", "text")
+
+		local function actualizar(apiNames)
+			if gen ~= myGen then return end
+			if not card.Parent then return end
+			if currentData == nil or currentData.UserId ~= uid then return end
+
+			I.record(data, apiNames)
+			local tl = I.getTimeline(data)
+			local changes = I.getChanges(data)
+			local lines = {}
+
+			if #tl > 0 then
+				lines[#lines + 1] = "Timeline de usernames:"
+				for _, t in ipairs(tl) do
+					local marker = (t.name == data.Username) and "●" or "○"
+					local ts = ""
+					if t.first_seen and t.first_seen > 0 then
+						ts = ts .. "  observado: " .. os.date("%Y-%m-%d", t.first_seen)
+						if t.last_seen and t.last_seen > 0 and t.last_seen ~= t.first_seen then
+							ts = ts .. " — " .. os.date("%Y-%m-%d", t.last_seen)
+						end
+					end
+					lines[#lines + 1] = "  " .. marker .. " " .. t.name .. ts
+				end
+			else
+				lines[#lines + 1] = "Sin historial de usernames registrado."
+			end
+
+			if #changes > 0 then
+				lines[#lines + 1] = ""
+				lines[#lines + 1] = "Cambios detectados entre snapshots:"
+				for _, ch in ipairs(changes) do
+					local o = (ch.old == nil or ch.old == "") and "—" or tostring(ch.old)
+					local n = (ch.new == nil or ch.new == "") and "—" or tostring(ch.new)
+					if type(ch.old) == "boolean" then o = ch.old and "sí" or "no" end
+					if type(ch.new) == "boolean" then n = ch.new and "sí" or "no" end
+					lines[#lines + 1] = "  " .. ch.field .. ": " .. o .. " → " .. n
+				end
+			end
+
+			local entry = I.getEntry(data)
+			if entry and entry.snapshots and #entry.snapshots > 0 then
+				local lastSnap = entry.snapshots[#entry.snapshots]
+				lines[#lines + 1] = ""
+				lines[#lines + 1] = "Recolección: " .. os.date("%Y-%m-%d %H:%M", lastSnap.collected_at or 0)
+				if lastSnap.sources then
+					local srcs = {}
+					for k, v in pairs(lastSnap.sources) do srcs[#srcs + 1] = k .. ": " .. v end
+					table.sort(srcs)
+					lines[#lines + 1] = "Fuentes: " .. table.concat(srcs, " · ")
+				end
+				lines[#lines + 1] = "Snapshots almacenados: " .. #entry.snapshots
+			end
+
+			lines[#lines + 1] = ""
+			lines[#lines + 1] = "Las fechas son de observación del script, no de Roblox."
+			body.Text = table.concat(lines, "\n")
+		end
+
+		if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
+			_G.NXPlus.nombres(data, function(lista)
+				actualizar(lista)
+			end)
+		else
+			task.spawn(function()
+				local ok, lista = pcall(getNameHistory, data.UserId)
+				actualizar(ok and lista or nil)
+			end)
+		end
+
+		if ANIM.enabled then
+			card.BackgroundTransparency = 1
+			cStroke.Transparency = 1
+			h.TextTransparency = 1
+			body.TextTransparency = 1
+			task.defer(function()
+				if not card.Parent then return end
+				motionTween(card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ BackgroundTransparency = 0 })
+				motionTween(cStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ Transparency = 0.4 })
+				motionTween(h, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ TextTransparency = 0 })
+				motionTween(body, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ TextTransparency = 0 })
+			end)
+		end
+
+		return card
+	end
+
+	_G.NXIntel = I
+end
+
+-- Aparición escalonada de tarjetas dentro de un scroll (stagger).
+-- Cada tarjeta entra con delay incremental: fondo visible + slide Y, y los
+-- textos hacen fade-in 0.05s después. Solo si ANIM.enabled y no es re-render.
+local function staggerCards(scroll)
+	if not ANIM.enabled then return end
+	local cards = {}
+	for _, ch in ipairs(scroll:GetChildren()) do
+		if ch:IsA("Frame") and not ch:IsA("UIListLayout") then
+			cards[#cards + 1] = ch
+		end
+	end
+	table.sort(cards, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
+	for idx, card in ipairs(cards) do
+		local delay_ = (idx - 1) * 0.06
+		local origBgT = card.BackgroundTransparency
+		if origBgT < 1 then
+			card.BackgroundTransparency = 1
+		end
+		local origY = card.Position.Y.Offset
+		card.Position = card.Position + UDim2.fromOffset(0, 8)
+		-- Textos dentro: empiezan invisibles.
+		local textos = {}
+		for _, ch in ipairs(card:GetChildren()) do
+			if ch:IsA("TextLabel") or ch:IsA("TextButton") then
+				textos[#textos + 1] = { inst = ch, orig = ch.TextTransparency }
+				ch.TextTransparency = 1
+			end
+		end
+		task.delay(delay_, function()
+			if not card.Parent then return end
+			motionTween(card, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				{ Position = UDim2.new(card.Position.X.Scale, card.Position.X.Offset, card.Position.Y.Scale, origY),
+				  BackgroundTransparency = origBgT })
+			task.delay(0.05, function()
+				for _, t in ipairs(textos) do
+					if t.inst.Parent then
+						motionTween(t.inst, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+							{ TextTransparency = t.orig })
+					end
+				end
+			end)
+		end)
+	end
 end
 
 local function render(data, skipEntrance)
@@ -5376,6 +6469,7 @@ local function render(data, skipEntrance)
 	-- La pestaña Huella se rellena sola al abrirla (carga perezosa). Aquí solo
 	-- se invalida lo que hubiera pintado del perfil anterior.
 	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
+	if _G.NXIntel and _G.NXIntel.reset then pcall(_G.NXIntel.reset) end
 
 	-- Compactación de roleMap: themed() añade una entrada por instancia en CADA
 	-- render, pero la limpieza de entradas muertas (inst == nil, lo pone el
@@ -6144,8 +7238,8 @@ local function render(data, skipEntrance)
 	end)
 
 	-- ---------- PESTAÑA ANÁLISIS ----------
-	-- TARJETA DE INTEGRIDAD (NX Shields). Encabeza la pestaña y dice, con el
-	-- resultado real de las comprobaciones, de qué se puede fiar el usuario.
+	-- TARJETA DE INTEGRIDAD (NX Shields). Va al final de la pestaña (LayoutOrder 6)
+	-- y dice, con el resultado real de las comprobaciones, de qué puede fiarse el usuario.
 	do
 		local st = data._state or "verified"
 		local ETIQ = {
@@ -6175,7 +7269,7 @@ local function render(data, skipEntrance)
 						.. ". Los datos se muestran sin capa de verificación."
 				end
 			end
-			addNoteCard(analysisScroll, e[1], cuerpo, e[2]).LayoutOrder = 0
+			addNoteCard(analysisScroll, e[1], cuerpo, e[2]).LayoutOrder = 7
 		end
 	end
 
@@ -6203,6 +7297,14 @@ local function render(data, skipEntrance)
 						lines[#lines + 1] = string.format("  %d. %s — %s", i, titulo(c.name), c.level)
 					end
 				end
+				-- Campos nuevos de v2 (nil si no aplican): no rompen el fallback.
+				if res.compound then
+					lines[#lines + 1] = string.format("Nombre+Apellido: %s %s (score %d)",
+						titulo(res.compound.first), titulo(res.compound.second), res.compound.score)
+				end
+				if res.yearGuess then
+					lines[#lines + 1] = "Posible año de nacimiento: " .. tostring(res.yearGuess)
+				end
 				return table.concat(lines, "\n")
 			end
 
@@ -6219,7 +7321,7 @@ local function render(data, skipEntrance)
 			local topLvl = (cur.candidates[1] and cur.candidates[1].level) or "Insuficiente"
 			local decColor = (topLvl == "Alta") and C.good
 				or ((topLvl == "Media") and C.accent or C.subtext)
-			local decCard = addNoteCard(analysisScroll, "🔤 Username Decoder", buildBody(nil), decColor)
+			local decCard = addNoteCard(analysisScroll, "▸ Username Decoder", buildBody(nil), decColor)
 			decCard.LayoutOrder = 1
 
 			-- Historial: reutiliza el fetch compartido (deduplica y cachea; mismo
@@ -6253,6 +7355,11 @@ local function render(data, skipEntrance)
 		end
 	end
 
+	-- ---------- USERNAME INTELLIGENCE (historial + cambios entre snapshots) ----------
+	if _G.NXIntel then
+		_G.NXIntel.buildCard(analysisScroll, data, 2)
+	end
+
 	-- ¿Hay base suficiente para puntuar? Si faltan 2+ pilares (amigos, badges,
 	-- grupos, juegos), las heurísticas leerían nil como 0 y devolverían un
 	-- "Riesgo ALT alto" INVENTADO sobre una cuenta normal cuya API falló.
@@ -6273,15 +7380,17 @@ local function render(data, skipEntrance)
 	local inflScore,  inflLvl,  inflColor                = computeInfluence(data, nil)
 
 	local advCard = Instance.new("Frame", analysisScroll)
-	advCard.LayoutOrder = 1
+	advCard.LayoutOrder = 3
 	advCard.Size = UDim2.new(1, -4, 0, 0)
 	advCard.AutomaticSize = Enum.AutomaticSize.Y
 	advCard.BackgroundColor3 = C.card
 	advCard.BorderSizePixel = 0
 	advCard.ClipsDescendants = true
-	Instance.new("UICorner", advCard).CornerRadius = UDim.new(0, 4)
+	Instance.new("UICorner", advCard).CornerRadius = UDim.new(0, 8)
+	themed(advCard, "BackgroundColor3", "card")
 	local advStroke = Instance.new("UIStroke", advCard)
-	advStroke.Color = C.accent; advStroke.Transparency = 0.4
+	advStroke.Color = C.accent; advStroke.Thickness = 1.2; advStroke.Transparency = 0.35
+	themed(advStroke, "Color", "accent")
 	local advPad = Instance.new("UIPadding", advCard)
 	advPad.PaddingTop = UDim.new(0,8); advPad.PaddingBottom = UDim.new(0,8)
 	advPad.PaddingLeft = UDim.new(0,10); advPad.PaddingRight = UDim.new(0,10)
@@ -6295,6 +7404,7 @@ local function render(data, skipEntrance)
 	advTitle.TextColor3 = C.accent
 	advTitle.Text = "Puntuaciones"
 	advTitle.TextXAlignment = Enum.TextXAlignment.Left
+	themed(advTitle, "TextColor3", "accent")
 
 	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
 	addScoreBar(advCard, "Actividad", actScore, actLvl, actColor, 2)
@@ -6312,6 +7422,7 @@ local function render(data, skipEntrance)
 	summaryLbl.TextXAlignment = Enum.TextXAlignment.Left
 	summaryLbl.TextYAlignment = Enum.TextYAlignment.Top
 	summaryLbl.Text = buildSummary(data, trustScore, trustLvl, altScore, altLvl, inflScore, inflLvl, actLvl)
+	themed(summaryLbl, "TextColor3", "text")
 
 	-- RAP llega async → recalcula Influencia (usa el RAP cacheado si ya está)
 	local advFor = data.UserId
@@ -6329,46 +7440,149 @@ local function render(data, skipEntrance)
 	end)
 
 	-- Los desgloses son la letra pequeña del modelo: solo en modo avanzado.
+	-- Por defecto plegados; al pulsar el toggle se despliegan.
 	if Shield.adv() then
-		addNoteCard(analysisScroll,
-			"Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")",
-			"Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• "),
-			trustColor).LayoutOrder = 2
-	end
+		do
+			local trustBody = "Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• ")
+			local tCard = Instance.new("Frame", analysisScroll)
+			tCard.LayoutOrder = 4
+			tCard.Size = UDim2.new(1, -4, 0, 0)
+			tCard.AutomaticSize = Enum.AutomaticSize.Y
+			tCard.BackgroundColor3 = C.card
+			tCard.BorderSizePixel = 0
+			tCard.ClipsDescendants = true
+			Instance.new("UICorner", tCard).CornerRadius = UDim.new(0, 8)
+			themed(tCard, "BackgroundColor3", "card")
+			local tStr = Instance.new("UIStroke", tCard)
+			tStr.Color = C.border; tStr.Thickness = 1; tStr.Transparency = 0.5
+			themed(tStr, "Color", "border")
+			local tPad = Instance.new("UIPadding", tCard)
+			tPad.PaddingTop = UDim.new(0, 8); tPad.PaddingBottom = UDim.new(0, 8)
+			tPad.PaddingLeft = UDim.new(0, 10); tPad.PaddingRight = UDim.new(0, 10)
+			local tLay = Instance.new("UIListLayout", tCard)
+			tLay.Padding = UDim.new(0, 4); tLay.SortOrder = Enum.SortOrder.LayoutOrder
 
-	-- Riesgo ALT: explicación contextual (según nivel) + factores con ✓ +
-	-- desglose ponderado por área (transparencia del modelo).
-	local altContext
-	if Shield.adv() then
-	if altScore >= 61 then
-		altContext = "Esta cuenta presenta varias características comunes en cuentas "
-			.. "secundarias (alt)."
-	elseif altScore >= 41 then
-		altContext = "Señales mixtas: podría ser un alt o una cuenta nueva/poco activa "
-			.. "pero legítima."
-	else
-		altContext = "La cuenta NO muestra patrones típicos de cuenta secundaria."
-	end
-	local altFactorsTxt = (#altSignals == 0)
-		and "Factores detectados:\n(ninguno relevante)"
-		or  ("Factores detectados:\n✓ " .. table.concat(altSignals, "\n✓ "))
-	local bd = {}
-	for _, b in ipairs(altBreakdown) do
-		bd[#bd + 1] = string.format("• %s: %d/100 (peso %d%%)", b[1], b[2], b[3])
-	end
-	addNoteCard(analysisScroll,
-		"Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")",
-		altContext .. "\n\n" .. altFactorsTxt
-			.. "\n\nDesglose ponderado (riesgo por área):\n" .. table.concat(bd, "\n")
-			.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt.",
-		altColor).LayoutOrder = 3
+			local tTitle = Instance.new("TextLabel", tCard)
+			tTitle.LayoutOrder = 0; tTitle.Size = UDim2.new(1, 0, 0, 20)
+			tTitle.BackgroundTransparency = 1
+			tTitle.Font = Enum.Font.GothamBold; tTitle.TextSize = 14
+			tTitle.TextColor3 = trustColor
+			tTitle.Text = "Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")"
+			tTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+			local tToggle = Instance.new("TextButton", tCard)
+			tToggle.LayoutOrder = 1; tToggle.Size = UDim2.new(1, 0, 0, 16)
+			tToggle.BackgroundTransparency = 1
+			tToggle.Font = Enum.Font.Gotham; tToggle.TextSize = 11
+			tToggle.TextColor3 = C.subtext
+			tToggle.Text = "Detalle ▸"
+			tToggle.TextXAlignment = Enum.TextXAlignment.Left
+			themed(tToggle, "TextColor3", "subtext")
+
+			local tBody = Instance.new("TextLabel", tCard)
+			tBody.LayoutOrder = 2; tBody.Size = UDim2.new(1, 0, 0, 0)
+			tBody.AutomaticSize = Enum.AutomaticSize.Y
+			tBody.BackgroundTransparency = 1
+			tBody.Font = Enum.Font.Gotham; tBody.TextSize = 13
+			tBody.TextColor3 = C.text; tBody.TextWrapped = true
+			tBody.TextXAlignment = Enum.TextXAlignment.Left
+			tBody.TextYAlignment = Enum.TextYAlignment.Top
+			tBody.Text = trustBody
+			tBody.Visible = false
+			themed(tBody, "TextColor3", "text")
+
+			local tOpen = false
+			tToggle.MouseButton1Click:Connect(function()
+				tOpen = not tOpen
+				tBody.Visible = tOpen
+				tToggle.Text = tOpen and "▾ Ocultar" or "Detalle ▸"
+			end)
+		end
+
+		-- Riesgo ALT: explicación contextual + desglose ponderado (colapsable).
+		do
+			local altContext
+			if altScore >= 61 then
+				altContext = "Esta cuenta presenta varias características comunes en cuentas "
+					.. "secundarias (alt)."
+			elseif altScore >= 41 then
+				altContext = "Señales mixtas: podría ser un alt o una cuenta nueva/poco activa "
+					.. "pero legítima."
+			else
+				altContext = "La cuenta NO muestra patrones típicos de cuenta secundaria."
+			end
+			local altFactorsTxt = (#altSignals == 0)
+				and "Factores detectados:\n(ninguno relevante)"
+				or  ("Factores detectados:\n✓ " .. table.concat(altSignals, "\n✓ "))
+			local bd = {}
+			for _, b in ipairs(altBreakdown) do
+				bd[#bd + 1] = string.format("• %s: %d/100 (peso %d%%)", b[1], b[2], b[3])
+			end
+			local altBody = altContext .. "\n\n" .. altFactorsTxt
+				.. "\n\nDesglose ponderado (riesgo por área):\n" .. table.concat(bd, "\n")
+				.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt."
+
+			local aCard = Instance.new("Frame", analysisScroll)
+			aCard.LayoutOrder = 5
+			aCard.Size = UDim2.new(1, -4, 0, 0)
+			aCard.AutomaticSize = Enum.AutomaticSize.Y
+			aCard.BackgroundColor3 = C.card
+			aCard.BorderSizePixel = 0
+			aCard.ClipsDescendants = true
+			Instance.new("UICorner", aCard).CornerRadius = UDim.new(0, 8)
+			themed(aCard, "BackgroundColor3", "card")
+			local aStr = Instance.new("UIStroke", aCard)
+			aStr.Color = C.border; aStr.Thickness = 1; aStr.Transparency = 0.5
+			themed(aStr, "Color", "border")
+			local aPad = Instance.new("UIPadding", aCard)
+			aPad.PaddingTop = UDim.new(0, 8); aPad.PaddingBottom = UDim.new(0, 8)
+			aPad.PaddingLeft = UDim.new(0, 10); aPad.PaddingRight = UDim.new(0, 10)
+			local aLay = Instance.new("UIListLayout", aCard)
+			aLay.Padding = UDim.new(0, 4); aLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+			local aTitle = Instance.new("TextLabel", aCard)
+			aTitle.LayoutOrder = 0; aTitle.Size = UDim2.new(1, 0, 0, 20)
+			aTitle.BackgroundTransparency = 1
+			aTitle.Font = Enum.Font.GothamBold; aTitle.TextSize = 14
+			aTitle.TextColor3 = altColor
+			aTitle.Text = "Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")"
+			aTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+			local aToggle = Instance.new("TextButton", aCard)
+			aToggle.LayoutOrder = 1; aToggle.Size = UDim2.new(1, 0, 0, 16)
+			aToggle.BackgroundTransparency = 1
+			aToggle.Font = Enum.Font.Gotham; aToggle.TextSize = 11
+			aToggle.TextColor3 = C.subtext
+			aToggle.Text = "Detalle ▸"
+			aToggle.TextXAlignment = Enum.TextXAlignment.Left
+			themed(aToggle, "TextColor3", "subtext")
+
+			local aBody = Instance.new("TextLabel", aCard)
+			aBody.LayoutOrder = 2; aBody.Size = UDim2.new(1, 0, 0, 0)
+			aBody.AutomaticSize = Enum.AutomaticSize.Y
+			aBody.BackgroundTransparency = 1
+			aBody.Font = Enum.Font.Gotham; aBody.TextSize = 13
+			aBody.TextColor3 = C.text; aBody.TextWrapped = true
+			aBody.TextXAlignment = Enum.TextXAlignment.Left
+			aBody.TextYAlignment = Enum.TextYAlignment.Top
+			aBody.Text = altBody
+			aBody.Visible = false
+			themed(aBody, "TextColor3", "text")
+
+			local aOpen = false
+			aToggle.MouseButton1Click:Connect(function()
+				aOpen = not aOpen
+				aBody.Visible = aOpen
+				aToggle.Text = aOpen and "▾ Ocultar" or "Detalle ▸"
+			end)
+		end
 	end
 
 	local mutualCard = addNoteCard(analysisScroll,
 		"Amigos en común",
 		(data.UserId == player.UserId) and "Estás viendo tu propia cuenta." or "Calculando...",
 		C.accent)
-	mutualCard.LayoutOrder = 4
+	mutualCard.LayoutOrder = 6
 
 	if data.UserId ~= player.UserId then
 		local renderedFor = data.UserId
@@ -6396,6 +7610,15 @@ local function render(data, skipEntrance)
 					.. table.concat(mutual, "\n• ")
 			end
 		end)
+	end
+
+	-- Aparición escalonada de tarjetas (stagger). Solo en entrada fresca, no
+	-- al repintar por cambio de tema (skipEntrance = true).
+	if not skipEntrance then
+		staggerCards(profileScroll)
+		staggerCards(statsScroll)
+		staggerCards(itemsScroll)
+		staggerCards(analysisScroll)
 	end
 end
 
@@ -6683,7 +7906,7 @@ do
 					est.Text = "Activo ✓"; est.TextColor3 = C.good
 				else
 					est.Text = "Falló"; est.TextColor3 = C.bad
-					statusLabel.Text = "" .. nombre .. ": " .. tostring(detalle)
+					statusLabel.Text = nombre .. ": No disponible"
 				end
 			end)
 		end)
@@ -7377,7 +8600,8 @@ do
 	function M.stop() destroyNow() end
 
 	function M.start()
-		if not ANIM.enabled then return end
+		-- NX Scan corre SIEMPRE: es la animación identitaria del proyecto.
+		-- Las animaciones decorativas (smoosh, fade, stagger) sí respetan ANIM.enabled.
 		destroyNow()
 		gen = gen + 1
 		local miGen = gen
@@ -8998,7 +10222,7 @@ do
 
         -- TP AL TOCAR EL TAG: click normal sobre la pill/círculo de un jugador y
         -- te teletransportas a su posición (justo encima). false = desactivado.
-        TP_ON_CLICK       = true,
+        TP_ON_CLICK       = false,
         TP_COOLDOWN       = 0.4,   -- segundos mínimos entre TPs (anti-spam / anti doble-click).
 
         -- Visuals  (fondo oscuro estilo "tag NX": casi negro y sólido)
@@ -11146,6 +12370,7 @@ end)()
 			or ch:FindFirstChild("UpperTorso") or ch:FindFirstChild("Torso"))
 	end
 	track(UIS.InputBegan:Connect(function(input, gpe)
+		if gpe then return end
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1
 			and input.UserInputType ~= Enum.UserInputType.Touch then return end
 		local now = os.clock()
@@ -11169,8 +12394,7 @@ end)()
 				end
 			end
 		end
-		local radius = gpe and 55 or 60    -- radio conservador (120 era demasiado agresivo)
-		if best and bestD and bestD <= radius then
+		if best and bestD and bestD <= 60 then
 			local myR, tR = rootOf(player.Character), rootOf(best.Character)
 			if myR and tR then
 				myR.CFrame = tR.CFrame
@@ -11380,6 +12604,7 @@ end)()
 	-- con los colores de tema de cada botón. Idempotente (atributo NXPolished).
 	local function polishButton(b)
 		if b:GetAttribute("NXPolished") then return end
+		if b:GetAttribute("NXHoverDone") then return end
 		b:SetAttribute("NXPolished", true)
 		if not b:FindFirstChildOfClass("UICorner") then
 			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
@@ -11881,6 +13106,15 @@ end)()
 	gui.DisplayOrder = 2147482
 	gui.Parent = playerGui
 
+	local listaConns = {}
+	local function ltrack(conn) table.insert(listaConns, conn); return conn end
+	gui.AncestryChanged:Connect(function(_, newP)
+		if not newP then
+			for _, c in ipairs(listaConns) do pcall(function() c:Disconnect() end) end
+			table.clear(listaConns)
+		end
+	end)
+
 	-- ====================== VENTANA PRINCIPAL ======================
 	local ANCHO, ALTO = 380, 480
 	local ventana = Instance.new("Frame")
@@ -12116,7 +13350,7 @@ end)()
 	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	pthemed(scroll, "BackgroundColor3", "input")
-	pthemed(scroll, "ScrollBarImageColor3", "scrollbar")
+	pthemed(scroll, "ScrollBarImageColor3", "accent")
 
 	local layoutLista = Instance.new("UIListLayout", scroll)
 	layoutLista.Padding = UDim.new(0, 4)
@@ -12691,8 +13925,8 @@ end)()
 	end)
 
 	-- ====================== EVENTOS DE JUGADORES ======================
-	Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end)
-	Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end)
+	ltrack(Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end))
+	ltrack(Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end))
 
 	-- ====================== ARRASTRE (mouse + táctil) ======================
 	local arrastrando, inicioInput, inicioPos = false, nil, nil
@@ -12705,7 +13939,7 @@ end)()
 			or input.UserInputType == Enum.UserInputType.Touch
 	end
 
-	encabezado.InputBegan:Connect(function(input)
+	ltrack(encabezado.InputBegan:Connect(function(input)
 		if esInputArrastre(input) then
 			arrastrando = true
 			inicioInput = input.Position
@@ -12716,9 +13950,9 @@ end)()
 				end
 			end)
 		end
-	end)
+	end))
 
-	UserInputService.InputChanged:Connect(function(input)
+	ltrack(UserInputService.InputChanged:Connect(function(input)
 		if arrastrando and esMovimientoArrastre(input) then
 			local delta = input.Position - inicioInput
 			ventana.Position = UDim2.new(
@@ -12728,7 +13962,7 @@ end)()
 			-- recordar la posición normal pa' restaurar desde pantalla completa
 			if not maximizado then posGuardada = ventana.Position end
 		end
-	end)
+	end))
 
 	-- ====================== INICIALIZACIÓN ======================
 	for _, plr in ipairs(Players:GetPlayers()) do
