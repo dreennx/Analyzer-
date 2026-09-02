@@ -571,89 +571,101 @@ loadStore()
 -- 'onAccent' = texto que va ENCIMA del acento (debe contrastar con él).
 local THEMES = {
 	negro = {
-		bg=Color3.fromRGB(12,12,12), card=Color3.fromRGB(22,22,22), input=Color3.fromRGB(22,22,22),
-		link=Color3.fromRGB(12,12,12), neutral=Color3.fromRGB(28,28,28), border=Color3.fromRGB(45,45,45),
-		accent=Color3.fromRGB(255,255,255), onAccent=Color3.fromRGB(12,12,12),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(220,170,90), bad=Color3.fromRGB(220,90,90),
-		text=Color3.fromRGB(230,230,230), subtext=Color3.fromRGB(120,120,120),
-		modalBg=Color3.fromRGB(18,18,18), modalStep=Color3.fromRGB(12,12,12),
+		bg=Color3.fromRGB(26,27,30), card=Color3.fromRGB(34,36,39), input=Color3.fromRGB(30,31,34),
+		surface=Color3.fromRGB(34,36,39), surfaceHover=Color3.fromRGB(42,44,48), elevated=Color3.fromRGB(46,48,53),
+		link=Color3.fromRGB(26,27,30), neutral=Color3.fromRGB(40,42,46), border=Color3.fromRGB(58,60,66),
+		divider=Color3.fromRGB(50,52,58), headerBg=Color3.fromRGB(30,31,34), textDisabled=Color3.fromRGB(85,87,94),
+		accent=Color3.fromRGB(224,226,230), onAccent=Color3.fromRGB(26,27,30),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,178,50), bad=Color3.fromRGB(237,66,69),
+		text=Color3.fromRGB(224,225,228), subtext=Color3.fromRGB(139,141,148),
+		modalBg=Color3.fromRGB(30,31,34), modalStep=Color3.fromRGB(26,27,30),
 	},
 	azul = {
-		bg=Color3.fromRGB(15,21,38), card=Color3.fromRGB(26,34,58), input=Color3.fromRGB(20,27,48),
-		link=Color3.fromRGB(17,23,42), neutral=Color3.fromRGB(38,48,80), border=Color3.fromRGB(50,62,95),
-		accent=Color3.fromRGB(0,170,255), onAccent=Color3.fromRGB(255,255,255),
-		good=Color3.fromRGB(60,180,100), warn=Color3.fromRGB(255,170,60), bad=Color3.fromRGB(255,100,100),
-		text=Color3.fromRGB(255,255,255), subtext=Color3.fromRGB(190,190,200),
-		modalBg=Color3.fromRGB(18,24,44), modalStep=Color3.fromRGB(13,18,34),
+		bg=Color3.fromRGB(18,24,42), card=Color3.fromRGB(28,36,62), input=Color3.fromRGB(24,30,54),
+		surface=Color3.fromRGB(28,36,62), surfaceHover=Color3.fromRGB(36,44,72), elevated=Color3.fromRGB(40,50,82),
+		link=Color3.fromRGB(18,24,42), neutral=Color3.fromRGB(38,48,80), border=Color3.fromRGB(52,64,100),
+		divider=Color3.fromRGB(44,56,90), headerBg=Color3.fromRGB(22,28,50), textDisabled=Color3.fromRGB(80,90,120),
+		accent=Color3.fromRGB(88,101,242), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,178,50), bad=Color3.fromRGB(237,66,69),
+		text=Color3.fromRGB(240,240,245), subtext=Color3.fromRGB(160,165,185),
+		modalBg=Color3.fromRGB(22,28,50), modalStep=Color3.fromRGB(16,22,40),
 	},
 	verde = {
-		bg=Color3.fromRGB(10,18,12), card=Color3.fromRGB(18,30,22), input=Color3.fromRGB(16,26,19),
-		link=Color3.fromRGB(10,18,12), neutral=Color3.fromRGB(26,40,30), border=Color3.fromRGB(40,60,46),
+		bg=Color3.fromRGB(14,22,16), card=Color3.fromRGB(22,34,26), input=Color3.fromRGB(20,30,23),
+		surface=Color3.fromRGB(22,34,26), surfaceHover=Color3.fromRGB(30,44,34), elevated=Color3.fromRGB(34,50,38),
+		link=Color3.fromRGB(14,22,16), neutral=Color3.fromRGB(30,46,34), border=Color3.fromRGB(44,66,50),
+		divider=Color3.fromRGB(38,56,42), headerBg=Color3.fromRGB(18,28,20), textDisabled=Color3.fromRGB(75,95,80),
 		accent=Color3.fromRGB(60,220,130), onAccent=Color3.fromRGB(8,16,10),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,190,90), bad=Color3.fromRGB(230,100,100),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,190,90), bad=Color3.fromRGB(230,100,100),
 		text=Color3.fromRGB(225,235,228), subtext=Color3.fromRGB(120,140,128),
-		modalBg=Color3.fromRGB(14,24,18), modalStep=Color3.fromRGB(10,18,12),
+		modalBg=Color3.fromRGB(18,28,20), modalStep=Color3.fromRGB(14,22,16),
 	},
-	-- Tema estilo Tor Browser: fondo oscuro con tinte morado y acento violeta
-	-- (el morado #7D4698 de Tor, aclarado para que resalte sobre el fondo).
 	tor = {
-		bg=Color3.fromRGB(20,15,28), card=Color3.fromRGB(31,23,43), input=Color3.fromRGB(26,19,38),
-		link=Color3.fromRGB(20,15,28), neutral=Color3.fromRGB(42,31,58), border=Color3.fromRGB(60,45,82),
+		bg=Color3.fromRGB(24,18,34), card=Color3.fromRGB(35,26,48), input=Color3.fromRGB(30,22,42),
+		surface=Color3.fromRGB(35,26,48), surfaceHover=Color3.fromRGB(44,34,58), elevated=Color3.fromRGB(50,38,66),
+		link=Color3.fromRGB(24,18,34), neutral=Color3.fromRGB(46,34,62), border=Color3.fromRGB(65,50,88),
+		divider=Color3.fromRGB(55,42,74), headerBg=Color3.fromRGB(28,21,40), textDisabled=Color3.fromRGB(90,78,110),
 		accent=Color3.fromRGB(160,100,210), onAccent=Color3.fromRGB(255,255,255),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
 		text=Color3.fromRGB(235,230,242), subtext=Color3.fromRGB(150,135,168),
-		modalBg=Color3.fromRGB(26,20,38), modalStep=Color3.fromRGB(18,14,26),
+		modalBg=Color3.fromRGB(28,21,40), modalStep=Color3.fromRGB(22,16,32),
 	},
-	-- Carmesí: negro con tinte rojo y acento rojo intenso.
 	rojo = {
-		bg=Color3.fromRGB(20,11,13), card=Color3.fromRGB(34,18,21), input=Color3.fromRGB(28,15,18),
-		link=Color3.fromRGB(20,11,13), neutral=Color3.fromRGB(46,24,28), border=Color3.fromRGB(70,36,42),
-		accent=Color3.fromRGB(240,72,82), onAccent=Color3.fromRGB(255,255,255),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(255,90,90),
+		bg=Color3.fromRGB(24,14,16), card=Color3.fromRGB(38,22,25), input=Color3.fromRGB(32,18,21),
+		surface=Color3.fromRGB(38,22,25), surfaceHover=Color3.fromRGB(48,30,34), elevated=Color3.fromRGB(54,34,38),
+		link=Color3.fromRGB(24,14,16), neutral=Color3.fromRGB(50,28,32), border=Color3.fromRGB(76,42,48),
+		divider=Color3.fromRGB(62,36,40), headerBg=Color3.fromRGB(28,16,19), textDisabled=Color3.fromRGB(100,72,78),
+		accent=Color3.fromRGB(237,66,69), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(255,90,90),
 		text=Color3.fromRGB(240,228,230), subtext=Color3.fromRGB(165,135,140),
-		modalBg=Color3.fromRGB(28,16,19), modalStep=Color3.fromRGB(18,10,12),
+		modalBg=Color3.fromRGB(28,16,19), modalStep=Color3.fromRGB(22,12,14),
 	},
-	-- Amatista: violeta brillante sobre fondo morado oscuro.
 	morado = {
-		bg=Color3.fromRGB(16,12,26), card=Color3.fromRGB(26,20,44), input=Color3.fromRGB(22,16,38),
-		link=Color3.fromRGB(16,12,26), neutral=Color3.fromRGB(38,28,62), border=Color3.fromRGB(58,44,92),
+		bg=Color3.fromRGB(20,16,32), card=Color3.fromRGB(30,24,48), input=Color3.fromRGB(26,20,42),
+		surface=Color3.fromRGB(30,24,48), surfaceHover=Color3.fromRGB(40,32,60), elevated=Color3.fromRGB(46,38,68),
+		link=Color3.fromRGB(20,16,32), neutral=Color3.fromRGB(42,32,66), border=Color3.fromRGB(62,48,98),
+		divider=Color3.fromRGB(52,40,80), headerBg=Color3.fromRGB(24,18,38), textDisabled=Color3.fromRGB(88,76,115),
 		accent=Color3.fromRGB(170,110,255), onAccent=Color3.fromRGB(255,255,255),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(232,226,245), subtext=Color3.fromRGB(150,138,175),
-		modalBg=Color3.fromRGB(22,16,40), modalStep=Color3.fromRGB(14,10,24),
+		modalBg=Color3.fromRGB(24,18,38), modalStep=Color3.fromRGB(18,14,28),
 	},
-	-- Aqua: cian/teal eléctrico sobre negro verdoso.
 	cyan = {
-		bg=Color3.fromRGB(8,18,20), card=Color3.fromRGB(14,30,33), input=Color3.fromRGB(12,26,29),
-		link=Color3.fromRGB(8,18,20), neutral=Color3.fromRGB(22,42,46), border=Color3.fromRGB(34,62,68),
+		bg=Color3.fromRGB(12,22,24), card=Color3.fromRGB(18,34,37), input=Color3.fromRGB(16,30,33),
+		surface=Color3.fromRGB(18,34,37), surfaceHover=Color3.fromRGB(26,44,48), elevated=Color3.fromRGB(30,50,54),
+		link=Color3.fromRGB(12,22,24), neutral=Color3.fromRGB(26,46,50), border=Color3.fromRGB(38,68,74),
+		divider=Color3.fromRGB(32,56,62), headerBg=Color3.fromRGB(14,26,28), textDisabled=Color3.fromRGB(68,96,100),
 		accent=Color3.fromRGB(0,220,210), onAccent=Color3.fromRGB(6,18,18),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(224,238,238), subtext=Color3.fromRGB(120,150,150),
-		modalBg=Color3.fromRGB(12,26,28), modalStep=Color3.fromRGB(8,18,20),
+		modalBg=Color3.fromRGB(14,26,28), modalStep=Color3.fromRGB(10,20,22),
 	},
-	-- Rosa: rosa neón sobre fondo oscuro.
 	rosa = {
-		bg=Color3.fromRGB(22,12,18), card=Color3.fromRGB(36,20,30), input=Color3.fromRGB(30,16,25),
-		link=Color3.fromRGB(22,12,18), neutral=Color3.fromRGB(48,26,40), border=Color3.fromRGB(72,40,60),
+		bg=Color3.fromRGB(26,16,22), card=Color3.fromRGB(40,24,34), input=Color3.fromRGB(34,20,28),
+		surface=Color3.fromRGB(40,24,34), surfaceHover=Color3.fromRGB(52,32,44), elevated=Color3.fromRGB(58,36,50),
+		link=Color3.fromRGB(26,16,22), neutral=Color3.fromRGB(52,30,44), border=Color3.fromRGB(78,46,66),
+		divider=Color3.fromRGB(64,38,54), headerBg=Color3.fromRGB(30,18,26), textDisabled=Color3.fromRGB(105,78,92),
 		accent=Color3.fromRGB(255,110,190), onAccent=Color3.fromRGB(28,10,20),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(245,228,238), subtext=Color3.fromRGB(170,135,155),
-		modalBg=Color3.fromRGB(30,16,26), modalStep=Color3.fromRGB(20,10,16),
+		modalBg=Color3.fromRGB(30,18,26), modalStep=Color3.fromRGB(24,14,20),
 	},
-	-- Ámbar: naranja cálido sobre fondo marrón oscuro.
 	naranja = {
-		bg=Color3.fromRGB(22,15,8), card=Color3.fromRGB(36,25,14), input=Color3.fromRGB(30,20,11),
-		link=Color3.fromRGB(22,15,8), neutral=Color3.fromRGB(48,33,18), border=Color3.fromRGB(72,50,28),
+		bg=Color3.fromRGB(26,18,10), card=Color3.fromRGB(40,28,16), input=Color3.fromRGB(34,24,14),
+		surface=Color3.fromRGB(40,28,16), surfaceHover=Color3.fromRGB(52,36,22), elevated=Color3.fromRGB(58,42,26),
+		link=Color3.fromRGB(26,18,10), neutral=Color3.fromRGB(52,36,20), border=Color3.fromRGB(78,56,32),
+		divider=Color3.fromRGB(64,46,26), headerBg=Color3.fromRGB(30,22,12), textDisabled=Color3.fromRGB(105,88,68),
 		accent=Color3.fromRGB(255,150,50), onAccent=Color3.fromRGB(28,16,6),
-		good=Color3.fromRGB(120,220,150), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(244,234,222), subtext=Color3.fromRGB(168,148,124),
-		modalBg=Color3.fromRGB(30,21,11), modalStep=Color3.fromRGB(20,14,8),
+		modalBg=Color3.fromRGB(30,22,12), modalStep=Color3.fromRGB(24,16,8),
 	},
-	-- Claro: modo claro limpio (acento azul). Contraste alto para texto.
 	claro = {
 		bg=Color3.fromRGB(238,240,244), card=Color3.fromRGB(255,255,255), input=Color3.fromRGB(248,249,251),
+		surface=Color3.fromRGB(255,255,255), surfaceHover=Color3.fromRGB(242,243,247), elevated=Color3.fromRGB(255,255,255),
 		link=Color3.fromRGB(238,240,244), neutral=Color3.fromRGB(228,231,237), border=Color3.fromRGB(205,210,220),
-		accent=Color3.fromRGB(35,110,240), onAccent=Color3.fromRGB(255,255,255),
+		divider=Color3.fromRGB(218,222,230), headerBg=Color3.fromRGB(248,249,251), textDisabled=Color3.fromRGB(170,175,185),
+		accent=Color3.fromRGB(88,101,242), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(40,160,90), warn=Color3.fromRGB(205,135,30), bad=Color3.fromRGB(220,70,70),
 		text=Color3.fromRGB(22,26,34), subtext=Color3.fromRGB(95,105,120),
 		modalBg=Color3.fromRGB(255,255,255), modalStep=Color3.fromRGB(238,240,244),
@@ -728,6 +740,250 @@ _G.NXTheme = {
 	themed = themed,               -- themed(inst, prop, role) por si quiere usarlo
 	getTheme = function() return store.theme end,
 }
+
+-- ====================== DESIGN SYSTEM (tokens + component builders) ======================
+-- Todo en do...end: NO gasta locals de raíz. Los builders se exponen vía _G.NXDS.
+do
+	local DS = {}
+
+	DS.corner = { sm = UDim.new(0, 6), md = UDim.new(0, 8), lg = UDim.new(0, 12), pill = UDim.new(1, 0) }
+	DS.text   = { xs = 10, sm = 11, md = 13, lg = 15, xl = 18, title = 16 }
+	DS.space  = { xs = 4, sm = 6, md = 8, lg = 12, xl = 16 }
+	DS.pad    = { card = 12, section = 14 }
+
+	function DS.makeCard(parent, opts)
+		opts = opts or {}
+		local card = Instance.new("Frame", parent)
+		if opts.order then card.LayoutOrder = opts.order end
+		card.Size = UDim2.new(1, 0, 0, 0)
+		card.AutomaticSize = Enum.AutomaticSize.Y
+		card.BackgroundColor3 = C.surface
+		card.BorderSizePixel = 0
+		card.ClipsDescendants = true
+		Instance.new("UICorner", card).CornerRadius = DS.corner.md
+		themed(card, "BackgroundColor3", "surface")
+		local st = Instance.new("UIStroke", card)
+		st.Color = C.border; st.Transparency = 0.6; st.Thickness = 1
+		themed(st, "Color", "border")
+		local p = Instance.new("UIPadding", card)
+		p.PaddingTop = UDim.new(0, DS.pad.card); p.PaddingBottom = UDim.new(0, DS.pad.card)
+		p.PaddingLeft = UDim.new(0, DS.pad.card); p.PaddingRight = UDim.new(0, DS.pad.card)
+		local lay = Instance.new("UIListLayout", card)
+		lay.Padding = UDim.new(0, DS.space.md); lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local body = card
+		if opts.title then
+			local h = Instance.new("TextLabel", card)
+			h.LayoutOrder = 0; h.Size = UDim2.new(1, 0, 0, 20); h.BackgroundTransparency = 1
+			h.Font = Enum.Font.GothamBold; h.TextSize = DS.text.md; h.TextColor3 = C.text
+			h.Text = opts.title; h.TextXAlignment = Enum.TextXAlignment.Left
+			themed(h, "TextColor3", opts.accent and "accent" or "text")
+		end
+		if opts.subtitle then
+			local s = Instance.new("TextLabel", card)
+			s.LayoutOrder = 1; s.Size = UDim2.new(1, 0, 0, 0); s.AutomaticSize = Enum.AutomaticSize.Y
+			s.BackgroundTransparency = 1; s.Font = Enum.Font.Gotham; s.TextSize = DS.text.sm
+			s.TextColor3 = C.subtext; s.Text = opts.subtitle; s.TextWrapped = true
+			s.TextXAlignment = Enum.TextXAlignment.Left
+			themed(s, "TextColor3", "subtext")
+		end
+		return card, body
+	end
+
+	function DS.makeDataRow(parent, label, value, opts)
+		opts = opts or {}
+		local row = Instance.new("Frame", parent)
+		if opts.order then row.LayoutOrder = opts.order end
+		row.Size = UDim2.new(1, 0, 0, 26)
+		row.BackgroundTransparency = 1
+		row.ClipsDescendants = true
+
+		local lbl = Instance.new("TextLabel", row)
+		lbl.Size = UDim2.new(0, 0, 1, 0); lbl.AutomaticSize = Enum.AutomaticSize.X
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.Gotham; lbl.TextSize = DS.text.sm; lbl.TextColor3 = C.subtext
+		lbl.Text = label; lbl.TextXAlignment = Enum.TextXAlignment.Left
+		themed(lbl, "TextColor3", "subtext")
+
+		local valFont = opts.important and Enum.Font.GothamBold or Enum.Font.GothamMedium
+		local valSize = opts.important and DS.text.lg or DS.text.md
+		local val = Instance.new("TextLabel", row)
+		val.Size = UDim2.new(1, 0, 1, 0)
+		val.BackgroundTransparency = 1
+		val.Font = valFont; val.TextSize = valSize
+		val.TextColor3 = opts.valueColor or C.text
+		if not opts.valueColor then themed(val, "TextColor3", "text") end
+		val.Text = tostring(value == nil and "—" or value)
+		val.TextXAlignment = Enum.TextXAlignment.Right
+		val.TextTruncate = Enum.TextTruncate.AtEnd
+
+		if opts.copyable and value then
+			local cp = Instance.new("TextButton", row)
+			cp.Size = UDim2.fromOffset(22, 22); cp.AnchorPoint = Vector2.new(1, 0.5)
+			cp.Position = UDim2.new(1, 0, 0.5, 0)
+			cp.BackgroundTransparency = 1; cp.Text = "📋"
+			cp.Font = Enum.Font.Gotham; cp.TextSize = 12
+			cp.AutoButtonColor = false; cp.ZIndex = 3
+			cp.TextTransparency = 0.6
+			cp.MouseEnter:Connect(function() cp.TextTransparency = 0 end)
+			cp.MouseLeave:Connect(function() cp.TextTransparency = 0.6 end)
+			cp.MouseButton1Click:Connect(function()
+				clipboard(tostring(value))
+				statusLabel.Text = "Copiado: " .. label
+				cp.Text = "✓"
+				task.delay(1, function() if cp and cp.Parent then cp.Text = "📋" end end)
+			end)
+			val.Size = UDim2.new(1, -28, 1, 0)
+		end
+		return row
+	end
+
+	function DS.makeButton(parent, text, style, opts)
+		opts = opts or {}
+		local btn = Instance.new("TextButton", parent)
+		if opts.order then btn.LayoutOrder = opts.order end
+		btn.Size = opts.size or UDim2.new(0, 0, 0, 30)
+		if not opts.size then btn.AutomaticSize = Enum.AutomaticSize.X end
+		btn.BackgroundColor3 = (style == "primary" and C.accent) or (style == "secondary" and C.surface) or Color3.new(0,0,0)
+		btn.BackgroundTransparency = (style == "ghost") and 1 or 0
+		btn.Text = text; btn.Font = Enum.Font.GothamBold; btn.TextSize = DS.text.md
+		btn.TextColor3 = (style == "primary" and C.onAccent) or C.text
+		btn.BorderSizePixel = 0; btn.AutoButtonColor = false
+		Instance.new("UICorner", btn).CornerRadius = DS.corner.sm
+		local bp = Instance.new("UIPadding", btn)
+		bp.PaddingLeft = UDim.new(0, 16); bp.PaddingRight = UDim.new(0, 16)
+
+		if style == "primary" then
+			themed(btn, "BackgroundColor3", "accent"); themed(btn, "TextColor3", "onAccent")
+		elseif style == "secondary" then
+			themed(btn, "BackgroundColor3", "surface"); themed(btn, "TextColor3", "text")
+			local bst = Instance.new("UIStroke", btn)
+			bst.Thickness = 1; bst.Color = C.border; bst.Transparency = 0.5
+			themed(bst, "Color", "border")
+		else
+			themed(btn, "TextColor3", "subtext")
+		end
+
+		local sc = Instance.new("UIScale", btn)
+		btn.MouseEnter:Connect(function()
+			if style ~= "ghost" then
+				btn.BackgroundTransparency = (style == "ghost") and 0.85 or 0
+			end
+		end)
+		btn.MouseButton1Down:Connect(function()
+			motionTween(sc, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.97 })
+		end)
+		btn.MouseButton1Up:Connect(function()
+			motionTween(sc, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+		end)
+		btn.MouseLeave:Connect(function()
+			sc.Scale = 1
+			if style == "ghost" then btn.BackgroundTransparency = 1 end
+		end)
+
+		if opts.onClick then btn.MouseButton1Click:Connect(opts.onClick) end
+		return btn
+	end
+
+	function DS.makeSectionHeader(parent, text, order)
+		local h = Instance.new("TextLabel", parent)
+		h.LayoutOrder = order or 0
+		h.Size = UDim2.new(1, 0, 0, 22); h.BackgroundTransparency = 1
+		h.Font = Enum.Font.GothamBold; h.TextSize = DS.text.sm; h.TextColor3 = C.subtext
+		h.Text = string.upper(text); h.TextXAlignment = Enum.TextXAlignment.Left
+		themed(h, "TextColor3", "subtext")
+		return h
+	end
+
+	function DS.makeToggleRow(parent, label, desc, on, order, onToggle)
+		local card, _ = DS.makeCard(parent, { order = order })
+		local titleLbl = Instance.new("TextLabel", card)
+		titleLbl.LayoutOrder = 0; titleLbl.Size = UDim2.new(1, 0, 0, 20)
+		titleLbl.BackgroundTransparency = 1; titleLbl.Font = Enum.Font.GothamBold
+		titleLbl.TextSize = DS.text.md; titleLbl.TextColor3 = C.text
+		titleLbl.Text = label; titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+		themed(titleLbl, "TextColor3", "text")
+
+		if desc then
+			local d = Instance.new("TextLabel", card)
+			d.LayoutOrder = 1; d.Size = UDim2.new(1, 0, 0, 0)
+			d.AutomaticSize = Enum.AutomaticSize.Y; d.BackgroundTransparency = 1
+			d.Font = Enum.Font.Gotham; d.TextSize = DS.text.xs; d.TextColor3 = C.subtext
+			d.Text = desc; d.TextWrapped = true; d.TextXAlignment = Enum.TextXAlignment.Left
+			themed(d, "TextColor3", "subtext")
+		end
+
+		local row = Instance.new("Frame", card)
+		row.LayoutOrder = 2; row.Size = UDim2.new(1, 0, 0, 24); row.BackgroundTransparency = 1
+		local rowLay = Instance.new("UIListLayout", row)
+		rowLay.FillDirection = Enum.FillDirection.Horizontal
+		rowLay.VerticalAlignment = Enum.VerticalAlignment.Center
+		rowLay.Padding = UDim.new(0, 10)
+
+		local stateLbl = Instance.new("TextLabel", row)
+		stateLbl.LayoutOrder = 2; stateLbl.Size = UDim2.new(0, 140, 0, 20)
+		stateLbl.BackgroundTransparency = 1; stateLbl.Font = Enum.Font.GothamBold
+		stateLbl.TextSize = DS.text.sm; stateLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+		local function paint()
+			stateLbl.Text = on and "Activado" or "Desactivado"
+			stateLbl.TextColor3 = on and C.good or C.subtext
+		end
+
+		local sw, setOn, setBusy = DS._makeSwitch(row, on, function(newState)
+			on = newState
+			paint()
+			if onToggle then onToggle(newState) end
+		end)
+		sw.LayoutOrder = 1
+		paint()
+		onRepaint(paint)
+
+		return card, sw, setOn, setBusy, stateLbl
+	end
+
+	function DS.makeScoreBar(parent, label, score, levelTxt, color, order)
+		local row = Instance.new("Frame", parent)
+		row.LayoutOrder = order or 0
+		row.Size = UDim2.new(1, 0, 0, 28)
+		row.BackgroundTransparency = 1
+
+		local lab = Instance.new("TextLabel", row)
+		lab.Size = UDim2.new(0, 90, 1, 0)
+		lab.BackgroundTransparency = 1; lab.Font = Enum.Font.Gotham
+		lab.TextSize = DS.text.sm; lab.TextColor3 = C.subtext
+		lab.Text = label; lab.TextXAlignment = Enum.TextXAlignment.Left
+		themed(lab, "TextColor3", "subtext")
+
+		local tr = Instance.new("Frame", row)
+		tr.Position = UDim2.new(0, 96, 0.5, -3)
+		tr.Size = UDim2.new(1, -220, 0, 6)
+		tr.BackgroundColor3 = C.border; tr.BorderSizePixel = 0
+		Instance.new("UICorner", tr).CornerRadius = UDim.new(0, 3)
+		themed(tr, "BackgroundColor3", "border")
+
+		local fill = Instance.new("Frame", tr)
+		local clamped = math.clamp(score / 100, 0, 1)
+		fill.Size = UDim2.new(0, 0, 1, 0)
+		fill.BackgroundColor3 = color; fill.BorderSizePixel = 0
+		fill.ClipsDescendants = true
+		Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 3)
+		local target = math.max(clamped, score > 0 and 0.04 or 0)
+		motionTween(fill, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(target, 0, 1, 0) })
+
+		local val = Instance.new("TextLabel", row)
+		val.Position = UDim2.new(1, -118, 0, 0)
+		val.Size = UDim2.new(0, 118, 1, 0)
+		val.BackgroundTransparency = 1; val.Font = Enum.Font.GothamBold
+		val.TextSize = DS.text.sm; val.TextColor3 = color
+		val.Text = string.format("%d%% · %s", score, levelTxt)
+		val.TextXAlignment = Enum.TextXAlignment.Right
+		return row, fill, val
+	end
+
+	_G.NXDS = DS
+end
 
 -- ====================== DETECCIÓN DE EXECUTOR ======================
 local function detectExecutor()
@@ -2523,20 +2779,9 @@ gui.Name = "UtilityPanel"
 gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
--- POR ENCIMA DE CUALQUIER UI DEL JUEGO. DisplayOrder ordena los ScreenGui entre
--- sí: el más alto se dibuja encima. Sin esto, un juego que use un DisplayOrder
--- alto (menús, tiendas, cinemáticas) tapaba el panel.
--- OJO con lo que NO puede hacer: la CoreGui de Roblox (barra superior, chat,
--- menú de escape) SIEMPRE va por encima de PlayerGui, y meter el panel ahí
--- exige gethui()/CoreGui, donde los botones dejan de responder. Así que esto
--- lo pone sobre todo lo del JUEGO, no sobre la interfaz propia de Roblox.
 gui.DisplayOrder = 2147483
 gui.Parent = playerGui
 
--- Si el juego (o la re-ejecución de otro script) crea después un ScreenGui con
--- DisplayOrder aún más alto, lo re-imponemos. Es event-based, no un bucle:
--- solo corre cuando de verdad aparece un ScreenGui nuevo. (Ver regla de
--- rendimiento: nada de escanear en bucles.)
 task.defer(function()
 	pcall(function()
 		playerGui.ChildAdded:Connect(function(hijo)
@@ -2547,9 +2792,6 @@ task.defer(function()
 	end)
 end)
 
--- INTRO: si la animación de bienvenida va a salir, ocultamos el panel desde el
--- arranque para que NO se vea antes que la intro. La intro lo revela al final
--- (bloque "NX INTRO" → _G.NXIntro). Failsafe interno: nunca queda oculto.
 if (store.introEnabled ~= false) and (store.introSeen ~= true) then
 	gui.Enabled = false
 end
@@ -2566,8 +2808,6 @@ local function cleanupAll()
 		pcall(function() c:Disconnect() end)
 	end
 	table.clear(connections)
-	-- Corta el bucle de refresco de NX V2: no es una RBXScriptConnection, así que
-	-- track()/Disconnect no lo cubre. Sin esto seguiría pidiendo HTTP tras cerrar.
 	pcall(function() if _G.NXV2 and _G.NXV2.stop then _G.NXV2.stop() end end)
 end
 
@@ -2576,23 +2816,15 @@ track(gui.AncestryChanged:Connect(function(_, newParent)
 end))
 
 -- ====================== MODO DISCRETO (tecla ocultar/mostrar) ======================
--- Una sola tecla esconde/muestra TODA la interfaz al instante, sin cerrarla ni
--- perder el análisis cargado. Pensado para no llamar la atención: si alguien
--- mira tu pantalla, la ocultas y la recuperas con la misma tecla. También hay
--- un botón "—" en la cabecera que solo oculta (se recupera con la tecla).
 local HIDE_KEY = Enum.KeyCode.RightShift
 local guiHidden = false
--- Tabla con las animaciones de ventana (se llena al crear la ventana). Va en UNA
--- tabla, no en locals sueltos, para no agotar el límite de 200 locals de Luau.
 local NXWin = {}
 local function setHidden(h)
 	guiHidden = h
 	gui.Enabled = not h
-	-- Al volver a mostrar (tecla o botón), reproduce el "pop" de entrada premium.
 	if (not h) and NXWin.playOpenAnim then pcall(NXWin.playOpenAnim) end
 end
 track(UserInputService.InputBegan:Connect(function(input, processed)
-	-- no togglear si el juego ya procesó la tecla o si estás escribiendo
 	if processed or UserInputService:GetFocusedTextBox() then return end
 	if input.KeyCode == HIDE_KEY then
 		setHidden(not guiHidden)
@@ -2600,9 +2832,6 @@ track(UserInputService.InputBegan:Connect(function(input, processed)
 end))
 
 -- ====================== MOTION (animaciones + toggle global) ======================
--- Toda animación de la UI pasa por aquí. Si el usuario desactiva las animaciones
--- (Ajustes), motionTween salta directo a los valores finales (estilo
--- "prefers-reduced-motion"): la UI sigue funcionando, pero sin movimiento.
 local ANIM = { enabled = (store.animations ~= false) }
 
 local function motionTween(inst, info, props, onDone)
@@ -2617,7 +2846,6 @@ local function motionTween(inst, info, props, onDone)
 	return nil
 end
 
--- Cambia el estado global de animaciones (y avisa al módulo de head tags si existe).
 local function setAnimationsEnabled(on)
 	ANIM.enabled = on and true or false
 	if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled then
@@ -2625,54 +2853,26 @@ local function setAnimationsEnabled(on)
 	end
 end
 
--- ====================== HELPERS DE UI (profundidad, sombra) ======================
--- Sin efecto hover a propósito: dejamos AutoButtonColor en false para que NO pase
--- NADA al poner el cursor encima (ni borde de acento ni oscurecido). Se conserva
--- el nombre de la función para no tocar los sitios donde ya se llamaba.
+-- ====================== HELPERS DE UI ======================
 local function addHoverStroke(btn)
 	btn.AutoButtonColor = false
 	btn:SetAttribute("NXHoverDone", true)
-	if not ANIM.enabled then return end
-	-- Micro-feedback al pulsar: se hunde un pelín y vuelve al soltar.
 	local sc = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
 	local function to(s, d)
 		motionTween(sc, TweenInfo.new(d, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = s })
 	end
-	-- Hover: borde aparece con fade suave; leave: se desvanece.
-	local hStroke = btn:FindFirstChildOfClass("UIStroke")
-	if not hStroke then
-		hStroke = Instance.new("UIStroke", btn)
-		hStroke.Color = C.accent; hStroke.Thickness = 1
-		hStroke.Transparency = 1
-		themed(hStroke, "Color", "accent")
-	end
-	btn.MouseEnter:Connect(function()
-		motionTween(hStroke, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Transparency = 0.3 })
-	end)
-	btn.MouseLeave:Connect(function()
-		motionTween(hStroke, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Transparency = 1 })
-		to(1, 0.12)
-	end)
-	btn.MouseButton1Down:Connect(function() to(0.95, 0.07) end)
+	btn.MouseButton1Down:Connect(function() to(0.97, 0.07) end)
 	btn.MouseButton1Up:Connect(function() to(1, 0.12) end)
+	btn.MouseLeave:Connect(function() sc.Scale = 1 end)
 end
 
--- Profundidad sutil para tarjetas: gradiente vertical (arriba algo más claro,
--- abajo más oscuro = "iluminado desde arriba") + borde fino temable.
 local function addDepth(frame)
-	local grad = Instance.new("UIGradient", frame)
-	grad.Rotation = 90
-	grad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(214, 214, 220))
 	local st = Instance.new("UIStroke", frame)
-	st.Color = C.border; st.Transparency = 0.15; st.Thickness = 1
+	st.Color = C.border; st.Transparency = 0.6; st.Thickness = 1
 	themed(st, "Color", "border")
-	return grad, st
+	return nil, st
 end
 
--- Sombra suave (drop shadow) detrás de un elemento, usando el asset 9-slice
--- estándar de Roblox. 'parent' debe NO recortar (ClipsDescendants = false).
 local function addDropShadow(target, parent, zIndex, pad, transparency)
 	pad = pad or 26
 	local sh = Instance.new("ImageLabel")
@@ -2692,46 +2892,38 @@ local function addDropShadow(target, parent, zIndex, pad, transparency)
 	return sh
 end
 
--- ====================== SWITCH NX (estilo móvil) ======================
--- Interruptor deslizante reutilizable: pista + knob que viaja con animación
--- (respeta el toggle global de Animaciones vía motionTween) + estado de carga
--- (el knob late mientras corre una verificación REAL). Lo usan el panel de
--- NX Shields y la pestaña Ajustes, así que ambos se ven y se sienten igual.
--- Devuelve: frame, setOn(on), setBusy(b)
+-- ====================== SWITCH NX (rediseño: 40x20, knob 16px) ======================
 function Shield.makeSwitch(parent, on, onToggle)
-	local W, H = 46, 24
+	local W, H = 40, 20
+	local KNOB = H - 4
 	local track_ = Instance.new("TextButton", parent)
 	track_.Size = UDim2.fromOffset(W, H)
 	track_.AutoButtonColor = false
 	track_.Text = ""
 	track_.BorderSizePixel = 0
-	track_.BackgroundColor3 = on and C.good or C.neutral
+	track_.BackgroundColor3 = on and C.good or C.border
 	Instance.new("UICorner", track_).CornerRadius = UDim.new(1, 0)
-	local ts = Instance.new("UIStroke", track_)
-	ts.Thickness = 1
-	ts.Transparency = 0.55
-	themed(ts, "Color", "border")
 
 	local knob = Instance.new("Frame", track_)
-	knob.Size = UDim2.fromOffset(H - 6, H - 6)
-	knob.Position = on and UDim2.new(1, -(H - 3), 0, 3) or UDim2.new(0, 3, 0, 3)
-	knob.BackgroundColor3 = Color3.fromRGB(250, 250, 252)
+	knob.Size = UDim2.fromOffset(KNOB, KNOB)
+	knob.Position = on and UDim2.new(1, -(KNOB + 2), 0, 2) or UDim2.new(0, 2, 0, 2)
+	knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	knob.BorderSizePixel = 0
 	knob.ZIndex = 2
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
 	local estado, ocupado = on, false
-	local latido   -- tween del "pensando"
+	local latido
 
 	local function pintar()
-		track_.BackgroundColor3 = ocupado and C.warn or (estado and C.good or C.neutral)
+		track_.BackgroundColor3 = ocupado and C.warn or (estado and C.good or C.border)
 	end
 
 	local function setOn(v, mover)
 		estado = v and true or false
-		local destino = estado and UDim2.new(1, -(H - 3), 0, 3) or UDim2.new(0, 3, 0, 3)
+		local destino = estado and UDim2.new(1, -(KNOB + 2), 0, 2) or UDim2.new(0, 2, 0, 2)
 		if mover == false then knob.Position = destino
-		else motionTween(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = destino }) end
+		else motionTween(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = destino }) end
 		pintar()
 	end
 
@@ -2740,7 +2932,6 @@ function Shield.makeSwitch(parent, on, onToggle)
 		pintar()
 		if latido then pcall(function() latido:Cancel() end); latido = nil end
 		if ocupado and ANIM.enabled then
-			-- Latido REAL: solo late mientras hay una comprobación ejecutándose.
 			knob.BackgroundTransparency = 0
 			latido = TweenService:Create(knob,
 				TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
@@ -2752,7 +2943,7 @@ function Shield.makeSwitch(parent, on, onToggle)
 	end
 
 	track_.MouseButton1Click:Connect(function()
-		if ocupado then return end            -- no se toca mientras verifica
+		if ocupado then return end
 		setOn(not estado)
 		if onToggle then onToggle(estado) end
 	end)
@@ -2760,18 +2951,16 @@ function Shield.makeSwitch(parent, on, onToggle)
 
 	return track_, setOn, setBusy
 end
+_G.NXDS._makeSwitch = Shield.makeSwitch
 
 -- ====================== VENTANA ======================
-local MIN_W, MIN_H = 420, 360   -- tamaño mínimo al redimensionar
+local MIN_W, MIN_H = 420, 360
 local main = Instance.new("Frame")
--- El nombre importa: la Lista de Jugadores se ancla al lado del panel buscando
--- UtilityPanel.main. Sin nombre era "Frame", la búsqueda fallaba en silencio y
--- la Lista se quedaba siempre en su posición de reserva.
 main.Name = "main"
-main.Size = UDim2.new(0, 600, 0, 480)
-main.Position = UDim2.new(0.5, -300, 0.5, -240)
+main.Size = UDim2.new(0, 620, 0, 500)
+main.Position = UDim2.new(0.5, -310, 0.5, -250)
 main.BackgroundColor3 = C.bg
-main.BackgroundTransparency = 0.05
+main.BackgroundTransparency = 0.02
 main.BorderSizePixel = 0
 main.Active = true
 main.ClipsDescendants = true
@@ -2779,76 +2968,76 @@ main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 themed(main, "BackgroundColor3", "bg")
 local stroke = Instance.new("UIStroke", main)
-stroke.Color = C.accent
-stroke.Transparency = 0.55
-stroke.Thickness = 1.5
-themed(stroke, "Color", "accent")
+stroke.Color = C.border
+stroke.Transparency = 0.5
+stroke.Thickness = 1
+themed(stroke, "Color", "border")
 
--- Sombra suave de la ventana (profundidad). Va detrás de 'main' (ZIndex 0) y la
--- sigue al arrastrar/redimensionar escuchando los cambios de Position/Size.
--- (SHADOW_PAD = 14, separación de la sombra, inlineado abajo: local de raíz.)
 local windowShadow = Instance.new("ImageLabel")
 windowShadow.Name = "WindowShadow"
 windowShadow.Active = false
 windowShadow.BackgroundTransparency = 1
-windowShadow.Image = "rbxassetid://6014261993"   -- sombra suave con esquinas REDONDEADAS ("finalshdw")
+windowShadow.Image = "rbxassetid://6014261993"
 windowShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-windowShadow.ImageTransparency = 0.5    -- visible pero suave
+windowShadow.ImageTransparency = 0.6
 windowShadow.ScaleType = Enum.ScaleType.Slice
-windowShadow.SliceCenter = Rect.new(49, 49, 450, 450)   -- centro del asset redondeado
+windowShadow.SliceCenter = Rect.new(49, 49, 450, 450)
 windowShadow.ZIndex = 0
 windowShadow.Parent = gui
 local function syncWindowShadow()
-	windowShadow.Size = main.Size + UDim2.fromOffset(28, 28)      -- SHADOW_PAD*2
-	windowShadow.Position = main.Position - UDim2.fromOffset(14, 14)   -- SHADOW_PAD
+	windowShadow.Size = main.Size + UDim2.fromOffset(28, 28)
+	windowShadow.Position = main.Position - UDim2.fromOffset(14, 14)
 end
 syncWindowShadow()
 track(main:GetPropertyChangedSignal("Size"):Connect(syncWindowShadow))
 track(main:GetPropertyChangedSignal("Position"):Connect(syncWindowShadow))
 
--- Header
+-- Header (36px, color headerBg)
 local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 34)
-header.BackgroundColor3 = C.accent
-header.BackgroundTransparency = 0.85
+header.Size = UDim2.new(1, 0, 0, 36)
+header.BackgroundColor3 = C.headerBg
+header.BackgroundTransparency = 0
 header.BorderSizePixel = 0
-Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
-themed(header, "BackgroundColor3", "accent")
+themed(header, "BackgroundColor3", "headerBg")
+
+-- Divider line under header
+local headerDiv = Instance.new("Frame", main)
+headerDiv.Size = UDim2.new(1, 0, 0, 1)
+headerDiv.Position = UDim2.new(0, 0, 0, 36)
+headerDiv.BackgroundColor3 = C.divider
+headerDiv.BackgroundTransparency = 0.4
+headerDiv.BorderSizePixel = 0
+themed(headerDiv, "BackgroundColor3", "divider")
 
 local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -94, 1, 0)
-title.Position = UDim2.new(0, 80, 0, 0)
+title.Size = UDim2.new(1, -100, 1, 0)
+title.Position = UDim2.new(0, 56, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.Text = "Roblox Profile Analyzer"
-title.TextColor3 = C.accent
-title.TextSize = 18
+title.TextColor3 = C.text
+title.TextSize = 15
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextTruncate = Enum.TextTruncate.AtEnd
-themed(title, "TextColor3", "accent")
+themed(title, "TextColor3", "text")
 
 -- ====================== BRILLO EN MOVIMIENTO (sheen del título) ======================
--- Premium "shine sweep": una COPIA BLANCA del título por encima, revelada solo en
--- una banda estrecha y diagonal que barre de izquierda a derecha en bucle. El título
--- base (acento, temable) no se toca; solo se le pasa un destello blanco por arriba.
--- En do...end: titleShine/shineGrad/syncShine NO gastan locals de raíz (límite 200 de Luau).
 do
 local titleShine = title:Clone()
 titleShine.Name = "TitleShine"
 titleShine.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleShine.TextTransparency = 0
+titleShine.TextTransparency = 0.4
 titleShine.ZIndex = title.ZIndex + 1
 titleShine.Parent = title.Parent
 local shineGrad = Instance.new("UIGradient", titleShine)
-shineGrad.Rotation = 18   -- ligeramente diagonal = look más premium
+shineGrad.Rotation = 18
 shineGrad.Transparency = NumberSequence.new({
 	NumberSequenceKeypoint.new(0.00, 1),
-	NumberSequenceKeypoint.new(0.42, 1),
-	NumberSequenceKeypoint.new(0.50, 0.05),  -- núcleo del destello (casi opaco)
-	NumberSequenceKeypoint.new(0.58, 1),
+	NumberSequenceKeypoint.new(0.44, 1),
+	NumberSequenceKeypoint.new(0.50, 0.15),
+	NumberSequenceKeypoint.new(0.56, 1),
 	NumberSequenceKeypoint.new(1.00, 1),
 })
--- El overlay sigue al título (PRISM lo reubica/redimensiona más abajo).
 local function syncShine()
 	titleShine.Size = title.Size
 	titleShine.Position = title.Position
@@ -2857,58 +3046,44 @@ end
 syncShine()
 track(title:GetPropertyChangedSignal("Size"):Connect(syncShine))
 track(title:GetPropertyChangedSignal("Position"):Connect(syncShine))
--- Barrido infinito (respeta el toggle global de animaciones).
 if ANIM.enabled then
 	shineGrad.Offset = Vector2.new(-1, 0)
 	TweenService:Create(shineGrad,
-		TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 1.0),
+		TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 2.0),
 		{ Offset = Vector2.new(1, 0) }):Play()
 else
-	shineGrad.Offset = Vector2.new(2, 0)   -- banda fuera de pantalla = sin destello
+	shineGrad.Offset = Vector2.new(2, 0)
 end
-end  -- /do (brillo del título)
+end
 
--- ====================== CIRCULITOS DECORATIVOS (macOS / Tor) ======================
--- Los tres "circulitos" arriba a la izquierda son SOLO ADORNO (puro estilo). Los
--- controles que de verdad funcionan (minimizar/expandir/cerrar) viven a la DERECHA,
--- junto al logo NX (ver sección PRISM). En reposo se ven lisos; al pasar el cursor
--- aparece su símbolo, pero no ejecutan ninguna acción.
-
+-- ====================== CIRCULITOS DECORATIVOS (10px, más discretos) ======================
 -- ====================== ANIMACIONES DE VENTANA (premium) ======================
--- Todo dentro de un do...end + la tabla NXWin: el estado (introScale, maximized,
--- etc.) vive en el bloque y NO gasta locals de raíz (Luau limita a 200 por función).
 do
 	local introScale = Instance.new("UIScale", main)
 	introScale.Scale = 1
 	local maximized, prevSize, prevPos = false, nil, nil
 	local windowCollapsed, savedCollapseSize = false, nil
 
-	-- Entrada: la ventana crece desde 0.94 con un leve rebote (Back). También al
-	-- reaparecer tras ocultar con la tecla/botón.
 	function NXWin.playOpenAnim()
 		if not ANIM.enabled then
 			introScale.Scale = 1
-			windowShadow.ImageTransparency = 0.5
+			windowShadow.ImageTransparency = 0.6
 			return
 		end
 		introScale.Scale = 0.94
-		windowShadow.ImageTransparency = 0.5
-		motionTween(introScale, TweenInfo.new(0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+		windowShadow.ImageTransparency = 0.6
+		motionTween(introScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 	end
 
-	-- "Smoosh" al arrastrar: la ventana se encoge un pelín al agarrarla y vuelve
-	-- con un pequeño rebote al soltar. Reusa introScale (la ÚNICA UIScale de la
-	-- ventana): añadir otra daría un comportamiento ambiguo entre las dos.
 	function NXWin.setDragSquish(on)
 		if not ANIM.enabled then return end
 		if on then
 			motionTween(introScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.985 })
 		else
-			motionTween(introScale, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+			motionTween(introScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 		end
 	end
 
-	-- Cerrar animado: colapso elegante y destruye la GUI al terminar.
 	function NXWin.animatedClose()
 		if not ANIM.enabled then gui:Destroy(); return end
 		motionTween(windowShadow, TweenInfo.new(0.18), { ImageTransparency = 1 })
@@ -2917,8 +3092,6 @@ do
 		end)
 	end
 
-	-- MINIMIZAR DE VERDAD: la ventana se encoge hasta la barra de título (NO se
-	-- oculta); al pulsar de nuevo se restaura. Animado (como el panel de buscar nombres).
 	function NXWin.toggleCollapse()
 		if windowCollapsed then
 			windowCollapsed = false
@@ -2927,12 +3100,10 @@ do
 			savedCollapseSize = main.Size
 			windowCollapsed = true
 			motionTween(main, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-				{ Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 34) })
+				{ Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 36) })
 		end
 	end
 
-	-- Maximizar/restaurar a ~90% con TRANSICIÓN SUAVE. Si estaba colapsada, recuerda
-	-- su tamaño normal (no los 34px).
 	function NXWin.toggleMaximize()
 		local targetSize, targetPos
 		if maximized then
@@ -2950,73 +3121,61 @@ do
 			targetPos  = UDim2.new(0.5, -w/2, 0.5, -h/2)
 			maximized = true
 		end
-		windowCollapsed = false   -- maximizar/restaurar siempre des-colapsa
+		windowCollapsed = false
 		motionTween(main, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = targetSize, Position = targetPos })
 	end
 end
 
--- "Pop" de entrada al abrir el panel (se ve crecer con un leve rebote).
 NXWin.playOpenAnim()
 
-local function makeTrafficLight(x, color, glyph, onClick)
-	local b = Instance.new("TextButton", header)
-	b.Size = UDim2.new(0, 14, 0, 14)
-	b.Position = UDim2.new(0, x, 0.5, -7)
+local function makeTrafficLight(x, color)
+	local b = Instance.new("Frame", header)
+	b.Size = UDim2.new(0, 10, 0, 10)
+	b.Position = UDim2.new(0, x, 0.5, -5)
 	b.BackgroundColor3 = color
-	b.Text = glyph
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 11
-	b.TextColor3 = Color3.fromRGB(55, 40, 35)   -- símbolo oscuro (estilo Mac)
-	b.TextTransparency = 1                        -- oculto hasta pasar el cursor
-	b.AutoButtonColor = false
 	b.BorderSizePixel = 0
 	b.ZIndex = 3
-	Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)  -- círculo perfecto
-	local st = Instance.new("UIStroke", b)
-	st.Color = Color3.fromRGB(0, 0, 0); st.Transparency = 0.82; st.Thickness = 1
-	b.MouseEnter:Connect(function() b.TextTransparency = 0 end)
-	b.MouseLeave:Connect(function() b.TextTransparency = 1 end)
-	track(b.MouseButton1Click:Connect(onClick))
+	Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
 	return b
 end
 
--- rojo / amarillo / verde, espaciados a la izquierda (como en macOS/Tor).
--- SOLO ADORNO: puntos de color lisos, SIN símbolo (para que no parezcan botones).
--- Los controles reales (minimizar/expandir/cerrar) están a la derecha, con el logo NX.
-makeTrafficLight(14, Color3.fromRGB(255, 95, 86),  "", function() end)
-makeTrafficLight(34, Color3.fromRGB(255, 189, 46), "", function() end)
-makeTrafficLight(54, Color3.fromRGB(39, 201, 63),  "", function() end)
+makeTrafficLight(14, Color3.fromRGB(255, 95, 86))
+makeTrafficLight(30, Color3.fromRGB(255, 189, 46))
+makeTrafficLight(46, Color3.fromRGB(39, 201, 63))
 
--- ====================== BÚSQUEDA ======================
+-- ====================== BÚSQUEDA (responsive: input stretches, status below) ======================
 local searchFrame = Instance.new("Frame", main)
-searchFrame.Size = UDim2.new(1, -20, 0, 32)
-searchFrame.Position = UDim2.new(0, 10, 0, 40)
+searchFrame.Size = UDim2.new(1, -24, 0, 52)
+searchFrame.Position = UDim2.new(0, 12, 0, 42)
 searchFrame.BackgroundTransparency = 1
 
 local searchBox = Instance.new("TextBox", searchFrame)
-searchBox.Size = UDim2.new(0, 200, 0, 28)
+searchBox.Size = UDim2.new(1, -122, 0, 32)
 searchBox.PlaceholderText = "Usuario o ID"
+searchBox.PlaceholderColor3 = C.textDisabled
 searchBox.Text = ""
 searchBox.Font = Enum.Font.Gotham
-searchBox.TextSize = 14
+searchBox.TextSize = 13
 searchBox.BackgroundColor3 = C.input
 searchBox.TextColor3 = C.text
 searchBox.ClearTextOnFocus = false
 searchBox.BorderSizePixel = 0
 searchBox.TextXAlignment = Enum.TextXAlignment.Left
-Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 8)
 local sbPad = Instance.new("UIPadding", searchBox)
-sbPad.PaddingLeft = UDim.new(0, 26)
+sbPad.PaddingLeft = UDim.new(0, 32)
 sbPad.PaddingRight = UDim.new(0, 8)
 themed(searchBox, "BackgroundColor3", "input")
 themed(searchBox, "TextColor3", "text")
+local sbStroke = Instance.new("UIStroke", searchBox)
+sbStroke.Thickness = 1; sbStroke.Transparency = 0.7; sbStroke.Color = C.border
+themed(sbStroke, "Color", "border")
 
--- Icono LUPA (buscar) dibujado a la izquierda: aro + mango. Vectorial, siempre
--- renderiza (nada de glifos/tofu) y se tiñe con el tema.
+-- Lupa vectorial
 local lockGlyph = Instance.new("Frame", searchFrame)
 lockGlyph.Name = "SearchIcon"
-lockGlyph.Size = UDim2.new(0, 16, 0, 28)
-lockGlyph.Position = UDim2.new(0, 7, 0, 0)
+lockGlyph.Size = UDim2.new(0, 16, 0, 32)
+lockGlyph.Position = UDim2.new(0, 8, 0, 0)
 lockGlyph.BackgroundTransparency = 1
 lockGlyph.ZIndex = 2
 do
@@ -3024,78 +3183,63 @@ do
 	ring.AnchorPoint = Vector2.new(0.5, 0.5)
 	ring.Position = UDim2.new(0.42, 0, 0.5, -1)
 	ring.Size = UDim2.fromOffset(10, 10)
-	ring.BackgroundTransparency = 1
-	ring.BorderSizePixel = 0
-	ring.ZIndex = 2
+	ring.BackgroundTransparency = 1; ring.BorderSizePixel = 0; ring.ZIndex = 2
 	Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
 	local rs = Instance.new("UIStroke", ring)
-	rs.Thickness = 1.6
-	rs.Color = C.subtext
+	rs.Thickness = 1.6; rs.Color = C.subtext
 	themed(rs, "Color", "subtext")
 	local handle = Instance.new("Frame", lockGlyph)
 	handle.AnchorPoint = Vector2.new(0.5, 0.5)
 	handle.Position = UDim2.new(0.74, 0, 0.78, -1)
 	handle.Size = UDim2.fromOffset(5, 1.8)
-	handle.Rotation = 45
-	handle.BorderSizePixel = 0
-	handle.BackgroundColor3 = C.subtext
-	handle.ZIndex = 2
+	handle.Rotation = 45; handle.BorderSizePixel = 0
+	handle.BackgroundColor3 = C.subtext; handle.ZIndex = 2
 	Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
 	themed(handle, "BackgroundColor3", "subtext")
 end
 
--- (v3.8.2) MENÚ DE SUGERENCIAS ELIMINADO a pedido del usuario.
--- Antes salía un dropdown debajo del buscador con los últimos perfiles y con
--- resultados en vivo de la API. El problema real: caía a y=72 y las TABS
--- están a y=78, así que TAPABA las pestañas y el usuario no podía cambiar de
--- vista mientras estaba tecleando o mientras el buscador tenía foco vacío.
--- Solución simple: fuera. La búsqueda ya funciona escribiendo + Enter o
--- pulsando "Analizar" (auto-resuelve @usuario o UserId), así que no se pierde
--- funcionalidad, solo el atajo visual. Se dejan STUBS de las 3 funciones
--- (hideAllSuggestions/showSuggestions/ensureSuggestionItem) para no romper
--- las llamadas que quedan en otros sitios del archivo. Coste: 0.
 local analyze
 local function hideAllSuggestions() end
 local function showSuggestions(_) end
 local function ensureSuggestionItem(_) return nil end
 
 local analyzeBtn = Instance.new("TextButton", searchFrame)
-analyzeBtn.Size = UDim2.new(0, 100, 0, 28)
-analyzeBtn.Position = UDim2.new(0, 210, 0, 0)
+analyzeBtn.Size = UDim2.new(0, 110, 0, 32)
+analyzeBtn.AnchorPoint = Vector2.new(1, 0)
+analyzeBtn.Position = UDim2.new(1, 0, 0, 0)
 analyzeBtn.BackgroundColor3 = C.accent
 analyzeBtn.Text = "Analizar"
 analyzeBtn.Font = Enum.Font.GothamBold
-analyzeBtn.TextSize = 14
+analyzeBtn.TextSize = 13
 analyzeBtn.TextColor3 = C.onAccent
 analyzeBtn.BorderSizePixel = 0
-Instance.new("UICorner", analyzeBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", analyzeBtn).CornerRadius = UDim.new(0, 8)
 themed(analyzeBtn, "BackgroundColor3", "accent")
 themed(analyzeBtn, "TextColor3", "onAccent")
 addHoverStroke(analyzeBtn)
 
+-- Status label DEBAJO del search bar (full width, no se corta)
 local statusLabel = Instance.new("TextLabel", searchFrame)
-statusLabel.Size = UDim2.new(1, -320, 0, 28)
-statusLabel.Position = UDim2.new(0, 320, 0, 0)
+statusLabel.Size = UDim2.new(1, 0, 0, 16)
+statusLabel.Position = UDim2.new(0, 0, 0, 35)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextSize = 13
+statusLabel.TextSize = 11
 statusLabel.TextColor3 = C.subtext
-statusLabel.Text = ""   -- (antes había un tip de [RShift]; quitado a pedido del usuario)
+statusLabel.Text = ""
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
 themed(statusLabel, "TextColor3", "subtext")
 
 -- ====================== PESTAÑAS ======================
 local tabBar = Instance.new("ScrollingFrame", main)
-tabBar.Size = UDim2.new(1, -20, 0, 26)
-tabBar.Position = UDim2.new(0, 10, 0, 78)
--- Fondo sólido (v3.8.2): antes era transparente y el contenido con scroll
--- se veía POR DEBAJO de las tabs (el toggle "Activado" atravesándolas).
+tabBar.Size = UDim2.new(1, -24, 0, 30)
+tabBar.Position = UDim2.new(0, 12, 0, 96)
 tabBar.BackgroundColor3 = C.bg
 tabBar.BackgroundTransparency = 0
 themed(tabBar, "BackgroundColor3", "bg")
 tabBar.BorderSizePixel = 0
-tabBar.ScrollBarThickness = 3
+tabBar.ScrollBarThickness = 2
 tabBar.ScrollBarImageColor3 = C.accent
 themed(tabBar, "ScrollBarImageColor3", "accent")
 tabBar.ScrollingDirection = Enum.ScrollingDirection.X
@@ -3103,61 +3247,43 @@ tabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
 tabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
 local tabLayout = Instance.new("UIListLayout", tabBar)
 tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.Padding = UDim.new(0, 5)
+tabLayout.Padding = UDim.new(0, 6)
 tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 local content = Instance.new("Frame", main)
--- -116: la barra de terminal inferior se retiró (v3.8.1), así que el contenido
--- vuelve a llegar casi hasta el borde de abajo. Más alto útil para los datos.
-content.Size = UDim2.new(1, -20, 1, -116)
-content.Position = UDim2.new(0, 10, 0, 106)
+content.Size = UDim2.new(1, -24, 1, -134)
+content.Position = UDim2.new(0, 12, 0, 128)
 content.BackgroundTransparency = 1
 
--- (La BARRA DE TERMINAL inferior se retiró en v3.8.1 a pedido del usuario:
---  duplicaba la línea de estado y restaba alto útil. El aire de terminal lo
---  dan el tema Kali + la fuente mono. _G.NXTerm ya no existe y sus dos llamadas
---  —en analyze() y en el arranque del skin— también se quitaron.)
-
 local tabs, pages = {}, {}
-local tabByPage = {}      -- page -> botón (para activar una pestaña por código)
-local onShowByPage = {}   -- page -> callback opcional al mostrarse (carga perezosa)
+local tabByPage = {}
+local onShowByPage = {}
 local activeTab = nil
 local function paintTabs()
 	for _, t in ipairs(tabs) do
-		-- Texto de las tabs SIEMPRE blanco (a pedido): activo en blanco pleno,
-		-- inactivo en el mismo blanco pero atenuado. Guarda de luminancia por si el
-		-- fondo del tab es muy claro (el tema "negro" tiene accent BLANCO y "claro"
-		-- tiene neutral claro): ahí el blanco no se leería, así que cae a onAccent.
-		-- (bg/lum/txt son locales de ESTA función; no gastan registros de raíz.)
-		local bg  = (t == activeTab) and C.accent or C.neutral
-		local lum = 0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B
-		local txt = (lum > 0.62) and C.onAccent or Color3.fromRGB(255, 255, 255)
 		if t == activeTab then
 			t.BackgroundColor3 = C.accent
 			t.BackgroundTransparency = 0
-			t.TextColor3 = txt
+			t.TextColor3 = C.onAccent
 			t.TextTransparency = 0
 		else
-			-- inactivo: bloque más suave (menos saturado) + blanco atenuado
-			t.BackgroundColor3 = C.neutral
-			t.BackgroundTransparency = 0.35
-			t.TextColor3 = txt
-			t.TextTransparency = 0.32
+			t.BackgroundColor3 = C.bg
+			t.BackgroundTransparency = 1
+			t.TextColor3 = C.subtext
+			t.TextTransparency = 0
 		end
 	end
 end
 onRepaint(paintTabs)
 
--- Muestra una pestaña por código (la usa el Explorador para saltar a "Perfil").
 local function showPage(page)
 	if ANIM.enabled then
-		-- Fade-out rápido de la pestaña que sale.
 		local saliente
 		for _, p in pairs(pages) do
 			if p.Visible and p ~= page then saliente = p; break end
 		end
 		if saliente then
-			-- Fade-out sutil: opacidad baja rápido y luego se oculta.
 			motionTween(saliente, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 				{}, function()
 					saliente.Visible = false
@@ -3165,21 +3291,18 @@ local function showPage(page)
 		end
 		for _, p in pairs(pages) do p.Visible = false end
 		page.Visible = true
-		-- Fade-in + smoosh: la pestaña entra con deslizamiento, micro pop de escala
-		-- y un fade sutil staggered después del scale.
 		local sc = page:FindFirstChild("PageScale")
 		if not sc then sc = Instance.new("UIScale", page); sc.Name = "PageScale" end
-		sc.Scale = 0.985
-		page.Position = UDim2.new(0, 0, 0, 12)
-		-- Empezar invisible para el fade-in.
+		sc.Scale = 0.99
+		page.Position = UDim2.new(0, 0, 0, 8)
 		for _, ch in ipairs(page:GetChildren()) do
-			if ch:IsA("ScrollingFrame") or ch:IsA("Frame") then
-				ch.GroupTransparency = ch:IsA("CanvasGroup") and 1 or 0
+			if ch:IsA("CanvasGroup") then
+				ch.GroupTransparency = 1
 			end
 		end
-		motionTween(page, TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		motionTween(page, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 			{ Position = UDim2.new(0, 0, 0, 0) })
-		motionTween(sc, TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		motionTween(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 			{ Scale = 1 })
 	else
 		for _, p in pairs(pages) do p.Visible = false end
@@ -3194,21 +3317,19 @@ end
 
 local function createTab(name, page, onShow)
 	local btn = Instance.new("TextButton", tabBar)
-	-- Auto-ancho: antes eran 92 px fijos y los rótulos largos se cortaban
-	-- ("Estadísticas" salía como "stadística"). Ahora el tab se adapta al
-	-- texto y un UIPadding le da 14 px de aire a cada lado.
-	btn.Size = UDim2.new(0, 0, 0, 24)
+	btn.Size = UDim2.new(0, 0, 0, 28)
 	btn.AutomaticSize = Enum.AutomaticSize.X
 	btn.LayoutOrder = #tabs
-	btn.BackgroundColor3 = C.neutral
+	btn.BackgroundColor3 = C.bg
+	btn.BackgroundTransparency = 1
 	btn.Text = name
-	btn.Font = Enum.Font.Gotham
+	btn.Font = Enum.Font.GothamMedium
 	btn.TextSize = 13
-	btn.TextColor3 = C.text
+	btn.TextColor3 = C.subtext
 	btn.BorderSizePixel = 0
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 	local tp = Instance.new("UIPadding", btn)
-	tp.PaddingLeft = UDim.new(0, 14); tp.PaddingRight = UDim.new(0, 14)
+	tp.PaddingLeft = UDim.new(0, 16); tp.PaddingRight = UDim.new(0, 16)
 	addHoverStroke(btn)
 	tabByPage[page] = btn
 	if onShow then onShowByPage[page] = onShow end
@@ -3228,17 +3349,19 @@ local function makeScroll(parent)
 	sf.Size = UDim2.new(1, 0, 1, 0)
 	sf.BackgroundTransparency = 1
 	sf.BorderSizePixel = 0
-	sf.ScrollBarThickness = 4
+	sf.ScrollBarThickness = 3
 	sf.ScrollBarImageColor3 = C.accent
 	sf.CanvasSize = UDim2.new(0, 0, 0, 0)
 	sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	sf.ClipsDescendants = true
 	themed(sf, "ScrollBarImageColor3", "accent")
 	local layout = Instance.new("UIListLayout", sf)
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 10)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	local pad = Instance.new("UIPadding", sf)
-	pad.PaddingRight = UDim.new(0, 6)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.PaddingBottom = UDim.new(0, 8)
 	return sf
 end
 
@@ -3272,6 +3395,7 @@ settingsPage.BackgroundTransparency = 1
 settingsPage.Visible = false
 local settingsScroll = makeScroll(settingsPage)
 
+print("[NX-DEBUG] ✓ Pages created, entering modals section")
 -- ====================== ABRIR URL ======================
 local GuiService = game:GetService("GuiService")
 
@@ -3350,59 +3474,83 @@ end
 local function showLinkModal(url)
 	local existing = gui:FindFirstChild("LinkModal")
 	if existing then existing:Destroy() end
+	local DS = _G.NXDS
 
 	local overlay = Instance.new("Frame", gui)
 	overlay.Name = "LinkModal"
 	overlay.Size = UDim2.new(1, 0, 1, 0)
 	overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	overlay.BackgroundTransparency = 0.4
+	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 50
+	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.5 })
 
 	local box = Instance.new("Frame", overlay)
-	box.Size = UDim2.new(0, 480, 0, 300)
-	box.Position = UDim2.new(0.5, -240, 0.5, -150)
-	box.BackgroundColor3 = C.modalBg
+	box.Size = UDim2.new(0, 440, 0, 0)
+	box.AutomaticSize = Enum.AutomaticSize.Y
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.new(0.5, 0, 0.5, 0)
+	box.BackgroundColor3 = C.elevated
 	box.BorderSizePixel = 0
-	box.ClipsDescendants = true
+	box.ClipsDescendants = false
 	box.ZIndex = 51
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
-
+	themed(box, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local boxStroke = Instance.new("UIStroke", box)
-	boxStroke.Color = C.good
-	boxStroke.Thickness = 1.5
-	boxStroke.Transparency = 0.3
+	boxStroke.Color = C.border; boxStroke.Thickness = 1; boxStroke.Transparency = 0.1
+	themed(boxStroke, "Color", "border")
 
-	local checkIcon = Instance.new("TextLabel", box)
-	checkIcon.Size = UDim2.new(0, 32, 0, 32)
-	checkIcon.Position = UDim2.new(0, 14, 0, 12)
+	local bScale = Instance.new("UIScale", box); bScale.Scale = 0.88
+	motionTween(bScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+
+	local bPad = Instance.new("UIPadding", box)
+	bPad.PaddingTop = UDim.new(0, 20); bPad.PaddingBottom = UDim.new(0, 20)
+	bPad.PaddingLeft = UDim.new(0, 20); bPad.PaddingRight = UDim.new(0, 20)
+	local bLay = Instance.new("UIListLayout", box)
+	bLay.Padding = UDim.new(0, DS.space.md); bLay.SortOrder = Enum.SortOrder.LayoutOrder
+	bLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	local headRow = Instance.new("Frame", box)
+	headRow.LayoutOrder = 0
+	headRow.Size = UDim2.new(1, 0, 0, 28)
+	headRow.BackgroundTransparency = 1
+	headRow.ZIndex = 52
+
+	local checkIcon = Instance.new("Frame", headRow)
+	checkIcon.Size = UDim2.new(0, 28, 0, 28)
 	checkIcon.BackgroundColor3 = C.good
-	checkIcon.Text = "✓"
-	checkIcon.Font = Enum.Font.GothamBold
-	checkIcon.TextSize = 20
-	checkIcon.TextColor3 = C.text
+	checkIcon.BackgroundTransparency = 0.82
 	checkIcon.BorderSizePixel = 0
 	checkIcon.ZIndex = 52
-	Instance.new("UICorner", checkIcon).CornerRadius = UDim.new(0, 16)
+	Instance.new("UICorner", checkIcon).CornerRadius = DS.corner.sm
+	local checkLbl = Instance.new("TextLabel", checkIcon)
+	checkLbl.Size = UDim2.new(1, 0, 1, 0)
+	checkLbl.BackgroundTransparency = 1
+	checkLbl.Text = "✓"
+	checkLbl.Font = Enum.Font.GothamBold
+	checkLbl.TextSize = DS.text.lg
+	checkLbl.TextColor3 = C.good
+	checkLbl.ZIndex = 52
 
-	local mtitle = Instance.new("TextLabel", box)
-	mtitle.Size = UDim2.new(1, -60, 0, 28)
-	mtitle.Position = UDim2.new(0, 54, 0, 14)
+	local mtitle = Instance.new("TextLabel", headRow)
+	mtitle.Size = UDim2.new(1, -36, 1, 0)
+	mtitle.Position = UDim2.new(0, 36, 0, 0)
 	mtitle.BackgroundTransparency = 1
 	mtitle.Font = Enum.Font.GothamBold
-	mtitle.TextSize = 16
-	mtitle.TextColor3 = Color3.fromRGB(60, 220, 130)
+	mtitle.TextSize = DS.text.lg
+	mtitle.TextColor3 = C.good
 	mtitle.Text = "Link copiado al portapapeles"
 	mtitle.TextXAlignment = Enum.TextXAlignment.Left
 	mtitle.TextTruncate = Enum.TextTruncate.AtEnd
 	mtitle.ZIndex = 52
 
 	local info = Instance.new("TextLabel", box)
-	info.Size = UDim2.new(1, -20, 0, 40)
-	info.Position = UDim2.new(0, 10, 0, 54)
+	info.LayoutOrder = 1
+	info.Size = UDim2.new(1, 0, 0, 0)
+	info.AutomaticSize = Enum.AutomaticSize.Y
 	info.BackgroundTransparency = 1
 	info.Font = Enum.Font.Gotham
-	info.TextSize = 12
+	info.TextSize = DS.text.md
 	info.TextColor3 = C.subtext
 	info.Text = "El executor " .. EXECUTOR_NAME .. " no permite abrir el navegador "
 		.. "desde Roblox, pero el link YA está copiado en tu portapapeles."
@@ -3410,35 +3558,42 @@ local function showLinkModal(url)
 	info.TextYAlignment = Enum.TextYAlignment.Top
 	info.TextWrapped = true
 	info.ZIndex = 52
+	themed(info, "TextColor3", "subtext")
 
-	local steps = Instance.new("TextLabel", box)
-	steps.Size = UDim2.new(1, -20, 0, 64)
-	steps.Position = UDim2.new(0, 10, 0, 100)
-	steps.BackgroundColor3 = C.modalStep
-	steps.BackgroundTransparency = 0.3
-	steps.BorderSizePixel = 0
-	steps.Font = Enum.Font.Gotham
-	steps.TextSize = 12
-	steps.TextColor3 = Color3.fromRGB(220, 220, 230)
-	steps.Text = "1. Alt+Tab a tu navegador\n"
+	local stepsCard = Instance.new("Frame", box)
+	stepsCard.LayoutOrder = 2
+	stepsCard.Size = UDim2.new(1, 0, 0, 0)
+	stepsCard.AutomaticSize = Enum.AutomaticSize.Y
+	stepsCard.BackgroundColor3 = C.surface
+	stepsCard.BorderSizePixel = 0
+	stepsCard.ZIndex = 52
+	themed(stepsCard, "BackgroundColor3", "surface")
+	Instance.new("UICorner", stepsCard).CornerRadius = DS.corner.md
+	local stepsPad = Instance.new("UIPadding", stepsCard)
+	stepsPad.PaddingTop = UDim.new(0, 10); stepsPad.PaddingBottom = UDim.new(0, 10)
+	stepsPad.PaddingLeft = UDim.new(0, 12); stepsPad.PaddingRight = UDim.new(0, 12)
+	local stepsLbl = Instance.new("TextLabel", stepsCard)
+	stepsLbl.Size = UDim2.new(1, 0, 0, 0)
+	stepsLbl.AutomaticSize = Enum.AutomaticSize.Y
+	stepsLbl.BackgroundTransparency = 1
+	stepsLbl.Font = Enum.Font.Gotham
+	stepsLbl.TextSize = DS.text.sm
+	stepsLbl.TextColor3 = C.text
+	stepsLbl.Text = "1. Alt+Tab a tu navegador\n"
 		.. "2. Click en la barra de direcciones\n"
 		.. "3. Pega con Ctrl+V y dale Enter"
-	steps.TextXAlignment = Enum.TextXAlignment.Left
-	steps.TextYAlignment = Enum.TextYAlignment.Center
-	steps.TextWrapped = true
-	steps.ZIndex = 52
-	Instance.new("UICorner", steps).CornerRadius = UDim.new(0, 6)
-	local stepsPadding = Instance.new("UIPadding", steps)
-	stepsPadding.PaddingLeft = UDim.new(0, 10)
-	stepsPadding.PaddingRight = UDim.new(0, 10)
+	stepsLbl.TextXAlignment = Enum.TextXAlignment.Left
+	stepsLbl.TextWrapped = true
+	stepsLbl.ZIndex = 52
+	themed(stepsLbl, "TextColor3", "text")
 
 	local urlBox = Instance.new("TextBox", box)
-	urlBox.Size = UDim2.new(1, -20, 0, 36)
-	urlBox.Position = UDim2.new(0, 10, 0, 174)
-	urlBox.BackgroundColor3 = C.modalStep
-	urlBox.TextColor3 = Color3.fromRGB(120, 200, 255)
+	urlBox.LayoutOrder = 3
+	urlBox.Size = UDim2.new(1, 0, 0, 32)
+	urlBox.BackgroundColor3 = C.surface
+	urlBox.TextColor3 = C.accent
 	urlBox.Font = Enum.Font.Code
-	urlBox.TextSize = 12
+	urlBox.TextSize = DS.text.sm
 	urlBox.Text = url
 	urlBox.TextEditable = false
 	urlBox.ClearTextOnFocus = false
@@ -3447,46 +3602,76 @@ local function showLinkModal(url)
 	urlBox.ClipsDescendants = true
 	urlBox.BorderSizePixel = 0
 	urlBox.ZIndex = 52
-	Instance.new("UICorner", urlBox).CornerRadius = UDim.new(0, 6)
+	themed(urlBox, "BackgroundColor3", "surface")
+	themed(urlBox, "TextColor3", "accent")
+	Instance.new("UICorner", urlBox).CornerRadius = DS.corner.sm
 	local urlPadding = Instance.new("UIPadding", urlBox)
 	urlPadding.PaddingLeft = UDim.new(0, 8)
 	urlPadding.PaddingRight = UDim.new(0, 8)
 
-	local copyBtn = Instance.new("TextButton", box)
-	copyBtn.Size = UDim2.new(0, 200, 0, 38)
-	copyBtn.Position = UDim2.new(0, 10, 1, -48)
-	copyBtn.BackgroundColor3 = C.neutral
+	local btnRow = Instance.new("Frame", box)
+	btnRow.LayoutOrder = 4
+	btnRow.Size = UDim2.new(1, 0, 0, 36)
+	btnRow.BackgroundTransparency = 1
+	btnRow.ZIndex = 52
+	local btnLay = Instance.new("UIListLayout", btnRow)
+	btnLay.FillDirection = Enum.FillDirection.Horizontal
+	btnLay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	btnLay.Padding = UDim.new(0, DS.space.md)
+	btnLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local copyBtn = Instance.new("TextButton", btnRow)
+	copyBtn.LayoutOrder = 1
+	copyBtn.Size = UDim2.new(0, 140, 0, 36)
+	copyBtn.BackgroundColor3 = C.surface
 	copyBtn.Text = "Copiar de nuevo"
-	copyBtn.Font = Enum.Font.GothamBold
-	copyBtn.TextSize = 14
+	copyBtn.Font = Enum.Font.GothamMedium
+	copyBtn.TextSize = DS.text.md
 	copyBtn.TextColor3 = C.text
 	copyBtn.BorderSizePixel = 0
+	copyBtn.AutoButtonColor = false
 	copyBtn.ZIndex = 52
-	Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 6)
+	themed(copyBtn, "BackgroundColor3", "surface")
+	themed(copyBtn, "TextColor3", "text")
+	Instance.new("UICorner", copyBtn).CornerRadius = DS.corner.md
+	local cpyStroke = Instance.new("UIStroke", copyBtn)
+	cpyStroke.Color = C.border; cpyStroke.Thickness = 1
+	themed(cpyStroke, "Color", "border")
 	copyBtn.MouseButton1Click:Connect(function()
 		clipboard(url)
 		copyBtn.Text = "✓ Copiado"
 		copyBtn.BackgroundColor3 = C.good
+		copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		task.delay(1.2, function()
 			if copyBtn and copyBtn.Parent then
 				copyBtn.Text = "Copiar de nuevo"
-				copyBtn.BackgroundColor3 = C.neutral
+				copyBtn.BackgroundColor3 = C.surface
+				copyBtn.TextColor3 = C.text
 			end
 		end)
 	end)
 
-	local mCloseBtn = Instance.new("TextButton", box)
-	mCloseBtn.Size = UDim2.new(0, 240, 0, 38)
-	mCloseBtn.Position = UDim2.new(1, -250, 1, -48)
-	mCloseBtn.BackgroundColor3 = C.good
+	local mCloseBtn = Instance.new("TextButton", btnRow)
+	mCloseBtn.LayoutOrder = 2
+	mCloseBtn.Size = UDim2.new(0, 140, 0, 36)
+	mCloseBtn.BackgroundColor3 = C.accent
 	mCloseBtn.Text = "Entendido"
-	mCloseBtn.Font = Enum.Font.GothamBold
-	mCloseBtn.TextSize = 14
-	mCloseBtn.TextColor3 = C.text
+	mCloseBtn.Font = Enum.Font.GothamMedium
+	mCloseBtn.TextSize = DS.text.md
+	mCloseBtn.TextColor3 = C.onAccent
 	mCloseBtn.BorderSizePixel = 0
+	mCloseBtn.AutoButtonColor = false
 	mCloseBtn.ZIndex = 52
-	Instance.new("UICorner", mCloseBtn).CornerRadius = UDim.new(0, 6)
-	mCloseBtn.MouseButton1Click:Connect(function() overlay:Destroy() end)
+	themed(mCloseBtn, "BackgroundColor3", "accent")
+	themed(mCloseBtn, "TextColor3", "onAccent")
+	Instance.new("UICorner", mCloseBtn).CornerRadius = DS.corner.md
+
+	local function closeLink()
+		motionTween(bScale, TweenInfo.new(0.14), { Scale = 0.88 })
+		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
+		task.delay(0.16, function() if overlay.Parent then overlay:Destroy() end end)
+	end
+	mCloseBtn.MouseButton1Click:Connect(closeLink)
 
 	overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -3496,7 +3681,7 @@ local function showLinkModal(url)
 			local bs = box.AbsoluteSize
 			if pos.X < bp.X or pos.X > bp.X + bs.X
 				or pos.Y < bp.Y or pos.Y > bp.Y + bs.Y then
-				overlay:Destroy()
+				closeLink()
 			end
 		end
 	end)
@@ -3510,6 +3695,7 @@ end
 local function showNXWarning(warning)
 	local level   = math.clamp(tonumber(warning.level) or 1, 1, 3)
 	local message = tostring(warning.message or "Has recibido un aviso del sistema NX.")
+	local DS = _G.NXDS
 
 	local LEVELS = {
 		[1] = { label = "AVISO",             color = Color3.fromRGB(220, 185, 50)  },
@@ -3527,111 +3713,131 @@ local function showNXWarning(warning)
 	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.52 })
 
 	local box = Instance.new("Frame", overlay)
-	box.Size             = UDim2.new(0, 440, 0, 0)
+	box.Size             = UDim2.new(0, 420, 0, 0)
 	box.AutomaticSize    = Enum.AutomaticSize.Y
 	box.AnchorPoint      = Vector2.new(0.5, 0.5)
 	box.Position         = UDim2.new(0.5, 0, 0.5, 0)
-	box.BackgroundColor3 = C.modalBg
+	box.BackgroundColor3 = C.elevated
 	box.BorderSizePixel  = 0
 	box.ClipsDescendants = false
 	box.ZIndex           = 91
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	themed(box, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local wStroke = Instance.new("UIStroke", box)
-	wStroke.Color = ld.color; wStroke.Thickness = 2; wStroke.Transparency = 0.12
+	wStroke.Color = ld.color; wStroke.Thickness = 1; wStroke.Transparency = 0.2
 
 	local wScale = Instance.new("UIScale", box); wScale.Scale = 0.88
 	motionTween(wScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 
-	local wOuterPad = Instance.new("UIPadding", box)
-	wOuterPad.PaddingBottom = UDim.new(0, 20)
+	local wPad = Instance.new("UIPadding", box)
+	wPad.PaddingTop = UDim.new(0, 20); wPad.PaddingBottom = UDim.new(0, 20)
+	wPad.PaddingLeft = UDim.new(0, 20); wPad.PaddingRight = UDim.new(0, 20)
 	local wLay = Instance.new("UIListLayout", box)
-	wLay.Padding = UDim.new(0, 12); wLay.SortOrder = Enum.SortOrder.LayoutOrder
+	wLay.Padding = UDim.new(0, DS.space.lg); wLay.SortOrder = Enum.SortOrder.LayoutOrder
 	wLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-	-- Franja superior de color
-	local stripe = Instance.new("Frame", box)
-	stripe.LayoutOrder           = 0
-	stripe.Size                  = UDim2.new(1, 0, 0, 44)
-	stripe.BackgroundColor3      = ld.color
-	stripe.BackgroundTransparency = 0.78
-	stripe.BorderSizePixel       = 0
-	Instance.new("UICorner", stripe).CornerRadius = UDim.new(0, 12)
-	local stripeLbl = Instance.new("TextLabel", stripe)
-	stripeLbl.Size                  = UDim2.new(1, 0, 1, 0)
-	stripeLbl.BackgroundTransparency = 1
-	stripeLbl.Font                  = Enum.Font.GothamBold
-	stripeLbl.TextSize              = 16
-	stripeLbl.TextColor3            = ld.color
-	stripeLbl.Text                  = "  " .. ld.label
+	local headRow = Instance.new("Frame", box)
+	headRow.LayoutOrder = 0
+	headRow.Size = UDim2.new(1, 0, 0, 28)
+	headRow.BackgroundTransparency = 1
+	headRow.ZIndex = 92
 
-	-- Chip de nivel
+	local warnIcon = Instance.new("Frame", headRow)
+	warnIcon.Size = UDim2.new(0, 28, 0, 28)
+	warnIcon.BackgroundColor3 = ld.color
+	warnIcon.BackgroundTransparency = 0.82
+	warnIcon.BorderSizePixel = 0
+	warnIcon.ZIndex = 92
+	Instance.new("UICorner", warnIcon).CornerRadius = DS.corner.sm
+	local warnEmoji = Instance.new("TextLabel", warnIcon)
+	warnEmoji.Size = UDim2.new(1, 0, 1, 0)
+	warnEmoji.BackgroundTransparency = 1
+	warnEmoji.Text = level == 3 and "!" or "⚠"
+	warnEmoji.Font = Enum.Font.GothamBold
+	warnEmoji.TextSize = DS.text.lg
+	warnEmoji.TextColor3 = ld.color
+	warnEmoji.ZIndex = 92
+
+	local wTitle = Instance.new("TextLabel", headRow)
+	wTitle.Size = UDim2.new(1, -36, 1, 0)
+	wTitle.Position = UDim2.new(0, 36, 0, 0)
+	wTitle.BackgroundTransparency = 1
+	wTitle.Font = Enum.Font.GothamBold
+	wTitle.TextSize = DS.text.lg
+	wTitle.TextColor3 = ld.color
+	wTitle.Text = ld.label
+	wTitle.TextXAlignment = Enum.TextXAlignment.Left
+	wTitle.ZIndex = 92
+
 	local chip = Instance.new("Frame", box)
-	chip.LayoutOrder           = 1
-	chip.Size                  = UDim2.new(0, 110, 0, 26)
-	chip.BackgroundColor3      = ld.color
-	chip.BackgroundTransparency = 0.75
-	chip.BorderSizePixel       = 0
-	Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 13)
+	chip.LayoutOrder = 1
+	chip.Size = UDim2.new(0, 100, 0, 22)
+	chip.BackgroundColor3 = ld.color
+	chip.BackgroundTransparency = 0.82
+	chip.BorderSizePixel = 0
+	Instance.new("UICorner", chip).CornerRadius = DS.corner.pill
 	local chipLbl = Instance.new("TextLabel", chip)
-	chipLbl.Size                  = UDim2.new(1, 0, 1, 0)
+	chipLbl.Size = UDim2.new(1, 0, 1, 0)
 	chipLbl.BackgroundTransparency = 1
-	chipLbl.Font                  = Enum.Font.GothamBold
-	chipLbl.TextSize              = 12
-	chipLbl.TextColor3            = ld.color
-	chipLbl.Text                  = "NIVEL " .. level .. " / 3"
+	chipLbl.Font = Enum.Font.GothamMedium
+	chipLbl.TextSize = DS.text.xs
+	chipLbl.TextColor3 = ld.color
+	chipLbl.Text = "NIVEL " .. level .. " / 3"
 
-	-- Cuerpo del mensaje
 	local msgBox = Instance.new("Frame", box)
-	msgBox.LayoutOrder           = 2
-	msgBox.Size                  = UDim2.new(1, -40, 0, 0)
-	msgBox.AutomaticSize         = Enum.AutomaticSize.Y
-	msgBox.BackgroundColor3      = C.card
-	msgBox.BackgroundTransparency = 0.3
-	msgBox.BorderSizePixel       = 0
-	Instance.new("UICorner", msgBox).CornerRadius = UDim.new(0, 8)
+	msgBox.LayoutOrder = 2
+	msgBox.Size = UDim2.new(1, 0, 0, 0)
+	msgBox.AutomaticSize = Enum.AutomaticSize.Y
+	msgBox.BackgroundColor3 = C.surface
+	msgBox.BorderSizePixel = 0
+	msgBox.ZIndex = 91
+	themed(msgBox, "BackgroundColor3", "surface")
+	Instance.new("UICorner", msgBox).CornerRadius = DS.corner.md
 	local msgPad = Instance.new("UIPadding", msgBox)
 	msgPad.PaddingTop = UDim.new(0, 12); msgPad.PaddingBottom = UDim.new(0, 12)
 	msgPad.PaddingLeft = UDim.new(0, 14); msgPad.PaddingRight = UDim.new(0, 14)
 	local msgLbl = Instance.new("TextLabel", msgBox)
-	msgLbl.Size                  = UDim2.new(1, 0, 0, 0)
-	msgLbl.AutomaticSize         = Enum.AutomaticSize.Y
+	msgLbl.Size = UDim2.new(1, 0, 0, 0)
+	msgLbl.AutomaticSize = Enum.AutomaticSize.Y
 	msgLbl.BackgroundTransparency = 1
-	msgLbl.Font                  = Enum.Font.Gotham
-	msgLbl.TextSize              = 14
-	msgLbl.TextColor3            = C.text
-	msgLbl.TextWrapped           = true
-	msgLbl.TextXAlignment        = Enum.TextXAlignment.Left
-	msgLbl.TextYAlignment        = Enum.TextYAlignment.Top
-	msgLbl.Text                  = message
+	msgLbl.Font = Enum.Font.Gotham
+	msgLbl.TextSize = DS.text.md
+	msgLbl.TextColor3 = C.text
+	msgLbl.TextWrapped = true
+	msgLbl.TextXAlignment = Enum.TextXAlignment.Left
+	msgLbl.TextYAlignment = Enum.TextYAlignment.Top
+	msgLbl.Text = message
+	msgLbl.ZIndex = 91
+	themed(msgLbl, "TextColor3", "text")
 
-	-- Firma
 	local wSign = Instance.new("TextLabel", box)
-	wSign.LayoutOrder           = 3
-	wSign.Size                  = UDim2.new(1, -40, 0, 16)
+	wSign.LayoutOrder = 3
+	wSign.Size = UDim2.new(1, 0, 0, 14)
 	wSign.BackgroundTransparency = 1
-	wSign.Font                  = Enum.Font.Gotham
-	wSign.TextSize              = 11
-	wSign.TextColor3            = C.subtext
-	wSign.Text                  = "— NX System  v" .. NXCore.getVersion()
-	wSign.TextXAlignment        = Enum.TextXAlignment.Right
+	wSign.Font = Enum.Font.Gotham
+	wSign.TextSize = DS.text.xs
+	wSign.TextColor3 = C.textDisabled
+	wSign.Text = "— NX System  v" .. NXCore.getVersion()
+	wSign.TextXAlignment = Enum.TextXAlignment.Right
+	themed(wSign, "TextColor3", "textDisabled")
 
-	-- Botón cerrar
 	local function closeWarn()
 		motionTween(wScale, TweenInfo.new(0.14), { Scale = 0.88 })
 		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
 		task.delay(0.16, function() if overlay.Parent then overlay:Destroy() end end)
 	end
 	local wClose = Instance.new("TextButton", box)
-	wClose.LayoutOrder           = 4
-	wClose.Size                  = UDim2.new(1, -40, 0, 38)
-	wClose.BackgroundColor3      = ld.color
+	wClose.LayoutOrder = 4
+	wClose.Size = UDim2.new(1, 0, 0, 36)
+	wClose.BackgroundColor3 = ld.color
 	wClose.BackgroundTransparency = 0.08
-	wClose.Text                  = "Entendido"
-	wClose.Font                  = Enum.Font.GothamBold
-	wClose.TextSize              = 14
-	wClose.TextColor3            = Color3.fromRGB(255, 255, 255)
-	wClose.BorderSizePixel       = 0
-	Instance.new("UICorner", wClose).CornerRadius = UDim.new(0, 8)
+	wClose.Text = "Entendido"
+	wClose.Font = Enum.Font.GothamMedium
+	wClose.TextSize = DS.text.md
+	wClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+	wClose.BorderSizePixel = 0
+	wClose.AutoButtonColor = false
+	Instance.new("UICorner", wClose).CornerRadius = DS.corner.md
 	wClose.MouseButton1Click:Connect(closeWarn)
 
 	overlay.InputBegan:Connect(function(inp)
@@ -3651,28 +3857,31 @@ end
 local function showLicenseDenied()
 	analyzeBtn.Active           = false
 	analyzeBtn.Text             = "Sin acceso"
-	analyzeBtn.BackgroundColor3 = C.neutral
+	analyzeBtn.BackgroundColor3 = C.surface
 	statusLabel.Text            = "Sin licencia NX."
+	local DS = _G.NXDS
 
 	local overlay = Instance.new("Frame", gui)
 	overlay.Name                   = "NXLicenseDenied"
 	overlay.Size                   = UDim2.new(1, 0, 1, 0)
 	overlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
-	overlay.BackgroundTransparency = 0.45
+	overlay.BackgroundTransparency = 1
 	overlay.ZIndex                 = 88
+	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.5 })
 
 	local box = Instance.new("Frame", overlay)
 	box.Size             = UDim2.new(0, 380, 0, 0)
 	box.AutomaticSize    = Enum.AutomaticSize.Y
 	box.AnchorPoint      = Vector2.new(0.5, 0.5)
 	box.Position         = UDim2.new(0.5, 0, 0.5, 0)
-	box.BackgroundColor3 = C.modalBg
+	box.BackgroundColor3 = C.elevated
 	box.BorderSizePixel  = 0
 	box.ClipsDescendants = false
 	box.ZIndex           = 89
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	themed(box, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local dStroke = Instance.new("UIStroke", box)
-	dStroke.Color = C.bad; dStroke.Thickness = 2; dStroke.Transparency = 0.15
+	dStroke.Color = C.bad; dStroke.Thickness = 1; dStroke.Transparency = 0.2
 
 	local dScale = Instance.new("UIScale", box); dScale.Scale = 0.88
 	motionTween(dScale, TweenInfo.new(0.24, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
@@ -3681,33 +3890,34 @@ local function showLicenseDenied()
 	dPad.PaddingTop = UDim.new(0, 24); dPad.PaddingBottom = UDim.new(0, 24)
 	dPad.PaddingLeft = UDim.new(0, 24); dPad.PaddingRight = UDim.new(0, 24)
 	local dLay = Instance.new("UIListLayout", box)
-	dLay.Padding = UDim.new(0, 10); dLay.SortOrder = Enum.SortOrder.LayoutOrder
+	dLay.Padding = UDim.new(0, DS.space.lg); dLay.SortOrder = Enum.SortOrder.LayoutOrder
 	dLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 	local iconFrame = Instance.new("Frame", box)
 	iconFrame.LayoutOrder           = 0
-	iconFrame.Size                  = UDim2.new(0, 52, 0, 52)
+	iconFrame.Size                  = UDim2.new(0, 44, 0, 44)
 	iconFrame.BackgroundColor3      = C.bad
-	iconFrame.BackgroundTransparency = 0.75
+	iconFrame.BackgroundTransparency = 0.82
 	iconFrame.BorderSizePixel       = 0
-	Instance.new("UICorner", iconFrame).CornerRadius = UDim.new(0, 26)
+	Instance.new("UICorner", iconFrame).CornerRadius = DS.corner.pill
 	local iconLbl = Instance.new("TextLabel", iconFrame)
 	iconLbl.Size                  = UDim2.new(1, 0, 1, 0)
 	iconLbl.BackgroundTransparency = 1
 	iconLbl.Font                  = Enum.Font.GothamBold
-	iconLbl.TextSize              = 22
+	iconLbl.TextSize              = DS.text.xl
 	iconLbl.TextColor3            = C.bad
 	iconLbl.Text                  = "X"
 
 	local deniedTitle = Instance.new("TextLabel", box)
 	deniedTitle.LayoutOrder           = 1
-	deniedTitle.Size                  = UDim2.new(1, 0, 0, 24)
+	deniedTitle.Size                  = UDim2.new(1, 0, 0, 22)
 	deniedTitle.BackgroundTransparency = 1
 	deniedTitle.Font                  = Enum.Font.GothamBold
-	deniedTitle.TextSize              = 18
-	deniedTitle.TextColor3            = C.bad
+	deniedTitle.TextSize              = DS.text.title
+	deniedTitle.TextColor3            = C.text
 	deniedTitle.Text                  = "Acceso no autorizado"
 	deniedTitle.TextXAlignment        = Enum.TextXAlignment.Center
+	themed(deniedTitle, "TextColor3", "text")
 
 	local deniedSub = Instance.new("TextLabel", box)
 	deniedSub.LayoutOrder           = 2
@@ -3715,41 +3925,47 @@ local function showLicenseDenied()
 	deniedSub.AutomaticSize         = Enum.AutomaticSize.Y
 	deniedSub.BackgroundTransparency = 1
 	deniedSub.Font                  = Enum.Font.Gotham
-	deniedSub.TextSize              = 13
+	deniedSub.TextSize              = DS.text.md
 	deniedSub.TextColor3            = C.subtext
 	deniedSub.TextWrapped           = true
 	deniedSub.TextXAlignment        = Enum.TextXAlignment.Center
 	deniedSub.Text = "Tu cuenta (" .. tostring(player.UserId)
 		.. ") no está en la lista de licencias.\n\nContacta con un administrador si crees que es un error."
+	themed(deniedSub, "TextColor3", "subtext")
 
 	local idRow = Instance.new("Frame", box)
 	idRow.LayoutOrder      = 3
-	idRow.Size             = UDim2.new(1, 0, 0, 30)
-	idRow.BackgroundColor3 = C.neutral
+	idRow.Size             = UDim2.new(1, 0, 0, 32)
+	idRow.BackgroundColor3 = C.surface
 	idRow.BorderSizePixel  = 0
-	Instance.new("UICorner", idRow).CornerRadius = UDim.new(0, 6)
+	themed(idRow, "BackgroundColor3", "surface")
+	Instance.new("UICorner", idRow).CornerRadius = DS.corner.sm
 	local idLbl = Instance.new("TextLabel", idRow)
 	idLbl.Size                  = UDim2.new(1, -76, 1, 0)
 	idLbl.Position              = UDim2.new(0, 10, 0, 0)
 	idLbl.BackgroundTransparency = 1
 	idLbl.Font                  = Enum.Font.Code
-	idLbl.TextSize              = 13
+	idLbl.TextSize              = DS.text.md
 	idLbl.TextColor3            = C.text
 	idLbl.TextXAlignment        = Enum.TextXAlignment.Left
 	idLbl.Text                  = "UserId: " .. tostring(player.UserId)
+	themed(idLbl, "TextColor3", "text")
 	local copyIdBtn = Instance.new("TextButton", idRow)
-	copyIdBtn.Size             = UDim2.new(0, 64, 1, -8)
-	copyIdBtn.Position         = UDim2.new(1, -68, 0, 4)
+	copyIdBtn.Size             = UDim2.new(0, 60, 1, -8)
+	copyIdBtn.Position         = UDim2.new(1, -64, 0, 4)
 	copyIdBtn.BackgroundColor3 = C.accent
 	copyIdBtn.Text             = "Copiar"
-	copyIdBtn.Font             = Enum.Font.GothamBold
-	copyIdBtn.TextSize         = 12
+	copyIdBtn.Font             = Enum.Font.GothamMedium
+	copyIdBtn.TextSize         = DS.text.sm
 	copyIdBtn.TextColor3       = C.onAccent
 	copyIdBtn.BorderSizePixel  = 0
-	Instance.new("UICorner", copyIdBtn).CornerRadius = UDim.new(0, 4)
+	copyIdBtn.AutoButtonColor  = false
+	themed(copyIdBtn, "BackgroundColor3", "accent")
+	themed(copyIdBtn, "TextColor3", "onAccent")
+	Instance.new("UICorner", copyIdBtn).CornerRadius = DS.corner.sm
 	copyIdBtn.MouseButton1Click:Connect(function()
 		clipboard(tostring(player.UserId))
-		copyIdBtn.Text = "OK"
+		copyIdBtn.Text = "✓"
 		task.delay(1.2, function() if copyIdBtn.Parent then copyIdBtn.Text = "Copiar" end end)
 	end)
 
@@ -3758,16 +3974,18 @@ local function showLicenseDenied()
 	deniedSign.Size                  = UDim2.new(1, 0, 0, 14)
 	deniedSign.BackgroundTransparency = 1
 	deniedSign.Font                  = Enum.Font.Gotham
-	deniedSign.TextSize              = 11
-	deniedSign.TextColor3            = C.subtext
+	deniedSign.TextSize              = DS.text.xs
+	deniedSign.TextColor3            = C.textDisabled
 	deniedSign.Text                  = "NX System  v" .. NXCore.getVersion()
 	deniedSign.TextXAlignment        = Enum.TextXAlignment.Center
+	themed(deniedSign, "TextColor3", "textDisabled")
 end
 
 -- ====================== VISOR DE PERSONAJE (3D + 2D) ======================
 local function showCharacterModal(userId, username)
 	local prev = gui:FindFirstChild("CharModal")
 	if prev then prev:Destroy() end
+	local DS = _G.NXDS
 
 	local overlay = Instance.new("Frame", gui)
 	overlay.Name = "CharModal"
@@ -3776,19 +3994,21 @@ local function showCharacterModal(userId, username)
 	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 60
-	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.35 })
+	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.5 })
 
 	local box = Instance.new("Frame", overlay)
 	box.Size = UDim2.new(0, 380, 0, 460)
 	box.AnchorPoint = Vector2.new(0.5, 0.5)
 	box.Position = UDim2.new(0.5, 0, 0.5, 0)
-	box.BackgroundColor3 = C.modalBg
+	box.BackgroundColor3 = C.elevated
 	box.BorderSizePixel = 0
 	box.ClipsDescendants = true
 	box.ZIndex = 61
-	Instance.new("UICorner", box).CornerRadius = UDim.new(0, 12)
+	themed(box, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local bs = Instance.new("UIStroke", box)
-	bs.Color = C.accent; bs.Transparency = 0.4; bs.Thickness = 1.5
+	bs.Color = C.border; bs.Transparency = 0.1; bs.Thickness = 1
+	themed(bs, "Color", "border")
 	addDropShadow(box, overlay, 60, 30, 0.4)
 	local scale = Instance.new("UIScale", box)
 	scale.Scale = 0.85
@@ -3806,36 +4026,40 @@ local function showCharacterModal(userId, username)
 	mtitle.Position = UDim2.new(0, 14, 0, 10)
 	mtitle.BackgroundTransparency = 1
 	mtitle.Font = Enum.Font.GothamBold
-	mtitle.TextSize = 16
-	mtitle.TextColor3 = C.accent
+	mtitle.TextSize = DS.text.lg
+	mtitle.TextColor3 = C.text
 	mtitle.Text = "Avatar de " .. tostring(username)
 	mtitle.TextXAlignment = Enum.TextXAlignment.Left
 	mtitle.TextTruncate = Enum.TextTruncate.AtEnd
 	mtitle.ZIndex = 62
+	themed(mtitle, "TextColor3", "text")
 
 	local mClose = Instance.new("TextButton", box)
 	mClose.Size = UDim2.new(0, 26, 0, 26)
 	mClose.Position = UDim2.new(1, -34, 0, 10)
-	mClose.BackgroundColor3 = C.neutral
-	mClose.Text = "X"
+	mClose.BackgroundColor3 = C.surface
+	mClose.Text = "✕"
 	mClose.Font = Enum.Font.GothamBold
-	mClose.TextSize = 14
-	mClose.TextColor3 = C.text
+	mClose.TextSize = DS.text.md
+	mClose.TextColor3 = C.subtext
 	mClose.BorderSizePixel = 0
+	mClose.AutoButtonColor = false
 	mClose.ZIndex = 62
-	Instance.new("UICorner", mClose).CornerRadius = UDim.new(0, 6)
+	themed(mClose, "BackgroundColor3", "surface")
+	themed(mClose, "TextColor3", "subtext")
+	Instance.new("UICorner", mClose).CornerRadius = DS.corner.sm
 	mClose.MouseButton1Click:Connect(closeModal)
 
 	local canvas = Instance.new("Frame", box)
 	canvas.Size = UDim2.new(1, -28, 1, -56)
 	canvas.Position = UDim2.new(0, 14, 0, 46)
-	canvas.BackgroundColor3 = C.card
+	canvas.BackgroundColor3 = C.surface
 	canvas.BorderSizePixel = 0
 	canvas.ClipsDescendants = true
 	canvas.ZIndex = 61
-	Instance.new("UICorner", canvas).CornerRadius = UDim.new(0, 8)
+	themed(canvas, "BackgroundColor3", "surface")
+	Instance.new("UICorner", canvas).CornerRadius = DS.corner.md
 
-	-- Vista 2D (miniaturas oficiales): cuerpo / busto / cabeza
 	local img2D = Instance.new("ImageLabel", canvas)
 	img2D.Size = UDim2.new(1, -20, 1, -50)
 	img2D.Position = UDim2.new(0, 10, 0, 10)
@@ -3853,8 +4077,8 @@ local function showCharacterModal(userId, username)
 	local function set2DKind(kind, btn)
 		img2D.Image = ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
 		for _, b in ipairs(sub2DButtons) do
-			b.BackgroundColor3 = C.neutral
-			b.TextColor3 = C.text
+			b.BackgroundColor3 = C.surface
+			b.TextColor3 = C.subtext
 		end
 		btn.BackgroundColor3 = C.accent
 		btn.TextColor3 = C.onAccent
@@ -3865,18 +4089,19 @@ local function showCharacterModal(userId, username)
 		local b = Instance.new("TextButton", subBar)
 		b.Size = UDim2.new(0, 86, 1, 0)
 		b.Position = UDim2.new(0, (i - 1) * 92, 0, 0)
-		b.BackgroundColor3 = C.neutral
+		b.BackgroundColor3 = C.surface
 		b.Text = k[1]
-		b.Font = Enum.Font.GothamBold
-		b.TextSize = 12
-		b.TextColor3 = C.text
+		b.Font = Enum.Font.GothamMedium
+		b.TextSize = DS.text.sm
+		b.TextColor3 = C.subtext
 		b.BorderSizePixel = 0
+		b.AutoButtonColor = false
 		b.ZIndex = 64
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 5)
+		Instance.new("UICorner", b).CornerRadius = DS.corner.sm
 		table.insert(sub2DButtons, b)
 		b.MouseButton1Click:Connect(function() set2DKind(k[2], b) end)
 	end
-	set2DKind("Avatar", sub2DButtons[1])   -- cuerpo entero por defecto
+	set2DKind("Avatar", sub2DButtons[1])
 
 	overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -3892,61 +4117,14 @@ local function showCharacterModal(userId, username)
 	end)
 end
 
+print("[NX-DEBUG] ✓ Modals OK, entering render helpers")
 -- ====================== RENDER: FILA NORMAL ======================
 local function addRow(parent, label, value, copyable, valueColor)
-	local frame = Instance.new("Frame", parent)
-	frame.Size = UDim2.new(1, -4, 0, 28)
-	frame.BackgroundColor3 = C.card
-	frame.BorderSizePixel = 0
-	frame.ClipsDescendants = true
-	Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 4)
-	themed(frame, "BackgroundColor3", "card")
-
-	local lbl = Instance.new("TextLabel", frame)
-	lbl.Size = UDim2.new(0.42, -10, 1, 0)
-	lbl.Position = UDim2.new(0, 10, 0, 0)
-	lbl.BackgroundTransparency = 1
-	lbl.Font = Enum.Font.Gotham
-	lbl.TextSize = 13
-	lbl.TextColor3 = C.subtext
-	lbl.Text = label
-	lbl.TextXAlignment = Enum.TextXAlignment.Left
-	lbl.TextTruncate = Enum.TextTruncate.AtEnd
-	themed(lbl, "TextColor3", "subtext")
-
-	local valWidthOffset = copyable and -78 or -10
-	local val = Instance.new("TextLabel", frame)
-	val.Size = UDim2.new(0.58, valWidthOffset, 1, 0)
-	val.Position = UDim2.new(0.42, 0, 0, 0)
-	val.BackgroundTransparency = 1
-	val.Font = Enum.Font.GothamBold
-	val.TextSize = 13
-	val.TextColor3 = valueColor or C.text
-	if not valueColor then themed(val, "TextColor3", "text") end
-	val.Text = tostring(value == nil and "No disponible" or value)
-	val.TextXAlignment = Enum.TextXAlignment.Right
-	val.TextTruncate = Enum.TextTruncate.AtEnd
-
-	if copyable then
-		local cp = Instance.new("TextButton", frame)
-		cp.Size = UDim2.new(0, 60, 0, 20)
-		cp.Position = UDim2.new(1, -66, 0.5, -10)
-		cp.BackgroundColor3 = C.accent
-		cp.Text = "Copiar"
-		cp.Font = Enum.Font.GothamBold
-		cp.TextSize = 11
-		cp.TextColor3 = C.onAccent
-		cp.BorderSizePixel = 0
-		cp.ZIndex = 2
-		Instance.new("UICorner", cp).CornerRadius = UDim.new(0, 4)
-		cp.MouseButton1Click:Connect(function()
-			clipboard(tostring(value))
-			statusLabel.Text = "Copiado: " .. label
-			cp.Text = "✓"
-			task.delay(1, function() if cp and cp.Parent then cp.Text = "Copiar" end end)
-		end)
-	end
-	return frame
+	local DS = _G.NXDS
+	return DS.makeDataRow(parent, label, tostring(value == nil and "No disponible" or value), {
+		valueColor = valueColor,
+		copyable = copyable,
+	})
 end
 
 -- ====================== RENDER: DESCRIPCIÓN EXPANDIBLE ======================
@@ -3954,122 +4132,72 @@ end
 -- SIEMPRE el texto completo, aunque en pantalla se vea recortado por el
 -- plegado (usa 'text', no 'body.Text').
 local function addDescription(parent, text)
+	local DS = _G.NXDS
 	text = tostring(text or "Sin descripción")
-	-- Una descripción vacía es un estado legítimo; ahí no hay nada que copiar.
 	local vacia = (text == "" or text == "Sin descripción" or text == "No disponible")
 
-	local card = Instance.new("Frame", parent)
-	card.Size = UDim2.new(1, -4, 0, 0)
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	card.BackgroundColor3 = C.card
-	card.BorderSizePixel = 0
-	card.ClipsDescendants = true
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 4)
-	themed(card, "BackgroundColor3", "card")
-	local pad = Instance.new("UIPadding", card)
-	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
-	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
-	local layout = Instance.new("UIListLayout", card)
-	layout.Padding = UDim.new(0, 4)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	local card = DS.makeCard(parent, { title = "Descripción" })
 
-	-- Cabecera: título · contador · botón copiar (posicionados dentro de la fila,
-	-- no en el UIListLayout de la tarjeta, para que queden en la misma línea).
+	-- Meta + copy button row
 	local headRow = Instance.new("Frame", card)
-	headRow.LayoutOrder = 0
+	headRow.LayoutOrder = 1
 	headRow.Size = UDim2.new(1, 0, 0, 20)
 	headRow.BackgroundTransparency = 1
 
-	local head = Instance.new("TextLabel", headRow)
-	head.Size = UDim2.new(1, -150, 1, 0)
-	head.BackgroundTransparency = 1
-	head.Font = Enum.Font.GothamBold
-	head.TextSize = 13
-	head.TextColor3 = C.subtext
-	head.Text = "Descripción"
-	head.TextXAlignment = Enum.TextXAlignment.Left
-	head.TextTruncate = Enum.TextTruncate.AtEnd
-	themed(head, "TextColor3", "subtext")
-
 	local meta = Instance.new("TextLabel", headRow)
 	meta.Size = UDim2.new(0, 70, 1, 0)
-	meta.Position = UDim2.new(1, -142, 0, 0)
 	meta.BackgroundTransparency = 1
-	meta.Font = Enum.Font.Gotham
-	meta.TextSize = 11
-	meta.TextColor3 = C.subtext
+	meta.Font = Enum.Font.Gotham; meta.TextSize = DS.text.xs
+	meta.TextColor3 = C.textDisabled
 	meta.Text = vacia and "vacía" or (#text .. " car.")
-	meta.TextXAlignment = Enum.TextXAlignment.Right
-	themed(meta, "TextColor3", "subtext")
+	meta.TextXAlignment = Enum.TextXAlignment.Left
+	themed(meta, "TextColor3", "textDisabled")
 
-	local copyDesc = Instance.new("TextButton", headRow)
-	copyDesc.Size = UDim2.new(0, 66, 0, 20)
-	copyDesc.Position = UDim2.new(1, -66, 0, 0)
-	copyDesc.BackgroundColor3 = vacia and C.neutral or C.accent
-	copyDesc.Text = "Copiar"
-	copyDesc.Font = Enum.Font.GothamBold
-	copyDesc.TextSize = 11
-	copyDesc.TextColor3 = vacia and C.subtext or C.onAccent
-	copyDesc.BorderSizePixel = 0
-	copyDesc.AutoButtonColor = false
-	copyDesc.ZIndex = 2
-	Instance.new("UICorner", copyDesc).CornerRadius = UDim.new(0, 4)
-	themed(copyDesc, "BackgroundColor3", vacia and "neutral" or "accent")
-	themed(copyDesc, "TextColor3", vacia and "subtext" or "onAccent")
+	local copyDesc = DS.makeButton(headRow, "Copiar", vacia and "ghost" or "secondary",
+		{size = UDim2.new(0, 60, 0, 20)})
+	copyDesc.AnchorPoint = Vector2.new(1, 0)
+	copyDesc.Position = UDim2.new(1, 0, 0, 0)
+	copyDesc.TextSize = DS.text.xs
 	copyDesc.MouseButton1Click:Connect(function()
 		if vacia then
 			statusLabel.Text = "Este usuario no tiene descripción"
 			return
 		end
-		clipboard(text)              -- SIEMPRE el texto completo, no el recortado
+		clipboard(text)
 		statusLabel.Text = "Copiado: descripción (" .. #text .. " caracteres)"
-		copyDesc.Text = "✓ Copiado"
+		copyDesc.Text = "Copiado"
 		task.delay(1.2, function()
 			if copyDesc and copyDesc.Parent then copyDesc.Text = "Copiar" end
 		end)
 	end)
 
 	local body = Instance.new("TextLabel", card)
-	body.LayoutOrder = 1
+	body.LayoutOrder = 5
 	body.Size = UDim2.new(1, 0, 0, 0)
 	body.AutomaticSize = Enum.AutomaticSize.Y
 	body.BackgroundTransparency = 1
-	body.Font = Enum.Font.Gotham
-	body.TextSize = 13
-	body.TextColor3 = C.text
-	body.TextWrapped = true
+	body.Font = Enum.Font.Gotham; body.TextSize = DS.text.md
+	body.TextColor3 = C.text; body.TextWrapped = true
 	body.TextXAlignment = Enum.TextXAlignment.Left
 	body.TextYAlignment = Enum.TextYAlignment.Top
 	body.Text = text
 	themed(body, "TextColor3", "text")
 
-	local COLLAPSED = 160
+	local COLLAPSED = 180
 	local isLong = #text > COLLAPSED
 	local expanded = false
 
 	local function refresh()
-		if (not isLong) or expanded then
-			body.Text = text
-		else
-			body.Text = text:sub(1, COLLAPSED) .. "..."
-		end
+		if (not isLong) or expanded then body.Text = text
+		else body.Text = text:sub(1, COLLAPSED) .. "..." end
 	end
 	refresh()
 
 	if isLong then
-		local toggle = Instance.new("TextButton", card)
-		toggle.LayoutOrder = 2
-		toggle.Size = UDim2.new(0, 120, 0, 22)
-		toggle.BackgroundColor3 = C.accent
-		toggle.Text = "Mostrar más"
-		toggle.Font = Enum.Font.GothamBold
-		toggle.TextSize = 12
-		toggle.TextColor3 = C.onAccent
-		toggle.BorderSizePixel = 0
-		toggle.AutoButtonColor = false
-		Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 4)
-		themed(toggle, "BackgroundColor3", "accent")
-		themed(toggle, "TextColor3", "onAccent")
+		local toggle = DS.makeButton(card, "Mostrar más", "ghost", {order = 6, size = UDim2.new(0, 0, 0, 22)})
+		toggle.TextSize = DS.text.sm
+		toggle.TextColor3 = C.accent
+		themed(toggle, "TextColor3", "accent")
 		toggle.MouseButton1Click:Connect(function()
 			expanded = not expanded
 			toggle.Text = expanded and "Mostrar menos" or "Mostrar más"
@@ -4081,43 +4209,24 @@ end
 
 -- ====================== RENDER: TARJETA DE TEXTO (Análisis) ======================
 local function addNoteCard(parent, titleText, bodyText, accentColor)
-	local card = Instance.new("Frame", parent)
-	card.Size = UDim2.new(1, -4, 0, 0)
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	card.BackgroundColor3 = C.card
-	card.BorderSizePixel = 0
-	card.ClipsDescendants = true
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
-	themed(card, "BackgroundColor3", "card")
-	local barStroke = Instance.new("UIStroke", card)
-	barStroke.Color = C.border
-	barStroke.Thickness = 1
-	barStroke.Transparency = 0.5
-	themed(barStroke, "Color", "border")
-	local pad = Instance.new("UIPadding", card)
-	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
-	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
-	local layout = Instance.new("UIListLayout", card)
-	layout.Padding = UDim.new(0, 4)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local h = Instance.new("TextLabel", card)
-	h.LayoutOrder = 0
-	h.Size = UDim2.new(1, 0, 0, 20)
-	h.BackgroundTransparency = 1
-	h.Font = Enum.Font.GothamBold
-	h.TextSize = 14
-	h.TextColor3 = accentColor or C.accent
-	h.Text = titleText
-	h.TextXAlignment = Enum.TextXAlignment.Left
-
+	local DS = _G.NXDS
+	local card = DS.makeCard(parent, { title = titleText })
+	-- Override title color if a specific accent was given
+	if accentColor then
+		for _, ch in ipairs(card:GetChildren()) do
+			if ch:IsA("TextLabel") and ch.Text == titleText then
+				ch.TextColor3 = accentColor
+				break
+			end
+		end
+	end
 	local b = Instance.new("TextLabel", card)
-	b.LayoutOrder = 1
+	b.LayoutOrder = 10
 	b.Size = UDim2.new(1, 0, 0, 0)
 	b.AutomaticSize = Enum.AutomaticSize.Y
 	b.BackgroundTransparency = 1
 	b.Font = Enum.Font.Gotham
-	b.TextSize = 13
+	b.TextSize = DS.text.md
 	b.TextColor3 = C.text
 	b.TextWrapped = true
 	b.TextXAlignment = Enum.TextXAlignment.Left
@@ -4127,54 +4236,9 @@ local function addNoteCard(parent, titleText, bodyText, accentColor)
 	return card
 end
 
--- Barra normalizada 0-100. Devuelve (row, fill, valLabel) para actualizar luego.
 local function addScoreBar(parent, label, score, levelTxt, color, order)
-	local row = Instance.new("Frame", parent)
-	row.LayoutOrder = order
-	row.Size = UDim2.new(1, 0, 0, 26)
-	row.BackgroundTransparency = 1
-
-	local lab = Instance.new("TextLabel", row)
-	lab.Size = UDim2.new(0, 88, 1, 0)
-	lab.BackgroundTransparency = 1
-	lab.Font = Enum.Font.Gotham
-	lab.TextSize = 12
-	lab.TextColor3 = C.subtext
-	lab.Text = label
-	lab.TextXAlignment = Enum.TextXAlignment.Left
-	themed(lab, "TextColor3", "subtext")
-
-	local track_ = Instance.new("Frame", row)
-	track_.Position = UDim2.new(0, 92, 0.5, -7)
-	track_.Size = UDim2.new(1, -210, 0, 14)
-	track_.BackgroundColor3 = C.neutral
-	track_.BorderSizePixel = 0
-	Instance.new("UICorner", track_).CornerRadius = UDim.new(0, 7)
-	themed(track_, "BackgroundColor3", "neutral")
-
-	local fill = Instance.new("Frame", track_)
-	-- Score muy bajo (< 5%): mínimo visual para que el corner no se coma la barra.
-	local clampedScore = math.clamp(score / 100, 0, 1)
-	fill.Size = UDim2.new(0, 0, 1, 0)
-	fill.BackgroundColor3 = color
-	fill.BorderSizePixel = 0
-	fill.ClipsDescendants = true
-	Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 7)
-	-- barra de progreso animada
-	local fillTarget = math.max(clampedScore, score > 0 and 0.04 or 0)
-	motionTween(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-		{ Size = UDim2.new(fillTarget, 0, 1, 0) })
-
-	local val = Instance.new("TextLabel", row)
-	val.Position = UDim2.new(1, -112, 0, 0)
-	val.Size = UDim2.new(0, 112, 1, 0)
-	val.BackgroundTransparency = 1
-	val.Font = Enum.Font.GothamBold
-	val.TextSize = 12
-	val.TextColor3 = color
-	val.Text = string.format("%d%% · %s", score, levelTxt)
-	val.TextXAlignment = Enum.TextXAlignment.Right
-	return row, fill, val
+	local DS = _G.NXDS
+	return DS.makeScoreBar(parent, label, score, levelTxt, color, order)
 end
 
 local function clearScroll(sf)
@@ -4230,17 +4294,20 @@ local function showMiniProfileCard(userId, fallback)
 	overlay.ZIndex = 70
 	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.45 })
 
+	local DS = _G.NXDS
 	local card = Instance.new("Frame", overlay)
 	card.Size = UDim2.new(0, 320, 0, 486)
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.new(0.5, 0, 0.5, 0)
-	card.BackgroundColor3 = C.modalBg
+	card.BackgroundColor3 = C.elevated
 	card.BorderSizePixel = 0
 	card.ClipsDescendants = true
 	card.ZIndex = 71
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
+	themed(card, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", card).CornerRadius = DS.corner.lg
 	local cstroke = Instance.new("UIStroke", card)
-	cstroke.Color = C.accent; cstroke.Transparency = 0.4; cstroke.Thickness = 1.5
+	cstroke.Color = C.border; cstroke.Transparency = 0.1; cstroke.Thickness = 1
+	themed(cstroke, "Color", "border")
 	addDropShadow(card, overlay, 70, 30, 0.4)
 	local scale = Instance.new("UIScale", card)
 	scale.Scale = 0.85
@@ -4268,14 +4335,17 @@ local function showMiniProfileCard(userId, fallback)
 	local xBtn = Instance.new("TextButton", card)
 	xBtn.Size = UDim2.new(0, 26, 0, 26)
 	xBtn.Position = UDim2.new(1, -32, 0, 6)
-	xBtn.BackgroundColor3 = C.neutral
-	xBtn.Text = "X"
+	xBtn.BackgroundColor3 = C.surface
+	xBtn.Text = "✕"
 	xBtn.Font = Enum.Font.GothamBold
-	xBtn.TextSize = 14
-	xBtn.TextColor3 = C.text
+	xBtn.TextSize = DS.text.md
+	xBtn.TextColor3 = C.subtext
 	xBtn.BorderSizePixel = 0
+	xBtn.AutoButtonColor = false
 	xBtn.ZIndex = 74
-	Instance.new("UICorner", xBtn).CornerRadius = UDim.new(0, 6)
+	themed(xBtn, "BackgroundColor3", "surface")
+	themed(xBtn, "TextColor3", "subtext")
+	Instance.new("UICorner", xBtn).CornerRadius = DS.corner.sm
 	xBtn.MouseButton1Click:Connect(closeCard)
 
 	-- avatar (cuerpo completo)
@@ -4349,15 +4419,20 @@ local function showMiniProfileCard(userId, fallback)
 	local copyDescBtn = Instance.new("TextButton", btnRow)
 	copyDescBtn.LayoutOrder = 2
 	copyDescBtn.Size = UDim2.new(0, 148, 0, 28)
-	copyDescBtn.BackgroundColor3 = C.neutral
+	copyDescBtn.BackgroundColor3 = C.surface
 	copyDescBtn.Text = "Copiar descripción"
-	copyDescBtn.Font = Enum.Font.GothamBold
-	copyDescBtn.TextSize = 12
+	copyDescBtn.Font = Enum.Font.GothamMedium
+	copyDescBtn.TextSize = DS.text.sm
 	copyDescBtn.TextColor3 = C.text
 	copyDescBtn.BorderSizePixel = 0
 	copyDescBtn.AutoButtonColor = false
 	copyDescBtn.ZIndex = 72
-	Instance.new("UICorner", copyDescBtn).CornerRadius = UDim.new(0, 6)
+	themed(copyDescBtn, "BackgroundColor3", "surface")
+	themed(copyDescBtn, "TextColor3", "text")
+	Instance.new("UICorner", copyDescBtn).CornerRadius = DS.corner.sm
+	local cdsStroke = Instance.new("UIStroke", copyDescBtn)
+	cdsStroke.Color = C.border; cdsStroke.Thickness = 1
+	themed(cdsStroke, "Color", "border")
 	copyDescBtn.MouseButton1Click:Connect(function()
 		if not resolvedDesc or resolvedDesc == "" then
 			copyDescBtn.Text = "Sin descripción"
@@ -4437,14 +4512,17 @@ local function showMiniProfileCard(userId, fallback)
 	local fullBtn = Instance.new("TextButton", body)
 	fullBtn.LayoutOrder = 9
 	fullBtn.Size = UDim2.new(1, 0, 0, 30)
-	fullBtn.BackgroundColor3 = C.neutral
+	fullBtn.BackgroundColor3 = C.accent
 	fullBtn.Text = "Análisis completo →"
-	fullBtn.Font = Enum.Font.GothamBold
-	fullBtn.TextSize = 13
-	fullBtn.TextColor3 = C.text
+	fullBtn.Font = Enum.Font.GothamMedium
+	fullBtn.TextSize = DS.text.md
+	fullBtn.TextColor3 = C.onAccent
 	fullBtn.BorderSizePixel = 0
+	fullBtn.AutoButtonColor = false
 	fullBtn.ZIndex = 72
-	Instance.new("UICorner", fullBtn).CornerRadius = UDim.new(0, 6)
+	themed(fullBtn, "BackgroundColor3", "accent")
+	themed(fullBtn, "TextColor3", "onAccent")
+	Instance.new("UICorner", fullBtn).CornerRadius = DS.corner.md
 	fullBtn.MouseButton1Click:Connect(function()
 		closeCard()
 		searchBox.Text = resolvedUser
@@ -4558,12 +4636,12 @@ local function addFriendsDropdown(parent, data, order)
 		local id = info.id
 		local cardBtn = Instance.new("TextButton", inner)
 		cardBtn.Size = UDim2.new(1, -6, 0, 44)
-		cardBtn.BackgroundColor3 = C.neutral
+		cardBtn.BackgroundColor3 = C.surface
 		cardBtn.AutoButtonColor = false
 		cardBtn.Text = ""
 		cardBtn.BorderSizePixel = 0
 		cardBtn.LayoutOrder = shown + 1
-		Instance.new("UICorner", cardBtn).CornerRadius = UDim.new(0, 6)
+		Instance.new("UICorner", cardBtn).CornerRadius = DS.corner.sm
 
 		local av = Instance.new("ImageLabel", cardBtn)
 		av.Size = UDim2.new(0, 34, 0, 34); av.Position = UDim2.new(0, 5, 0.5, -17)
@@ -5164,9 +5242,9 @@ do
 		local copiar = Instance.new("TextButton", card)
 		copiar.Size = UDim2.new(0, 168, 0, 32)
 		copiar.Position = UDim2.new(0, 14, 1, -46)
-		copiar.BackgroundColor3 = C.neutral
+		copiar.BackgroundColor3 = C.surface
 		copiar.Text = "Copiar descripción"
-		copiar.Font = Enum.Font.GothamBold; copiar.TextSize = 12
+		copiar.Font = Enum.Font.GothamMedium; copiar.TextSize = 12
 		copiar.TextColor3 = C.text
 		copiar.BorderSizePixel = 0
 		copiar.AutoButtonColor = false
@@ -6505,249 +6583,133 @@ local function render(data, skipEntrance)
 		end
 	end
 
-	-- ---------- PESTAÑA PERFIL ----------
-	local avatarFrame = Instance.new("Frame", profileScroll)
-	avatarFrame.Size = UDim2.new(1, -4, 0, 196)
-	avatarFrame.BackgroundTransparency = 1
-	avatarFrame.LayoutOrder = 0
-	local avatar = Instance.new("ImageButton", avatarFrame)
-	avatar.Size = UDim2.new(0, 150, 0, 150)
-	avatar.Position = UDim2.new(0.5, -75, 0, 5)
-	avatar.BackgroundColor3 = C.card
+	-- ---------- PESTAÑA PERFIL (layout: avatar LEFT + info RIGHT) ----------
+	local DS = _G.NXDS
+
+	-- Hero card: avatar + display name + username + status + NX tag in one card
+	local heroCard = DS.makeCard(profileScroll, {order = 0})
+	local heroInner = Instance.new("Frame", heroCard)
+	heroInner.LayoutOrder = 10
+	heroInner.Size = UDim2.new(1, 0, 0, 110)
+	heroInner.AutomaticSize = Enum.AutomaticSize.Y
+	heroInner.BackgroundTransparency = 1
+
+	-- Avatar (left column, 100x100 circle)
+	local avatar = Instance.new("ImageButton", heroInner)
+	avatar.Size = UDim2.new(0, 100, 0, 100)
+	avatar.Position = UDim2.new(0, 0, 0, 0)
+	avatar.BackgroundColor3 = C.elevated
 	avatar.Image = data.AvatarUrl
 	avatar.AutoButtonColor = false
 	avatar.BorderSizePixel = 0
-	Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 75)
+	Instance.new("UICorner", avatar).CornerRadius = UDim.new(1, 0)
+	themed(avatar, "BackgroundColor3", "elevated")
 	avatar.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
-	-- detalle: el avatar aparece con un fade suave al cargar el perfil.
 	if ANIM.enabled and not skipEntrance then
 		avatar.ImageTransparency = 1
 		motionTween(avatar, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{ ImageTransparency = 0 })
 	end
 
-	local viewCharBtn = Instance.new("TextButton", avatarFrame)
-	viewCharBtn.Size = UDim2.new(0, 220, 0, 30)
-	viewCharBtn.Position = UDim2.new(0.5, -110, 0, 160)
-	viewCharBtn.BackgroundColor3 = C.accent
-	viewCharBtn.Text = "Ver avatar"
-	viewCharBtn.Font = Enum.Font.GothamBold
-	viewCharBtn.TextSize = 13
-	viewCharBtn.TextColor3 = C.onAccent
-	viewCharBtn.BorderSizePixel = 0
-	Instance.new("UICorner", viewCharBtn).CornerRadius = UDim.new(0, 6)
-	viewCharBtn.MouseButton1Click:Connect(function()
-		showCharacterModal(data.UserId, data.Username)
-	end)
+	-- Info (right column)
+	local infoCol = Instance.new("Frame", heroInner)
+	infoCol.Size = UDim2.new(1, -116, 0, 100)
+	infoCol.Position = UDim2.new(0, 116, 0, 0)
+	infoCol.BackgroundTransparency = 1
 
-	-- NX Tag: insignia personalizada bajo el avatar. Oculta por defecto; se llena
-	-- (async) solo si el UserId está en el JSON de NX Tags. No rompe el layout
-	-- porque solo agranda el avatarFrame cuando hay tag que mostrar.
-	local nxChip = Instance.new("Frame", avatarFrame)
-	nxChip.Name = "NXTag"
-	nxChip.AnchorPoint = Vector2.new(0.5, 0)
-	nxChip.Position = UDim2.new(0.5, 0, 0, 196)
-	nxChip.Size = UDim2.new(0, 0, 0, 26)
-	nxChip.AutomaticSize = Enum.AutomaticSize.X
-	nxChip.BackgroundColor3 = C.card
-	nxChip.BackgroundTransparency = 1
-	nxChip.BorderSizePixel = 0
-	nxChip.Visible = false
-	Instance.new("UICorner", nxChip).CornerRadius = UDim.new(0, 13)
-	local nxStroke = Instance.new("UIStroke", nxChip)
-	nxStroke.Thickness = 1.5
-	nxStroke.Transparency = 1
-	local nxPad = Instance.new("UIPadding", nxChip)
-	nxPad.PaddingLeft = UDim.new(0, 12); nxPad.PaddingRight = UDim.new(0, 12)
-	-- (Fase 1 NX V2) Layout horizontal: icono opcional (imagen) + texto del rol.
-	-- Con images OFF, nxIcon queda oculto y el chip se ve igual que antes (emoji + texto).
-	local nxList = Instance.new("UIListLayout", nxChip)
-	nxList.FillDirection = Enum.FillDirection.Horizontal
-	nxList.VerticalAlignment = Enum.VerticalAlignment.Center
-	nxList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	nxList.SortOrder = Enum.SortOrder.LayoutOrder
-	nxList.Padding = UDim.new(0, 6)
+	local displayLbl = Instance.new("TextLabel", infoCol)
+	displayLbl.Size = UDim2.new(1, 0, 0, 22)
+	displayLbl.Position = UDim2.new(0, 0, 0, 4)
+	displayLbl.BackgroundTransparency = 1
+	displayLbl.Font = Enum.Font.GothamBold
+	displayLbl.TextSize = DS.text.xl
+	displayLbl.TextColor3 = C.text
+	displayLbl.Text = data.DisplayName or data.Username
+	displayLbl.TextXAlignment = Enum.TextXAlignment.Left
+	displayLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	themed(displayLbl, "TextColor3", "text")
 
-	local nxIcon = Instance.new("ImageLabel", nxChip)
-	nxIcon.Name = "NXIcon"
-	nxIcon.BackgroundTransparency = 1
-	nxIcon.Size = UDim2.fromOffset(18, 18)
-	nxIcon.LayoutOrder = 1
-	nxIcon.Visible = false
+	local userLbl = Instance.new("TextLabel", infoCol)
+	userLbl.Size = UDim2.new(1, 0, 0, 16)
+	userLbl.Position = UDim2.new(0, 0, 0, 28)
+	userLbl.BackgroundTransparency = 1
+	userLbl.Font = Enum.Font.Gotham
+	userLbl.TextSize = DS.text.md
+	userLbl.TextColor3 = C.subtext
+	userLbl.Text = "@" .. (data.Username or "")
+	userLbl.TextXAlignment = Enum.TextXAlignment.Left
+	userLbl.TextTruncate = Enum.TextTruncate.AtEnd
+	themed(userLbl, "TextColor3", "subtext")
 
-	local nxLabel = Instance.new("TextLabel", nxChip)
-	nxLabel.LayoutOrder = 2
-	nxLabel.AutomaticSize = Enum.AutomaticSize.X
-	nxLabel.Size = UDim2.new(0, 0, 1, 0)
-	nxLabel.BackgroundTransparency = 1
-	nxLabel.Font = Enum.Font.GothamBold
-	nxLabel.TextSize = 14
-	nxLabel.TextColor3 = C.text
-	nxLabel.Text = ""
+	-- Presence indicator dot + text
+	local presRow = Instance.new("Frame", infoCol)
+	presRow.Size = UDim2.new(1, 0, 0, 16)
+	presRow.Position = UDim2.new(0, 0, 0, 50)
+	presRow.BackgroundTransparency = 1
+	local presDot = Instance.new("Frame", presRow)
+	presDot.Size = UDim2.fromOffset(8, 8)
+	presDot.Position = UDim2.new(0, 0, 0.5, -4)
+	presDot.BackgroundColor3 = presenceColorFor(data.PresenceType)
+	presDot.BorderSizePixel = 0
+	Instance.new("UICorner", presDot).CornerRadius = UDim.new(1, 0)
+	local presLbl = Instance.new("TextLabel", presRow)
+	presLbl.Size = UDim2.new(1, -14, 1, 0)
+	presLbl.Position = UDim2.new(0, 14, 0, 0)
+	presLbl.BackgroundTransparency = 1
+	presLbl.Font = Enum.Font.Gotham
+	presLbl.TextSize = DS.text.sm
+	presLbl.TextColor3 = presenceColorFor(data.PresenceType)
+	presLbl.Text = data.Presence or ""
+	presLbl.TextXAlignment = Enum.TextXAlignment.Left
+	presLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
-	do
-		local renderedFor = data.UserId
-		local function applyTag(t)
-			if not t or not nxChip.Parent then return end
-			if currentData == nil or currentData.UserId ~= renderedFor then return end
-			local IR  = _G.NXV2 and _G.NXV2.image
-			local img = t.iconImage and IR and IR.normalize(t.iconImage)
-			if img and IR.usable(img) then
-				nxIcon.Image = img; nxIcon.Visible = true
-				nxLabel.Text = t.tag                                  -- imagen + texto (sin emoji)
-				IR.preload(img)
-				task.spawn(function()                                  -- si el asset es inválido, cae a emoji
-					local n = 0
-					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
-					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
-						nxIcon.Visible = false
-						nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
-					end
-				end)
-			else
-				nxIcon.Visible = false
-				nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag   -- emoji + texto (igual que hoy)
-			end
-			nxLabel.TextColor3 = t.color
-			nxStroke.Color = t.color
-			nxStroke.Transparency = 0.25
-			nxChip.BackgroundTransparency = 0.15
-			nxChip.Visible = true
-			avatarFrame.Size = UDim2.new(1, -4, 0, 232)   -- hueco para el chip
-		end
-		-- Resuelve vía dispatcher (v2 -> legacy).
-		local now = getNXTag(data.UserId)
-		if now then
-			applyTag(now)
-		else
-			-- Aún no hay tag porque algún backend sigue cargando. En vez de
-			-- sondear (antes: hasta 60 vueltas de task.wait(0.1)), nos
-			-- suscribimos a los dos y el primero que traiga algo lo pinta.
-			local function reintentar()
-				if currentData == nil or currentData.UserId ~= renderedFor then return end
-				if not nxChip.Parent then return end
-				applyTag(getNXTag(renderedFor))
-			end
-			_G.NXTagKit.alCargarLegacy(reintentar)
-			if _G.NXV2 and _G.NXV2.onReady then _G.NXV2.onReady(reintentar) end
-		end
-	end
-
-
-	-- Link + acciones (v3.8.1 · reestructurado en DOS filas)
-	-- Antes: link + 3 botones de 88 px en UNA sola fila de 30 px. Al reducir la
-	-- ventana los botones se montaban sobre el link y el texto se salía. Ahora el
-	-- link ocupa una fila ENTERA arriba (siempre visible y completo) y los 2
-	-- botones (Abrir Perfil / Copiar link) van en una segunda fila a mitades con
-	-- un UIListLayout (nunca se solapan, se adaptan al ancho). El botón Reportar
-	-- se retiró a pedido del usuario. Los handlers son los de siempre.
-	local linkFrame = Instance.new("Frame", profileScroll)
-	linkFrame.LayoutOrder = 2
-	linkFrame.Size = UDim2.new(1, -4, 0, 66)
-	linkFrame.BackgroundColor3 = C.card
-	linkFrame.BorderSizePixel = 0
-	linkFrame.ClipsDescendants = true
-	Instance.new("UICorner", linkFrame).CornerRadius = UDim.new(0, 4)
-	themed(linkFrame, "BackgroundColor3", "card")
-
-	local linkBox = Instance.new("TextBox", linkFrame)
-	linkBox.Size = UDim2.new(1, -12, 0, 28)
-	linkBox.Position = UDim2.new(0, 6, 0, 4)
-	linkBox.BackgroundColor3 = C.link
-	linkBox.Font = Enum.Font.Code
-	linkBox.TextSize = 12
-	linkBox.TextColor3 = Color3.fromRGB(120, 200, 255)
-	linkBox.Text = data.ProfileUrl
-	linkBox.ClearTextOnFocus = false
-	linkBox.TextEditable = false
-	linkBox.TextXAlignment = Enum.TextXAlignment.Left
-	linkBox.TextTruncate = Enum.TextTruncate.AtEnd
-	linkBox.BorderSizePixel = 0
-	themed(linkBox, "BackgroundColor3", "link")
-	Instance.new("UICorner", linkBox).CornerRadius = UDim.new(0, 4)
-	local lbPad = Instance.new("UIPadding", linkBox)
-	lbPad.PaddingLeft = UDim.new(0, 8); lbPad.PaddingRight = UDim.new(0, 8)
-
-	-- Segunda fila: los 3 botones en tercios iguales (el layout los separa).
-	local actRow = Instance.new("Frame", linkFrame)
-	actRow.Size = UDim2.new(1, -12, 0, 26)
-	actRow.Position = UDim2.new(0, 6, 0, 36)
+	-- Action buttons row under the avatar/info
+	local actRow = Instance.new("Frame", heroCard)
+	actRow.LayoutOrder = 20
+	actRow.Size = UDim2.new(1, 0, 0, 30)
 	actRow.BackgroundTransparency = 1
 	local actLay = Instance.new("UIListLayout", actRow)
 	actLay.FillDirection = Enum.FillDirection.Horizontal
 	actLay.Padding = UDim.new(0, 8)
-	actLay.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 	actLay.SortOrder = Enum.SortOrder.LayoutOrder
-	local BTN = UDim2.new(0.5, -4, 1, 0)   -- media fila menos el aire (2 botones)
+	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 
-	local openProfile = Instance.new("TextButton", actRow)
-	openProfile.LayoutOrder = 1
-	openProfile.Size = BTN
-	openProfile.BackgroundColor3 = C.neutral
-	openProfile.Text = "Abrir Perfil"
-	openProfile.Font = Enum.Font.GothamBold
-	openProfile.TextSize = 12
-	openProfile.TextColor3 = C.text
-	openProfile.BorderSizePixel = 0
-	openProfile.TextTruncate = Enum.TextTruncate.AtEnd
-	Instance.new("UICorner", openProfile).CornerRadius = UDim.new(0, 4)
-	themed(openProfile, "BackgroundColor3", "neutral")
-	themed(openProfile, "TextColor3", "text")
+	actRow.ClipsDescendants = true
+	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.3, -4, 0, 28)})
+	viewCharBtn.MouseButton1Click:Connect(function()
+		showCharacterModal(data.UserId, data.Username)
+	end)
+
+	local openProfile = DS.makeButton(actRow, "Abrir perfil", "secondary", {order = 2, size = UDim2.new(0.35, -4, 0, 28)})
 	openProfile.MouseButton1Click:Connect(function()
 		local opened = openURL(data.ProfileUrl)
 		if opened then
-			statusLabel.Text = "✓ Perfil abierto en el navegador."
+			statusLabel.Text = "Perfil abierto en el navegador."
 		else
-			statusLabel.Text = "No disponible en tu executor. Te dejo el link para copiarlo."
+			statusLabel.Text = "No disponible en tu executor."
 			showLinkModal(data.ProfileUrl)
 		end
 	end)
 
-	local copyLink = Instance.new("TextButton", actRow)
-	copyLink.LayoutOrder = 2
-	copyLink.Size = BTN
-	copyLink.BackgroundColor3 = C.accent
-	copyLink.Text = "Copiar link"
-	copyLink.Font = Enum.Font.GothamBold
-	copyLink.TextSize = 12
-	copyLink.TextColor3 = C.onAccent
-	copyLink.BorderSizePixel = 0
-	copyLink.TextTruncate = Enum.TextTruncate.AtEnd
-	Instance.new("UICorner", copyLink).CornerRadius = UDim.new(0, 4)
-	themed(copyLink, "BackgroundColor3", "accent")
-	themed(copyLink, "TextColor3", "onAccent")
+	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 3, size = UDim2.new(0.35, -4, 0, 28)})
 	copyLink.MouseButton1Click:Connect(function()
 		clipboard(data.ProfileUrl)
 		statusLabel.Text = "Link del perfil copiado"
-		copyLink.Text = "¡Copiado!"
+		copyLink.Text = "Copiado!"
 		task.delay(1.2, function()
 			if copyLink and copyLink.Parent then copyLink.Text = "Copiar link" end
 		end)
 	end)
 
-	-- Estado (presencia en tiempo real). Color re-derivado del TIPO (v3.1.0)
-	-- para que respete el tema actual en cada render.
-	local estadoRow = addRow(profileScroll, "Estado", data.Presence, false, presenceColorFor(data.PresenceType))
-	estadoRow.LayoutOrder = 3
-
-	-- Botón "Unirse a su servidor" (solo si está jugando y hay datos públicos)
+	-- Join server button (only when in-game and public)
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
-		local joinFrame = Instance.new("Frame", profileScroll)
-		joinFrame.LayoutOrder = 4
-		joinFrame.Size = UDim2.new(1, -4, 0, 32)
-		joinFrame.BackgroundTransparency = 1
-		local joinBtn = Instance.new("TextButton", joinFrame)
-		joinBtn.Size = UDim2.new(1, 0, 1, 0)
+		viewCharBtn.Size = UDim2.new(0.25, -5, 0, 28)
+		openProfile.Size = UDim2.new(0.25, -5, 0, 28)
+		copyLink.Size = UDim2.new(0.25, -5, 0, 28)
+		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 4, size = UDim2.new(0.25, -5, 0, 28)})
 		joinBtn.BackgroundColor3 = C.good
-		joinBtn.Text = "Unirse a su servidor"
-		joinBtn.Font = Enum.Font.GothamBold
-		joinBtn.TextSize = 14
-		joinBtn.TextColor3 = C.onAccent
-		joinBtn.BorderSizePixel = 0
-		Instance.new("UICorner", joinBtn).CornerRadius = UDim.new(0, 6)
 		joinBtn.MouseButton1Click:Connect(function()
 			statusLabel.Text = "Intentando unirse..."
 			local TS = game:GetService("TeleportService")
@@ -6760,51 +6722,142 @@ local function render(data, skipEntrance)
 		end)
 	end
 
-	addRow(profileScroll, "Username", data.Username, false).LayoutOrder = 5
-	addRow(profileScroll, "Display Name", data.DisplayName, false).LayoutOrder = 6
-	addRow(profileScroll, "UserId", data.UserId, true).LayoutOrder = 7            -- botón Copiar ID
-	addRow(profileScroll, "Suscripción", data.Subscription, false).LayoutOrder = 8
-	-- (v3.8.3) "Verificado" se movió al panel " Verificación" (que además cruza
-	-- las dos fuentes) para no mostrarlo duplicado aquí y allá.
-	addRow(profileScroll, "Baneado", data.Banned, false,
-		(data.Banned == "Sí") and C.bad or C.text).LayoutOrder = 10
-	addRow(profileScroll, "Creación", data.Created, false).LayoutOrder = 11
-	addRow(profileScroll, "Edad de cuenta", data.AccountAge, false).LayoutOrder = 12
-	addDescription(profileScroll, data.Description).LayoutOrder = 13
+	-- NX Tag chip (under hero card)
+	local nxChip = Instance.new("Frame", heroCard)
+	nxChip.Name = "NXTag"
+	nxChip.LayoutOrder = 15
+	nxChip.Size = UDim2.new(0, 0, 0, 24)
+	nxChip.AutomaticSize = Enum.AutomaticSize.X
+	nxChip.BackgroundColor3 = C.elevated
+	nxChip.BackgroundTransparency = 1
+	nxChip.BorderSizePixel = 0
+	nxChip.Visible = false
+	Instance.new("UICorner", nxChip).CornerRadius = UDim.new(0, 12)
+	themed(nxChip, "BackgroundColor3", "elevated")
+	local nxStroke = Instance.new("UIStroke", nxChip)
+	nxStroke.Thickness = 1; nxStroke.Transparency = 1
+	local nxPad = Instance.new("UIPadding", nxChip)
+	nxPad.PaddingLeft = UDim.new(0, 10); nxPad.PaddingRight = UDim.new(0, 10)
+	local nxList = Instance.new("UIListLayout", nxChip)
+	nxList.FillDirection = Enum.FillDirection.Horizontal
+	nxList.VerticalAlignment = Enum.VerticalAlignment.Center
+	nxList.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	nxList.SortOrder = Enum.SortOrder.LayoutOrder
+	nxList.Padding = UDim.new(0, 6)
+
+	local nxIcon = Instance.new("ImageLabel", nxChip)
+	nxIcon.Name = "NXIcon"
+	nxIcon.BackgroundTransparency = 1
+	nxIcon.Size = UDim2.fromOffset(16, 16)
+	nxIcon.LayoutOrder = 1
+	nxIcon.Visible = false
+
+	local nxLabel = Instance.new("TextLabel", nxChip)
+	nxLabel.LayoutOrder = 2
+	nxLabel.AutomaticSize = Enum.AutomaticSize.X
+	nxLabel.Size = UDim2.new(0, 0, 1, 0)
+	nxLabel.BackgroundTransparency = 1
+	nxLabel.Font = Enum.Font.GothamBold
+	nxLabel.TextSize = DS.text.sm
+	nxLabel.TextColor3 = C.text
+	nxLabel.Text = ""
+
+	do
+		local renderedFor = data.UserId
+		local function applyTag(t)
+			if not t or not nxChip.Parent then return end
+			if currentData == nil or currentData.UserId ~= renderedFor then return end
+			local IR  = _G.NXV2 and _G.NXV2.image
+			local img = t.iconImage and IR and IR.normalize(t.iconImage)
+			if img and IR.usable(img) then
+				nxIcon.Image = img; nxIcon.Visible = true
+				nxLabel.Text = t.tag
+				IR.preload(img)
+				task.spawn(function()
+					local n = 0
+					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
+					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
+						nxIcon.Visible = false
+						nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+					end
+				end)
+			else
+				nxIcon.Visible = false
+				nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+			end
+			nxLabel.TextColor3 = t.color
+			nxStroke.Color = t.color
+			nxStroke.Transparency = 0.3
+			nxChip.BackgroundTransparency = 0.1
+			nxChip.Visible = true
+		end
+		local now = getNXTag(data.UserId)
+		if now then
+			applyTag(now)
+		else
+			local function reintentar()
+				if currentData == nil or currentData.UserId ~= renderedFor then return end
+				if not nxChip.Parent then return end
+				applyTag(getNXTag(renderedFor))
+			end
+			_G.NXTagKit.alCargarLegacy(reintentar)
+			if _G.NXV2 and _G.NXV2.onReady then _G.NXV2.onReady(reintentar) end
+		end
+	end
+
+	-- Identity card (data rows grouped)
+	local idCard = DS.makeCard(profileScroll, {order = 1, title = "Identidad"})
+	DS.makeDataRow(idCard, "Username", data.Username, {order = 1, copyable = true})
+	DS.makeDataRow(idCard, "Display Name", data.DisplayName, {order = 2})
+	DS.makeDataRow(idCard, "UserId", tostring(data.UserId), {order = 3, copyable = true})
+	DS.makeDataRow(idCard, "Suscripción", data.Subscription or "—", {order = 4})
+	DS.makeDataRow(idCard, "Baneado", data.Banned or "No",
+		{order = 5, valueColor = (data.Banned == "Sí") and C.bad or nil})
+	DS.makeDataRow(idCard, "Creación", data.Created or "—", {order = 6})
+	DS.makeDataRow(idCard, "Edad de cuenta", data.AccountAge or "—", {order = 7})
+
+	-- Link row inside identity card
+	local linkRow = Instance.new("Frame", idCard)
+	linkRow.LayoutOrder = 8
+	linkRow.Size = UDim2.new(1, 0, 0, 28)
+	linkRow.BackgroundTransparency = 1
+	local linkBox = Instance.new("TextBox", linkRow)
+	linkBox.Size = UDim2.new(1, 0, 1, 0)
+	linkBox.BackgroundColor3 = C.link
+	linkBox.BackgroundTransparency = 0.5
+	linkBox.Font = Enum.Font.Code
+	linkBox.TextSize = 11
+	linkBox.TextColor3 = C.accent
+	linkBox.Text = data.ProfileUrl
+	linkBox.ClearTextOnFocus = false
+	linkBox.TextEditable = false
+	linkBox.TextXAlignment = Enum.TextXAlignment.Left
+	linkBox.TextTruncate = Enum.TextTruncate.AtEnd
+	linkBox.BorderSizePixel = 0
+	themed(linkBox, "BackgroundColor3", "link")
+	themed(linkBox, "TextColor3", "accent")
+	Instance.new("UICorner", linkBox).CornerRadius = DS.corner.sm
+	local lbPad = Instance.new("UIPadding", linkBox)
+	lbPad.PaddingLeft = UDim.new(0, 8); lbPad.PaddingRight = UDim.new(0, 8)
+
+	-- Description card
+	addDescription(profileScroll, data.Description).LayoutOrder = 2
 
 
 	-- ---------- HISTORIAL DE NOMBRES (reincorporado en v3.1.0) ----------
-	-- Tarjeta con el nombre actual + nombres anteriores (API username-history).
-	-- Caché por-sección (data._namesCached) para no re-pedir al cambiar tema.
-	local historyFrame = Instance.new("Frame", profileScroll)
+	local historyFrame = DS.makeCard(profileScroll, {order = 15, title = "Historial de nombres"})
 	historyFrame.Name = "NameHistory"
-	historyFrame.LayoutOrder = 15   -- 14 lo ocupa ahora el Panel de Identidad
-	historyFrame.Size = UDim2.new(1, -4, 0, 0)
-	historyFrame.BackgroundTransparency = 1
-	historyFrame.AutomaticSize = Enum.AutomaticSize.Y
-	local historyLayout = Instance.new("UIListLayout", historyFrame)
-	historyLayout.Padding = UDim.new(0, 4)
-	historyLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local histTitle = Instance.new("TextLabel", historyFrame)
-	histTitle.LayoutOrder = 0
-	histTitle.Size = UDim2.new(1, 0, 0, 24)
-	histTitle.BackgroundTransparency = 1
-	histTitle.Font = Enum.Font.GothamBold
-	histTitle.TextSize = 14
-	histTitle.TextColor3 = C.accent
-	histTitle.Text = "Historial de nombres"
-	histTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 	local loadingHist = Instance.new("TextLabel", historyFrame)
-	loadingHist.LayoutOrder = 1
-	loadingHist.Size = UDim2.new(1, 0, 0, 20)
+	loadingHist.LayoutOrder = 5
+	loadingHist.Size = UDim2.new(1, 0, 0, 18)
 	loadingHist.BackgroundTransparency = 1
 	loadingHist.Font = Enum.Font.Gotham
-	loadingHist.TextSize = 12
+	loadingHist.TextSize = DS.text.sm
 	loadingHist.TextColor3 = C.subtext
 	loadingHist.Text = "Cargando..."
 	loadingHist.TextXAlignment = Enum.TextXAlignment.Left
+	themed(loadingHist, "TextColor3", "subtext")
 
 	local historyFor = data.UserId
 	-- Pasa por el canal compartido de NX Plus: el Panel de Identidad pide lo
@@ -6836,52 +6889,53 @@ local function render(data, skipEntrance)
 
 		if not names then
 			local err = Instance.new("TextLabel", historyFrame)
-			err.LayoutOrder = 1
-			err.Size = UDim2.new(1, 0, 0, 20)
+			err.LayoutOrder = 10
+			err.Size = UDim2.new(1, 0, 0, 18)
 			err.BackgroundTransparency = 1
 			err.Font = Enum.Font.Gotham
-			err.TextSize = 12
+			err.TextSize = DS.text.sm
 			err.TextColor3 = C.bad
 			err.Text = "No disponible."
 			err.TextXAlignment = Enum.TextXAlignment.Left
 			return
 		end
 
-		-- nombre actual (destacado)
 		local current = Instance.new("Frame", historyFrame)
-		current.LayoutOrder = 1
+		current.LayoutOrder = 10
 		current.Size = UDim2.new(1, 0, 0, 24)
 		current.BackgroundColor3 = C.accent
-		current.BackgroundTransparency = 0.8
+		current.BackgroundTransparency = 0.85
 		current.BorderSizePixel = 0
 		current.ClipsDescendants = true
-		Instance.new("UICorner", current).CornerRadius = UDim.new(0, 4)
+		Instance.new("UICorner", current).CornerRadius = DS.corner.sm
 		local curLabel = Instance.new("TextLabel", current)
 		curLabel.Size = UDim2.new(1, -10, 1, 0)
 		curLabel.Position = UDim2.new(0, 5, 0, 0)
 		curLabel.BackgroundTransparency = 1
 		curLabel.Font = Enum.Font.GothamBold
-		curLabel.TextSize = 13
+		curLabel.TextSize = DS.text.md
 		curLabel.TextColor3 = C.text
 		curLabel.Text = "Actual: " .. data.Username
 		curLabel.TextXAlignment = Enum.TextXAlignment.Left
 		curLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		themed(curLabel, "TextColor3", "text")
 
 		if #names > 0 then
 			local prevHeader = Instance.new("TextLabel", historyFrame)
-			prevHeader.LayoutOrder = 2
-			prevHeader.Size = UDim2.new(1, 0, 0, 20)
+			prevHeader.LayoutOrder = 11
+			prevHeader.Size = UDim2.new(1, 0, 0, 18)
 			prevHeader.BackgroundTransparency = 1
 			prevHeader.Font = Enum.Font.Gotham
-			prevHeader.TextSize = 12
+			prevHeader.TextSize = DS.text.sm
 			prevHeader.TextColor3 = C.subtext
 			prevHeader.Text = "Nombres anteriores (" .. #names .. "):"
 			prevHeader.TextXAlignment = Enum.TextXAlignment.Left
+			themed(prevHeader, "TextColor3", "subtext")
 
 			for i, name in ipairs(names) do
 				local entry = Instance.new("Frame", historyFrame)
-				entry.LayoutOrder = 2 + i
-				entry.Size = UDim2.new(1, 0, 0, 20)
+				entry.LayoutOrder = 11 + i
+				entry.Size = UDim2.new(1, 0, 0, 18)
 				entry.BackgroundTransparency = 1
 				entry.ClipsDescendants = true
 				local entryLabel = Instance.new("TextLabel", entry)
@@ -6889,63 +6943,62 @@ local function render(data, skipEntrance)
 				entryLabel.Position = UDim2.new(0, 5, 0, 0)
 				entryLabel.BackgroundTransparency = 1
 				entryLabel.Font = Enum.Font.Gotham
-				entryLabel.TextSize = 12
+				entryLabel.TextSize = DS.text.sm
 				entryLabel.TextColor3 = C.text
 				entryLabel.Text = "• " .. name
 				entryLabel.TextXAlignment = Enum.TextXAlignment.Left
 				entryLabel.TextTruncate = Enum.TextTruncate.AtEnd
+				themed(entryLabel, "TextColor3", "text")
 			end
 
 			if hasMore then
 				local more = Instance.new("TextLabel", historyFrame)
-				more.LayoutOrder = 3 + #names
-				more.Size = UDim2.new(1, 0, 0, 20)
+				more.LayoutOrder = 100 + #names
+				more.Size = UDim2.new(1, 0, 0, 16)
 				more.BackgroundTransparency = 1
 				more.Font = Enum.Font.Gotham
-				more.TextSize = 11
-				more.TextColor3 = C.subtext
+				more.TextSize = DS.text.xs
+				more.TextColor3 = C.textDisabled
 				more.Text = "Hay más nombres (solo se muestran los primeros 1000)."
 				more.TextXAlignment = Enum.TextXAlignment.Left
+				themed(more, "TextColor3", "textDisabled")
 			end
 		else
 			local none = Instance.new("TextLabel", historyFrame)
-			none.LayoutOrder = 2
-			none.Size = UDim2.new(1, 0, 0, 20)
+			none.LayoutOrder = 11
+			none.Size = UDim2.new(1, 0, 0, 18)
 			none.BackgroundTransparency = 1
 			none.Font = Enum.Font.Gotham
-			none.TextSize = 12
-			none.TextColor3 = C.text
+			none.TextSize = DS.text.sm
+			none.TextColor3 = C.subtext
 			none.Text = "Sin nombres anteriores."
 			none.TextXAlignment = Enum.TextXAlignment.Left
+			themed(none, "TextColor3", "subtext")
 		end
 	end)
 
 	-- ---------- PESTAÑA ESTADÍSTICAS ----------
-	addFriendsDropdown(statsScroll, data, 1)   -- "Amigos" desplegable (lista in-situ)
-	addRow(statsScroll, "Seguidores", data.Followers, false).LayoutOrder = 2
-	addRow(statsScroll, "Siguiendo", data.Following, false).LayoutOrder = 3
-	addRow(statsScroll, "Grupos", data.Groups, false).LayoutOrder = 4
-	addRow(statsScroll, "Badges", data.Badges, false).LayoutOrder = 5
-	addRow(statsScroll, "Favoritos", data.Favorites, false).LayoutOrder = 6
-	addRow(statsScroll, "Experiencias creadas", data.CreatedGames, false).LayoutOrder = 7
+	local statsCard = DS.makeCard(statsScroll, {order = 0, title = "Estadísticas"})
+	DS.makeDataRow(statsCard, "Amigos", tostring(data.Friends or "—"), {order = 1})
+	addFriendsDropdown(statsScroll, data, 5)
+	DS.makeDataRow(statsCard, "Seguidores", tostring(data.Followers or "—"), {order = 2})
+	DS.makeDataRow(statsCard, "Siguiendo", tostring(data.Following or "—"), {order = 3})
+	DS.makeDataRow(statsCard, "Grupos", tostring(data.Groups or "—"), {order = 4})
+	DS.makeDataRow(statsCard, "Badges", tostring(data.Badges or "—"), {order = 5})
+	DS.makeDataRow(statsCard, "Favoritos", tostring(data.Favorites or "—"), {order = 6})
+	DS.makeDataRow(statsCard, "Experiencias creadas", tostring(data.CreatedGames or "—"), {order = 7})
 
 	local exportFrame = Instance.new("Frame", statsScroll)
-	exportFrame.LayoutOrder = 8
-	exportFrame.Size = UDim2.new(1, -4, 0, 36)
+	exportFrame.LayoutOrder = 50
+	exportFrame.Size = UDim2.new(1, 0, 0, 32)
 	exportFrame.BackgroundTransparency = 1
+	local exportLay = Instance.new("UIListLayout", exportFrame)
+	exportLay.FillDirection = Enum.FillDirection.Horizontal
+	exportLay.Padding = UDim.new(0, 8)
+	exportLay.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local function mkBtn(text, x)
-		local b = Instance.new("TextButton", exportFrame)
-		b.Size = UDim2.new(0, 130, 0, 28)
-		b.Position = UDim2.new(0, x, 0, 4)
-		b.BackgroundColor3 = C.neutral
-		b.Text = text
-		b.Font = Enum.Font.GothamBold
-		b.TextSize = 13
-		b.TextColor3 = C.text
-		b.BorderSizePixel = 0
-		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
-		return b
+	local function mkBtn(text, ord)
+		return DS.makeButton(exportFrame, text, "secondary", {order = ord, size = UDim2.new(0, 0, 0, 28)})
 	end
 
 	local order = {
@@ -7019,7 +7072,7 @@ local function render(data, skipEntrance)
 		end)
 	end
 
-	local txtBtn = mkBtn("Copiar TXT", 0)
+	local txtBtn = mkBtn("Copiar TXT", 1)
 	txtBtn.MouseButton1Click:Connect(function()
 		withNames("Preparando TXT (historial de nombres)...", function()
 			local ok = pcall(function() clipboard(table.concat(buildTxtLines(), "\n")) end)
@@ -7033,7 +7086,7 @@ local function render(data, skipEntrance)
 		end)
 	end)
 
-	local jsonBtn = mkBtn("Copiar JSON", 140)
+	local jsonBtn = mkBtn("Copiar JSON", 2)
 	jsonBtn.MouseButton1Click:Connect(function()
 		withNames("Preparando JSON (historial de nombres)...", function()
 			local ok = pcall(function() clipboard(HttpService:JSONEncode(buildExportData())) end)
@@ -7066,7 +7119,7 @@ local function render(data, skipEntrance)
 
 	local function bodyOf(card)
 		for _, ch in ipairs(card:GetChildren()) do
-			if ch:IsA("TextLabel") and ch.LayoutOrder == 1 then return ch end
+			if ch:IsA("TextLabel") and ch.LayoutOrder == 10 then return ch end
 		end
 	end
 
@@ -7116,7 +7169,7 @@ local function render(data, skipEntrance)
 		for _, it in ipairs(items) do
 			local thumb = Instance.new("ImageLabel", grid)
 			thumb.Size = UDim2.new(0, 56, 0, 56)
-			thumb.BackgroundColor3 = C.neutral
+			thumb.BackgroundColor3 = C.surface
 			thumb.BorderSizePixel = 0
 			thumb.Image = ("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(it.id)
 			Instance.new("UICorner", thumb).CornerRadius = UDim.new(0, 6)
@@ -7333,7 +7386,7 @@ local function render(data, skipEntrance)
 					if not decCard.Parent then return end
 					local bodyLabel
 					for _, ch in ipairs(decCard:GetChildren()) do
-						if ch:IsA("TextLabel") and ch.LayoutOrder == 1 then bodyLabel = ch end
+						if ch:IsA("TextLabel") and ch.LayoutOrder == 10 then bodyLabel = ch end
 					end
 					if not bodyLabel then return end
 					local extra, shown = {}, 0
@@ -7379,32 +7432,7 @@ local function render(data, skipEntrance)
 	local actScore,   actLvl,   actColor                 = computeActivity(data)
 	local inflScore,  inflLvl,  inflColor                = computeInfluence(data, nil)
 
-	local advCard = Instance.new("Frame", analysisScroll)
-	advCard.LayoutOrder = 3
-	advCard.Size = UDim2.new(1, -4, 0, 0)
-	advCard.AutomaticSize = Enum.AutomaticSize.Y
-	advCard.BackgroundColor3 = C.card
-	advCard.BorderSizePixel = 0
-	advCard.ClipsDescendants = true
-	Instance.new("UICorner", advCard).CornerRadius = UDim.new(0, 8)
-	themed(advCard, "BackgroundColor3", "card")
-	local advStroke = Instance.new("UIStroke", advCard)
-	advStroke.Color = C.accent; advStroke.Thickness = 1.2; advStroke.Transparency = 0.35
-	themed(advStroke, "Color", "accent")
-	local advPad = Instance.new("UIPadding", advCard)
-	advPad.PaddingTop = UDim.new(0,8); advPad.PaddingBottom = UDim.new(0,8)
-	advPad.PaddingLeft = UDim.new(0,10); advPad.PaddingRight = UDim.new(0,10)
-	local advLay = Instance.new("UIListLayout", advCard)
-	advLay.Padding = UDim.new(0, 6); advLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local advTitle = Instance.new("TextLabel", advCard)
-	advTitle.LayoutOrder = 0; advTitle.Size = UDim2.new(1,0,0,20)
-	advTitle.BackgroundTransparency = 1
-	advTitle.Font = Enum.Font.GothamBold; advTitle.TextSize = 14
-	advTitle.TextColor3 = C.accent
-	advTitle.Text = "Puntuaciones"
-	advTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(advTitle, "TextColor3", "accent")
+	local advCard = DS.makeCard(analysisScroll, {order = 3, title = "Puntuaciones"})
 
 	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
 	addScoreBar(advCard, "Actividad", actScore, actLvl, actColor, 2)
@@ -7598,7 +7626,7 @@ local function render(data, skipEntrance)
 			if not mutualCard.Parent then return end
 			local bodyLabel
 			for _, ch in ipairs(mutualCard:GetChildren()) do
-				if ch:IsA("TextLabel") and ch.LayoutOrder == 1 then bodyLabel = ch end
+				if ch:IsA("TextLabel") and ch.LayoutOrder == 10 then bodyLabel = ch end
 			end
 			if not bodyLabel then return end
 			if not mutual then
@@ -7630,52 +7658,32 @@ rerenderCurrent = function()
 	end
 end
 
--- ====================== PESTAÑA AJUSTES (solo Tema, en vivo) ======================
+print("[NX-DEBUG] ✓ Pre-settings OK, entering Settings tab")
+-- ====================== PESTAÑA AJUSTES (rediseño con DS) ======================
 do
-	-- Muestra los nombres de tema con mayúscula inicial (Negro, Azul, Rojo…)
-	-- sin cambiar la clave interna en minúscula (no rompe el guardado ni THEMES).
+	local DS = _G.NXDS
 	local function titleCase(s)
 		s = tostring(s)
 		return s:sub(1, 1):upper() .. s:sub(2)
 	end
 
-	local themeCard = Instance.new("Frame", settingsScroll)
-	themeCard.LayoutOrder = 1
-	themeCard.Size = UDim2.new(1, -4, 0, 0)
-	themeCard.AutomaticSize = Enum.AutomaticSize.Y
-	themeCard.BackgroundColor3 = C.card
-	themeCard.BorderSizePixel = 0
-	Instance.new("UICorner", themeCard).CornerRadius = UDim.new(0, 8)
-	themed(themeCard, "BackgroundColor3", "card")
-	addDepth(themeCard)
-	local thPad = Instance.new("UIPadding", themeCard)
-	thPad.PaddingTop = UDim.new(0,8); thPad.PaddingBottom = UDim.new(0,8)
-	thPad.PaddingLeft = UDim.new(0,10); thPad.PaddingRight = UDim.new(0,10)
-	local thLay = Instance.new("UIListLayout", themeCard)
-	thLay.Padding = UDim.new(0,6); thLay.SortOrder = Enum.SortOrder.LayoutOrder
+	-- Theme selector card
+	local themeCard = DS.makeCard(settingsScroll, {order = 1, title = "Tema"})
 
-	local thTitle = Instance.new("TextLabel", themeCard)
-	thTitle.LayoutOrder = 0; thTitle.Size = UDim2.new(1,0,0,20); thTitle.BackgroundTransparency = 1
-	thTitle.Font = Enum.Font.GothamBold; thTitle.TextSize = 14; thTitle.TextColor3 = C.accent
-	thTitle.Text = "Tema (se aplica al instante)"; thTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(thTitle, "TextColor3", "accent")
-
-	-- Chips de tema que hacen wrap automáticamente (escala a muchos colores).
-	-- El chip sin seleccionar se tiñe con el acento de SU propio tema (preview).
 	local thBtnRow = Instance.new("Frame", themeCard)
-	thBtnRow.LayoutOrder = 1
+	thBtnRow.LayoutOrder = 5
 	thBtnRow.Size = UDim2.new(1, 0, 0, 0)
 	thBtnRow.AutomaticSize = Enum.AutomaticSize.Y
 	thBtnRow.BackgroundTransparency = 1
 	local thGrid = Instance.new("UIGridLayout", thBtnRow)
-	thGrid.CellSize = UDim2.new(0, 70, 0, 26)
+	thGrid.CellSize = UDim2.new(0, 68, 0, 28)
 	thGrid.CellPadding = UDim2.new(0, 6, 0, 6)
 	thGrid.SortOrder = Enum.SortOrder.LayoutOrder
 	thGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
 	local thInfo = Instance.new("TextLabel", themeCard)
-	thInfo.LayoutOrder = 2; thInfo.Size = UDim2.new(1,0,0,16); thInfo.BackgroundTransparency = 1
-	thInfo.Font = Enum.Font.Gotham; thInfo.TextSize = 11; thInfo.TextColor3 = C.subtext
+	thInfo.LayoutOrder = 6; thInfo.Size = UDim2.new(1, 0, 0, 14); thInfo.BackgroundTransparency = 1
+	thInfo.Font = Enum.Font.Gotham; thInfo.TextSize = DS.text.xs; thInfo.TextColor3 = C.subtext
 	thInfo.Text = "Tema actual: " .. titleCase(store.theme); thInfo.TextXAlignment = Enum.TextXAlignment.Left
 	themed(thInfo, "TextColor3", "subtext")
 
@@ -7685,8 +7693,13 @@ do
 			local tn = b:GetAttribute("ThemeKey")
 			local sel = (store.theme == tn)
 			local own = THEMES[tn]
-			b.BackgroundColor3 = sel and C.accent or C.neutral
-			b.TextColor3 = sel and C.onAccent or ((own and own.accent) or C.text)
+			if sel then
+				b.BackgroundColor3 = C.accent
+				b.TextColor3 = C.onAccent
+			else
+				b.BackgroundColor3 = C.surface
+				b.TextColor3 = (own and own.accent) or C.text
+			end
 		end
 	end
 	onRepaint(paintThemeButtons)
@@ -7695,215 +7708,77 @@ do
 	for i, tn in ipairs(themeOrder) do
 		local tb = Instance.new("TextButton", thBtnRow)
 		tb.LayoutOrder = i
-		tb.BackgroundColor3 = C.neutral
-		tb.Text = titleCase(tn); tb.Font = Enum.Font.GothamBold; tb.TextSize = 11; tb.BorderSizePixel = 0
+		tb.BackgroundColor3 = C.surface
+		tb.Text = titleCase(tn); tb.Font = Enum.Font.GothamMedium; tb.TextSize = DS.text.sm; tb.BorderSizePixel = 0
 		tb.TextTruncate = Enum.TextTruncate.AtEnd
-		tb:SetAttribute("ThemeKey", tn)   -- clave interna (minúscula) separada del texto visible
-		Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+		tb:SetAttribute("ThemeKey", tn)
+		Instance.new("UICorner", tb).CornerRadius = DS.corner.sm
 		addHoverStroke(tb)
 		table.insert(themeButtons, tb)
 		tb.MouseButton1Click:Connect(function()
-			setTheme(tn)                 -- cambia el tema EN VIVO (sin reabrir)
+			setTheme(tn)
 			thInfo.Text = "Tema actual: " .. titleCase(tn)
 			paintThemeButtons()
 		end)
 	end
 	paintThemeButtons()
 
-	-- ====== NX Head Tags (toggle · Fase 1 de integración) ======
-	-- Solo enciende/apaga el módulo NX V2 vía su API pública. NO cambia su
-	-- comportamiento ni toca sus internos. Si el módulo no está cargado, el
-	-- toggle igual guarda la preferencia (se aplicará cuando exista).
-	local nxCard = Instance.new("Frame", settingsScroll)
-	nxCard.LayoutOrder = 2
-	nxCard.Size = UDim2.new(1, -4, 0, 0)
-	nxCard.AutomaticSize = Enum.AutomaticSize.Y
-	nxCard.BackgroundColor3 = C.card
-	nxCard.BorderSizePixel = 0
-	Instance.new("UICorner", nxCard).CornerRadius = UDim.new(0, 8)
-	themed(nxCard, "BackgroundColor3", "card")
-	addDepth(nxCard)
-	local nxPad = Instance.new("UIPadding", nxCard)
-	nxPad.PaddingTop = UDim.new(0, 8); nxPad.PaddingBottom = UDim.new(0, 8)
-	nxPad.PaddingLeft = UDim.new(0, 10); nxPad.PaddingRight = UDim.new(0, 10)
-	local nxLay = Instance.new("UIListLayout", nxCard)
-	nxLay.Padding = UDim.new(0, 6); nxLay.SortOrder = Enum.SortOrder.LayoutOrder
+	-- NX Head Tags toggle
+	DS.makeToggleRow(settingsScroll,
+		"NX Head Tags",
+		"Muestra/oculta los tags de todos los jugadores. Para ocultar solo el tuyo, usa el interruptor de tu tag.",
+		store.headTags ~= false, 2, function(on)
+			store.headTags = on
+			saveStore()
+			if _G.NXHeadTags then
+				_G.NXHeadTags.SetEnabled(on)
+			end
+		end)
 
-	local nxTitle = Instance.new("TextLabel", nxCard)
-	nxTitle.LayoutOrder = 0; nxTitle.Size = UDim2.new(1, 0, 0, 20); nxTitle.BackgroundTransparency = 1
-	nxTitle.Font = Enum.Font.GothamBold; nxTitle.TextSize = 14; nxTitle.TextColor3 = C.accent
-	nxTitle.Text = "NX Head Tags (todos)"; nxTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(nxTitle, "TextColor3", "accent")
+	-- Animations toggle
+	DS.makeToggleRow(settingsScroll,
+		"Animaciones",
+		"Transiciones y efectos de la interfaz (y el brillo de los head tags).",
+		store.animations ~= false, 3, function(on)
+			store.animations = on
+			saveStore()
+			setAnimationsEnabled(on)
+		end)
 
-	local nxDesc = Instance.new("TextLabel", nxCard)
-	nxDesc.LayoutOrder = 1; nxDesc.Size = UDim2.new(1, 0, 0, 16); nxDesc.BackgroundTransparency = 1
-	nxDesc.Font = Enum.Font.Gotham; nxDesc.TextSize = 11; nxDesc.TextColor3 = C.subtext
-	nxDesc.Text = "Muestra/oculta los tags de TODOS (solo los ves tú). Para ocultar SOLO el tuyo, usa el interruptor de tu tag en la barra superior."
-	nxDesc.TextXAlignment = Enum.TextXAlignment.Left
-	nxDesc.TextWrapped = true
-	themed(nxDesc, "TextColor3", "subtext")
+	-- NX Shields card (keeps manual switch logic for verification feedback)
+	local shCard = DS.makeCard(settingsScroll, {order = 4, title = "NX Shields", subtitle = "Verificación de APIs y datos antes de mostrarlos."})
 
-	-- Fila: switch NX + etiqueta de estado (mismo componente que el panel del escudo).
-	local nxRow = Instance.new("Frame", nxCard)
-	nxRow.LayoutOrder = 2; nxRow.Size = UDim2.new(1, 0, 0, 28); nxRow.BackgroundTransparency = 1
-	local nxRowLay = Instance.new("UIListLayout", nxRow)
-	nxRowLay.FillDirection = Enum.FillDirection.Horizontal
-	nxRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
-	nxRowLay.Padding = UDim.new(0, 10)
-
-	local nxState = Instance.new("TextLabel", nxRow)
-	nxState.LayoutOrder = 2; nxState.Size = UDim2.new(0, 160, 0, 20)
-	nxState.BackgroundTransparency = 1
-	nxState.Font = Enum.Font.GothamBold; nxState.TextSize = 12
-	nxState.TextXAlignment = Enum.TextXAlignment.Left
-
-	local nxSwitch, nxSetOn
-	local function paintNxToggle()
-		local on = store.headTags
-		nxState.Text = on and "Activado" or "Desactivado"
-		nxState.TextColor3 = on and C.good or C.subtext
-	end
-
-	nxSwitch, nxSetOn = Shield.makeSwitch(nxRow, store.headTags ~= false, function(on)
-		store.headTags = on
-		saveStore()
-		paintNxToggle()
-		if _G.NXHeadTags then
-			_G.NXHeadTags.SetEnabled(on)     -- efecto real: enciende/apaga el módulo
-		end
-	end)
-	nxSwitch.LayoutOrder = 1
-	paintNxToggle()
-	onRepaint(paintNxToggle)
-
-	-- ====== Animaciones (toggle global de movimiento) ======
-	-- Apaga TODAS las animaciones de la UI (hover, transiciones, barras, modales)
-	-- y el brillo/shimmer de los head tags. La preferencia se guarda entre sesiones.
-	local animCard = Instance.new("Frame", settingsScroll)
-	animCard.LayoutOrder = 3
-	animCard.Size = UDim2.new(1, -4, 0, 0)
-	animCard.AutomaticSize = Enum.AutomaticSize.Y
-	animCard.BackgroundColor3 = C.card
-	animCard.BorderSizePixel = 0
-	Instance.new("UICorner", animCard).CornerRadius = UDim.new(0, 8)
-	themed(animCard, "BackgroundColor3", "card")
-	addDepth(animCard)
-	local anPad = Instance.new("UIPadding", animCard)
-	anPad.PaddingTop = UDim.new(0, 8); anPad.PaddingBottom = UDim.new(0, 8)
-	anPad.PaddingLeft = UDim.new(0, 10); anPad.PaddingRight = UDim.new(0, 10)
-	local anLay = Instance.new("UIListLayout", animCard)
-	anLay.Padding = UDim.new(0, 6); anLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local anTitle = Instance.new("TextLabel", animCard)
-	anTitle.LayoutOrder = 0; anTitle.Size = UDim2.new(1, 0, 0, 20); anTitle.BackgroundTransparency = 1
-	anTitle.Font = Enum.Font.GothamBold; anTitle.TextSize = 14; anTitle.TextColor3 = C.accent
-	anTitle.Text = "Animaciones"; anTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(anTitle, "TextColor3", "accent")
-
-	local anDesc = Instance.new("TextLabel", animCard)
-	anDesc.LayoutOrder = 1; anDesc.Size = UDim2.new(1, 0, 0, 16); anDesc.BackgroundTransparency = 1
-	anDesc.Font = Enum.Font.Gotham; anDesc.TextSize = 11; anDesc.TextColor3 = C.subtext
-	anDesc.Text = "Transiciones y efectos de la interfaz (y el brillo de los head tags)."
-	anDesc.TextXAlignment = Enum.TextXAlignment.Left
-	themed(anDesc, "TextColor3", "subtext")
-
-	local anRow = Instance.new("Frame", animCard)
-	anRow.LayoutOrder = 2; anRow.Size = UDim2.new(1, 0, 0, 28); anRow.BackgroundTransparency = 1
-	local anRowLay = Instance.new("UIListLayout", anRow)
-	anRowLay.FillDirection = Enum.FillDirection.Horizontal
-	anRowLay.VerticalAlignment = Enum.VerticalAlignment.Center
-	anRowLay.Padding = UDim.new(0, 10)
-
-	local anState = Instance.new("TextLabel", anRow)
-	anState.LayoutOrder = 2; anState.Size = UDim2.new(0, 160, 0, 20)
-	anState.BackgroundTransparency = 1
-	anState.Font = Enum.Font.GothamBold; anState.TextSize = 12
-	anState.TextXAlignment = Enum.TextXAlignment.Left
-
-	local function paintAnToggle()
-		local on = store.animations ~= false
-		anState.Text = on and "Activadas" or "Desactivadas"
-		anState.TextColor3 = on and C.good or C.subtext
-	end
-
-	local anSwitch = Shield.makeSwitch(anRow, store.animations ~= false, function(on)
-		store.animations = on
-		saveStore()
-		setAnimationsEnabled(on)          -- efecto real sobre motionTween
-		paintAnToggle()
-	end)
-	anSwitch.LayoutOrder = 1
-	paintAnToggle()
-	onRepaint(paintAnToggle)
-
-	-- ======  NX Shields (las MISMAS protecciones del escudo del header) ======
-	-- Estos switches y los del panel del escudo controlan el mismo estado
-	-- (Shield.flags) y se sincronizan por Shield.onChange: cambies donde cambies,
-	-- ambos se actualizan. Encender ejecuta una verificación REAL y la etiqueta
-	-- refleja su resultado, no un texto fijo.
-	local shCard = Instance.new("Frame", settingsScroll)
-	shCard.LayoutOrder = 4
-	shCard.Size = UDim2.new(1, -4, 0, 0)
-	shCard.AutomaticSize = Enum.AutomaticSize.Y
-	shCard.BackgroundColor3 = C.card
-	shCard.BorderSizePixel = 0
-	Instance.new("UICorner", shCard).CornerRadius = UDim.new(0, 8)
-	themed(shCard, "BackgroundColor3", "card")
-	addDepth(shCard)
-	local shPad = Instance.new("UIPadding", shCard)
-	shPad.PaddingTop = UDim.new(0, 8); shPad.PaddingBottom = UDim.new(0, 8)
-	shPad.PaddingLeft = UDim.new(0, 10); shPad.PaddingRight = UDim.new(0, 10)
-	local shLay = Instance.new("UIListLayout", shCard)
-	shLay.Padding = UDim.new(0, 6); shLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local shTitle = Instance.new("TextLabel", shCard)
-	shTitle.LayoutOrder = 0; shTitle.Size = UDim2.new(1, 0, 0, 20); shTitle.BackgroundTransparency = 1
-	shTitle.Font = Enum.Font.GothamBold; shTitle.TextSize = 14; shTitle.TextColor3 = C.accent
-	shTitle.Text = "NX Shields"; shTitle.TextXAlignment = Enum.TextXAlignment.Left
-	themed(shTitle, "TextColor3", "accent")
-
-	local shDesc = Instance.new("TextLabel", shCard)
-	shDesc.LayoutOrder = 1; shDesc.Size = UDim2.new(1, 0, 0, 16); shDesc.BackgroundTransparency = 1
-	shDesc.Font = Enum.Font.Gotham; shDesc.TextSize = 11; shDesc.TextColor3 = C.subtext
-	shDesc.Text = "Verificación de las respuestas de las APIs y de cada dato antes de mostrarlo. También en el escudo de la barra superior."
-	shDesc.TextXAlignment = Enum.TextXAlignment.Left
-	shDesc.TextWrapped = true
-	themed(shDesc, "TextColor3", "subtext")
-
-	-- Construye una fila "nombre + switch + estado" enlazada a una protección real.
 	local function filaProteccion(orden, nombre, clave)
 		local fila = Instance.new("Frame", shCard)
-		fila.LayoutOrder = orden; fila.Size = UDim2.new(1, 0, 0, 30); fila.BackgroundTransparency = 1
+		fila.LayoutOrder = orden; fila.Size = UDim2.new(1, 0, 0, 28); fila.BackgroundTransparency = 1
 
 		local et = Instance.new("TextLabel", fila)
-		et.Size = UDim2.new(1, -180, 1, 0); et.Position = UDim2.new(0, 0, 0, 0)
+		et.Size = UDim2.new(1, -170, 1, 0)
 		et.BackgroundTransparency = 1
-		et.Font = Enum.Font.GothamMedium; et.TextSize = 13; et.TextColor3 = C.text
+		et.Font = Enum.Font.GothamMedium; et.TextSize = DS.text.md; et.TextColor3 = C.text
 		et.Text = nombre; et.TextXAlignment = Enum.TextXAlignment.Left
 		et.TextTruncate = Enum.TextTruncate.AtEnd
 		themed(et, "TextColor3", "text")
 
 		local est = Instance.new("TextLabel", fila)
 		est.AnchorPoint = Vector2.new(1, 0.5)
-		est.Position = UDim2.new(1, -54, 0.5, 0)
-		est.Size = UDim2.new(0, 118, 1, 0)
+		est.Position = UDim2.new(1, -48, 0.5, 0)
+		est.Size = UDim2.new(0, 110, 1, 0)
 		est.BackgroundTransparency = 1
-		est.Font = Enum.Font.GothamBold; est.TextSize = 11
+		est.Font = Enum.Font.GothamBold; est.TextSize = DS.text.xs
 		est.TextXAlignment = Enum.TextXAlignment.Right
 		est.TextTruncate = Enum.TextTruncate.AtEnd
 
 		local sw, setOn, setBusy
 		sw, setOn, setBusy = Shield.makeSwitch(fila, Shield.flags[clave], function(on)
 			setBusy(true)
-			est.Text = "verificando…"
-			est.TextColor3 = C.warn
+			est.Text = "verificando…"; est.TextColor3 = C.warn
 			Shield.setFlag(clave, on, function(ok, detalle)
 				setBusy(false)
-				-- La etiqueta muestra el resultado REAL de la comprobación.
 				if not on then
 					est.Text = "Desactivado"; est.TextColor3 = C.subtext
 				elseif ok then
-					est.Text = "Activo ✓"; est.TextColor3 = C.good
+					est.Text = "Activo"; est.TextColor3 = C.good
 				else
 					est.Text = "Falló"; est.TextColor3 = C.bad
 					statusLabel.Text = nombre .. ": No disponible"
@@ -7925,104 +7800,44 @@ do
 				if t and not t.ok then
 					est.Text = "Falló"; est.TextColor3 = C.bad
 				else
-					est.Text = "Activo ✓"; est.TextColor3 = C.good
+					est.Text = "Activo"; est.TextColor3 = C.good
 				end
 			end
 		end
 		refrescar()
-		Shield.onChange(refrescar)   -- sincroniza con el panel del escudo
+		Shield.onChange(refrescar)
 		onRepaint(refrescar)
 	end
 
-	filaProteccion(2, "Verificación API",    "api")
-	filaProteccion(3, "Validación de datos", "data")
+	filaProteccion(10, "Verificación API",    "api")
+	filaProteccion(11, "Validación de datos", "data")
 
 	local shNota = Instance.new("TextLabel", shCard)
-	shNota.LayoutOrder = 4; shNota.Size = UDim2.new(1, 0, 0, 30); shNota.BackgroundTransparency = 1
-	shNota.Font = Enum.Font.Gotham; shNota.TextSize = 10; shNota.TextColor3 = C.subtext
-	shNota.Text = "Apagarlas no es cosmético: los datos pasan a mostrarse sin filtrar y los análisis heurísticos dejan de bloquearse aunque falten pilares."
+	shNota.LayoutOrder = 12; shNota.Size = UDim2.new(1, 0, 0, 0)
+	shNota.AutomaticSize = Enum.AutomaticSize.Y
+	shNota.BackgroundTransparency = 1
+	shNota.Font = Enum.Font.Gotham; shNota.TextSize = DS.text.xs; shNota.TextColor3 = C.textDisabled
+	shNota.Text = "Apagarlas no es cosmético: los datos pasan sin filtrar y los análisis dejan de bloquearse."
 	shNota.TextXAlignment = Enum.TextXAlignment.Left
 	shNota.TextWrapped = true
-	themed(shNota, "TextColor3", "subtext")
-
-	-- (La tarjeta " Intro de inicio" se retiró a pedido del usuario. La intro
-	--  sigue existiendo: se controla por _G.NXIntro.play() / store.introEnabled.)
-
-	-- (La tarjeta "Signos · prueba de glifos" se quitó a pedido del usuario.)
+	themed(shNota, "TextColor3", "textDisabled")
 end
 
 -- ====================== AJUSTES · MODO AVANZADO ======================
--- Va en su propio do...end DESPUÉS del bloque de Ajustes a propósito: allí ya
--- hay ~35 locals vivos y el chunk anda cerca del límite de 200 de Luau. Aquí
--- esos registros ya se liberaron.
 do
-	local card = Instance.new("Frame", settingsScroll)
-	card.LayoutOrder = 5
-	card.Size = UDim2.new(1, -4, 0, 0)
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	card.BackgroundColor3 = C.card
-	card.BorderSizePixel = 0
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
-	themed(card, "BackgroundColor3", "card")
-	addDepth(card)
-	local pad = Instance.new("UIPadding", card)
-	pad.PaddingTop = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
-	pad.PaddingLeft = UDim.new(0, 10); pad.PaddingRight = UDim.new(0, 10)
-	local lay = Instance.new("UIListLayout", card)
-	lay.Padding = UDim.new(0, 6); lay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local titulo = Instance.new("TextLabel", card)
-	titulo.LayoutOrder = 0; titulo.Size = UDim2.new(1, 0, 0, 20)
-	titulo.BackgroundTransparency = 1
-	titulo.Font = Enum.Font.GothamBold; titulo.TextSize = 14; titulo.TextColor3 = C.accent
-	titulo.Text = "Modo avanzado"; titulo.TextXAlignment = Enum.TextXAlignment.Left
-	themed(titulo, "TextColor3", "accent")
-
-	local desc = Instance.new("TextLabel", card)
-	desc.LayoutOrder = 1; desc.Size = UDim2.new(1, 0, 0, 0)
-	desc.AutomaticSize = Enum.AutomaticSize.Y
-	desc.BackgroundTransparency = 1
-	desc.Font = Enum.Font.Gotham; desc.TextSize = 11; desc.TextColor3 = C.subtext
-	desc.Text = "Añade los desgloses de las puntuaciones y la recolección profunda "
-		.. "de la pestaña Huella. Apagado, la interfaz muestra solo lo esencial."
-	desc.TextXAlignment = Enum.TextXAlignment.Left
-	desc.TextWrapped = true
-	themed(desc, "TextColor3", "subtext")
-
-	local fila = Instance.new("Frame", card)
-	fila.LayoutOrder = 2; fila.Size = UDim2.new(1, 0, 0, 28); fila.BackgroundTransparency = 1
-	local filaLay = Instance.new("UIListLayout", fila)
-	filaLay.FillDirection = Enum.FillDirection.Horizontal
-	filaLay.VerticalAlignment = Enum.VerticalAlignment.Center
-	filaLay.Padding = UDim.new(0, 10)
-	filaLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-	local estado = Instance.new("TextLabel", fila)
-	estado.LayoutOrder = 2; estado.Size = UDim2.new(0, 160, 0, 20)
-	estado.BackgroundTransparency = 1
-	estado.Font = Enum.Font.GothamBold; estado.TextSize = 12
-	estado.TextXAlignment = Enum.TextXAlignment.Left
-
-	local function pintar()
-		local on = store.advanced == true
-		estado.Text = on and "Activado" or "Desactivado"
-		estado.TextColor3 = on and C.good or C.subtext
-	end
-
-	local sw = Shield.makeSwitch(fila, store.advanced == true, function(on)
-		store.advanced = on
-		saveStore()
-		pintar()
-		-- Efecto inmediato: el perfil que estés viendo se vuelve a pintar con el
-		-- nivel de detalle nuevo, sin tener que analizarlo otra vez.
-		if rerenderCurrent then pcall(rerenderCurrent) end
-		if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
-	end)
-	sw.LayoutOrder = 1
-	pintar()
-	onRepaint(pintar)
+	local DS = _G.NXDS
+	DS.makeToggleRow(settingsScroll,
+		"Modo avanzado",
+		"Desgloses de puntuaciones y recolección profunda en la pestaña Huella.",
+		store.advanced == true, 5, function(on)
+			store.advanced = on
+			saveStore()
+			if rerenderCurrent then pcall(rerenderCurrent) end
+			if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
+		end)
 end
 
+print("[NX-DEBUG] ✓ Settings tab OK, entering Admin panel")
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
 -- Pestaña exclusiva para administradores (permissions.admin == true).
 -- Se construye y añade al tab bar dinámicamente desde NXCore.onReady().
@@ -8069,8 +7884,8 @@ local function buildAdminPanel()
 		for k, pg in pairs(subPages) do pg.Visible = (k == id) end
 		activeSub = id
 		for k, b in pairs(subBtns) do
-			b.BackgroundColor3 = (k == id) and C.accent or C.neutral
-			b.TextColor3       = (k == id) and C.onAccent or C.text
+			b.BackgroundColor3 = (k == id) and C.accent or C.surface
+			b.TextColor3       = (k == id) and C.onAccent or C.subtext
 		end
 	end
 
@@ -8086,14 +7901,14 @@ local function buildAdminPanel()
 		local btn = Instance.new("TextButton", subNav)
 		btn.Size             = UDim2.new(0, 84, 0, 24)
 		btn.LayoutOrder      = i
-		btn.BackgroundColor3 = C.neutral
+		btn.BackgroundColor3 = C.surface
 		btn.Text             = sec.label
-		btn.Font             = Enum.Font.Gotham
+		btn.Font             = Enum.Font.GothamMedium
 		btn.TextSize         = 12
-		btn.TextColor3       = C.text
+		btn.TextColor3       = C.subtext
 		btn.BorderSizePixel  = 0
 		btn.AutoButtonColor  = false
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 		subBtns[sec.id] = btn
 		btn.MouseButton1Click:Connect(function() showSub(sec.id) end)
 
@@ -8107,8 +7922,8 @@ local function buildAdminPanel()
 	-- Repaint de sub-nav con el tema en vivo.
 	onRepaint(function()
 		for k, b in pairs(subBtns) do
-			b.BackgroundColor3 = (k == activeSub) and C.accent or C.neutral
-			b.TextColor3       = (k == activeSub) and C.onAccent or C.text
+			b.BackgroundColor3 = (k == activeSub) and C.accent or C.surface
+			b.TextColor3       = (k == activeSub) and C.onAccent or C.subtext
 		end
 	end)
 
@@ -8164,11 +7979,11 @@ local function buildAdminPanel()
 	local function tRow(parent, cols, isHeader, order)
 		local row = Instance.new("Frame", parent)
 		row.Size             = UDim2.new(1, -4, 0, isHeader and 22 or 26)
-		row.BackgroundColor3 = isHeader and C.neutral or C.card
+		row.BackgroundColor3 = isHeader and C.surface or C.card
 		row.BorderSizePixel  = 0
 		row.LayoutOrder      = order
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-		themed(row, "BackgroundColor3", isHeader and "neutral" or "card")
+		themed(row, "BackgroundColor3", isHeader and "surface" or "card")
 		local colW = 1 / #cols
 		for i, txt in ipairs(cols) do
 			local c = Instance.new("TextLabel", row)
@@ -8409,6 +8224,7 @@ local function buildAdminPanel()
 	showSub("dashboard")
 end
 
+print("[NX-DEBUG] ✓ Admin panel OK, entering main flow")
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
 
@@ -8943,12 +8759,12 @@ do
 			b.AnchorPoint = Vector2.new(1, 0.5)
 			b.Position = UDim2.new(1, 0, 0.5, 0)
 			b.Size = UDim2.new(0, 58, 0, 20)
-			b.BackgroundColor3 = C.neutral
+			b.BackgroundColor3 = C.surface
 			b.Text = "Abrir"
-			b.Font = Enum.Font.GothamBold; b.TextSize = 11; b.TextColor3 = C.text
+			b.Font = Enum.Font.GothamMedium; b.TextSize = 11; b.TextColor3 = C.text
 			b.BorderSizePixel = 0
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
-			themed(b, "BackgroundColor3", "neutral")
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+			themed(b, "BackgroundColor3", "surface")
 			themed(b, "TextColor3", "text")
 			b.MouseButton1Click:Connect(function()
 				if openURL(url) then
@@ -9259,6 +9075,7 @@ do
 	}
 end
 
+print("[NX-DEBUG] ✓ All sections passed — registering tabs NOW")
 createTab("Perfil", profilePage)
 createTab("Estadísticas", statsPage)
 createTab("Items", itemsPage)
@@ -11726,11 +11543,11 @@ end)()
 		sBtn.AutoButtonColor = false
 		sBtn.Text = ""
 		sBtn.BorderSizePixel = 0
-		sBtn.BackgroundColor3 = C.neutral
+		sBtn.BackgroundColor3 = C.surface
 		sBtn.BackgroundTransparency = 0.15
 		sBtn.ZIndex = 5
 		sBtn.Parent = header
-		themed(sBtn, "BackgroundColor3", "neutral")
+		themed(sBtn, "BackgroundColor3", "surface")
 		Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 7)
 		local sStroke = Instance.new("UIStroke", sBtn)
 		sStroke.Thickness = 1.3
@@ -12205,8 +12022,8 @@ end)()
 			if bgColor then
 				b.BackgroundColor3 = bgColor            -- color fijo (p.ej. blurple de Discord)
 			else
-				b.BackgroundColor3 = C.neutral
-				themed(b, "BackgroundColor3", "neutral") -- se adapta al tema
+				b.BackgroundColor3 = C.surface
+				themed(b, "BackgroundColor3", "surface") -- se adapta al tema
 			end
 			local cc = Instance.new("UICorner", b); cc.CornerRadius = UDim.new(0, 14)
 			local content
@@ -12992,8 +12809,8 @@ end)()
 		if C then
 			local direct = C[role]
 			if direct ~= nil then return direct end
-			if role == "header"    then return C.neutral end
-			if role == "avatarBg"  then return C.neutral end
+			if role == "header"    then return C.surface end
+			if role == "avatarBg"  then return C.surface end
 			if role == "scrollbar" then return C.accent end
 			if role == "globe"     then return C.accent end
 			if role == "accent2"   then return darken(C.accent, 0.78) end
