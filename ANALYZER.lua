@@ -1213,8 +1213,8 @@ function _G.NXTagKit.color(value, porDefecto)
 		local g = value[2] or value.g or value.G
 		local b = value[3] or value.b or value.B
 		if r and g and b then
-			if r <= 1 and g <= 1 and b <= 1 then return Color3.new(r, g, b) end
-			return Color3.fromRGB(r, g, b)
+			if r > 1 or g > 1 or b > 1 then return Color3.fromRGB(r, g, b) end
+			return Color3.new(r, g, b)
 		end
 		return porDefecto
 	end
@@ -1714,6 +1714,18 @@ do
 
 	-- ── INSPECTOR DE RESPUESTAS HTTP ────────────────────────────────────────
 	-- Clasifica un cuerpo ya decodificado. Devuelve (cuerpoLimpio, motivoFallo).
+	local function humanizeShieldErr(raw)
+		if not raw then return "No disponible" end
+		if raw:find("^HTTP 4") then return "No disponible (acceso denegado)" end
+		if raw:find("^HTTP 5") then return "No disponible (error del servidor)" end
+		if raw:find("^HTTP ") then return "No disponible (error de conexión)" end
+		if raw == "sin respuesta" then return "No disponible (sin respuesta)" end
+		if raw == "JSON inválido" then return "No disponible (respuesta corrupta)" end
+		if raw:find("^API: ") then return "No disponible (respuesta de error)" end
+		return "No disponible"
+	end
+	S.humanizeErr = humanizeShieldErr
+
 	function S.inspect(decoded, status, jsonOk)
 		S.stats.checks = S.stats.checks + 1
 		local code = tonumber(status)
@@ -1722,7 +1734,6 @@ do
 			return nil, code and ("HTTP " .. code) or "sin respuesta"
 		end
 		if type(decoded) ~= "table" then return nil, "formato inesperado" end
-		-- Roblox responde los errores como { errors = { { code, message } } }.
 		if type(decoded.errors) == "table" and decoded.errors[1] then
 			local e = decoded.errors[1]
 			local msg = (type(e) == "table" and (e.message or e.code)) or "?"
@@ -1794,7 +1805,13 @@ do
 	function S.mark(field, status, detail)
 		local r = S.run
 		if not r then return end
-		if r.fields[field] == nil then r.order[#r.order + 1] = field end
+		local prev = r.fields[field]
+		if prev == nil then
+			r.order[#r.order + 1] = field
+		else
+			local oldSt = prev.status
+			r.counts[oldSt] = (r.counts[oldSt] or 1) - 1
+		end
 		r.fields[field] = { status = status, detail = detail }
 		r.counts[status] = (r.counts[status] or 0) + 1
 		S.stats.fields = S.stats.fields + 1
@@ -1971,8 +1988,9 @@ do
 			else ok, detalle = S.selfTestData(S.currentData and S.currentData()) end
 			S.busy = nil
 			S.lastTest = S.lastTest or {}
-			S.lastTest[which] = { ok = ok, detalle = detalle, at = os.time() }
-			if not ok then S.last = detalle end
+			local detalleUI = not ok and humanizeShieldErr(detalle) or detalle
+			S.lastTest[which] = { ok = ok, detalle = detalleUI, at = os.time() }
+			if not ok then S.last = detalleUI end
 			emit()
 			if onDone then onDone(ok, detalle) end
 		end)
@@ -2064,7 +2082,7 @@ local function getAvatar(userId)
 	local ok, thumb = pcall(function()
 		return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
 	end)
-	local img = (ok and thumb ~= "" and thumb) or "rbxassetid://0"
+	local img = (ok and type(thumb) == "string" and thumb ~= "" and thumb) or "rbxassetid://0"
 	-- Evicción FIFO: sin tope, en sesiones largas (Explorador de amigos saltando
 	-- de cuenta en cuenta) se acumulan cientos de thumbnails sin liberarse nunca.
 	-- El string ya guardado en data.AvatarUrl sigue válido aunque se desaloje.
@@ -2081,9 +2099,9 @@ end
 -- Los DOS números evitan re-parsear el texto luego (causa del bug histórico
 -- de "0 días": la 'í' de "días" es UTF-8 de 2 bytes y rompía [ií]).
 local function formatAge(isoCreated)
-	if not isoCreated then return nil, nil, 0, 0 end
+	if not isoCreated then return nil, nil, nil, nil end
 	local y, m, d = isoCreated:match("(%d+)-(%d+)-(%d+)")
-	if not y then return isoCreated:sub(1,10), nil, 0, 0 end
+	if not y then return isoCreated:sub(1,10), nil, nil, nil end
 	local created = os.time{ year = tonumber(y), month = tonumber(m), day = tonumber(d) }
 	local days = math.floor((os.time() - created) / 86400)
 	if days < 0 then days = 0 end
@@ -2784,11 +2802,12 @@ gui.Parent = playerGui
 
 task.defer(function()
 	pcall(function()
-		playerGui.ChildAdded:Connect(function(hijo)
+		local conn = playerGui.ChildAdded:Connect(function(hijo)
 			if hijo ~= gui and hijo:IsA("ScreenGui") and hijo.DisplayOrder >= gui.DisplayOrder then
 				gui.DisplayOrder = hijo.DisplayOrder + 1
 			end
 		end)
+		table.insert(connections, conn)
 	end)
 end)
 
@@ -2808,6 +2827,8 @@ local function cleanupAll()
 		pcall(function() c:Disconnect() end)
 	end
 	table.clear(connections)
+	cancelAllInfinites()
+	pcall(function() if _G.NXScan and _G.NXScan.stop then _G.NXScan.stop() end end)
 	pcall(function() if _G.NXV2 and _G.NXV2.stop then _G.NXV2.stop() end end)
 end
 
@@ -2832,7 +2853,7 @@ track(UserInputService.InputBegan:Connect(function(input, processed)
 end))
 
 -- ====================== MOTION (animaciones + toggle global) ======================
-local ANIM = { enabled = (store.animations ~= false) }
+local ANIM = { enabled = (store.animations ~= false), infinites = {} }
 
 local function motionTween(inst, info, props, onDone)
 	if ANIM.enabled then
@@ -2846,8 +2867,22 @@ local function motionTween(inst, info, props, onDone)
 	return nil
 end
 
+local function registerInfiniteTween(tw)
+	if tw then table.insert(ANIM.infinites, tw) end
+	return tw
+end
+
+local function cancelAllInfinites()
+	for i, tw in ipairs(ANIM.infinites) do
+		pcall(function() tw:Cancel() end)
+		ANIM.infinites[i] = nil
+	end
+	ANIM.infinites = {}
+end
+
 local function setAnimationsEnabled(on)
 	ANIM.enabled = on and true or false
+	if not ANIM.enabled then cancelAllInfinites() end
 	if _G.NXHeadTags and _G.NXHeadTags.SetAnimationsEnabled then
 		pcall(_G.NXHeadTags.SetAnimationsEnabled, ANIM.enabled)
 	end
@@ -2937,6 +2972,7 @@ function Shield.makeSwitch(parent, on, onToggle)
 				TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
 				{ BackgroundTransparency = 0.55 })
 			latido:Play()
+			registerInfiniteTween(latido)
 		else
 			knob.BackgroundTransparency = 0
 		end
@@ -3048,9 +3084,11 @@ track(title:GetPropertyChangedSignal("Size"):Connect(syncShine))
 track(title:GetPropertyChangedSignal("Position"):Connect(syncShine))
 if ANIM.enabled then
 	shineGrad.Offset = Vector2.new(-1, 0)
-	TweenService:Create(shineGrad,
+	local shineTw = TweenService:Create(shineGrad,
 		TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 2.0),
-		{ Offset = Vector2.new(1, 0) }):Play()
+		{ Offset = Vector2.new(1, 0) })
+	shineTw:Play()
+	registerInfiniteTween(shineTw)
 else
 	shineGrad.Offset = Vector2.new(2, 0)
 end
@@ -3284,12 +3322,11 @@ local function showPage(page)
 			if p.Visible and p ~= page then saliente = p; break end
 		end
 		if saliente then
-			motionTween(saliente, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{}, function()
-					saliente.Visible = false
-				end)
+			task.delay(0.1, function()
+				if saliente and saliente.Parent then saliente.Visible = false end
+			end)
 		end
-		for _, p in pairs(pages) do p.Visible = false end
+		for _, p in pairs(pages) do if p ~= saliente then p.Visible = false end end
 		page.Visible = true
 		local sc = page:FindFirstChild("PageScale")
 		if not sc then sc = Instance.new("UIScale", page); sc.Name = "PageScale" end
@@ -3395,7 +3432,6 @@ settingsPage.BackgroundTransparency = 1
 settingsPage.Visible = false
 local settingsScroll = makeScroll(settingsPage)
 
-print("[NX-DEBUG] ✓ Pages created, entering modals section")
 -- ====================== ABRIR URL ======================
 local GuiService = game:GetService("GuiService")
 
@@ -3486,7 +3522,7 @@ local function showLinkModal(url)
 	motionTween(overlay, TweenInfo.new(0.18), { BackgroundTransparency = 0.5 })
 
 	local box = Instance.new("Frame", overlay)
-	box.Size = UDim2.new(0, 440, 0, 0)
+	box.Size = UDim2.new(1, -40, 0, 0)
 	box.AutomaticSize = Enum.AutomaticSize.Y
 	box.AnchorPoint = Vector2.new(0.5, 0.5)
 	box.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -3495,6 +3531,8 @@ local function showLinkModal(url)
 	box.ClipsDescendants = false
 	box.ZIndex = 51
 	themed(box, "BackgroundColor3", "elevated")
+	local boxMaxSz = Instance.new("UISizeConstraint", box)
+	boxMaxSz.MaxSize = Vector2.new(440, math.huge)
 	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local boxStroke = Instance.new("UIStroke", box)
 	boxStroke.Color = C.border; boxStroke.Thickness = 1; boxStroke.Transparency = 0.1
@@ -3641,7 +3679,7 @@ local function showLinkModal(url)
 		clipboard(url)
 		copyBtn.Text = "✓ Copiado"
 		copyBtn.BackgroundColor3 = C.good
-		copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		copyBtn.TextColor3 = C.onAccent
 		task.delay(1.2, function()
 			if copyBtn and copyBtn.Parent then
 				copyBtn.Text = "Copiar de nuevo"
@@ -3713,7 +3751,7 @@ local function showNXWarning(warning)
 	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.52 })
 
 	local box = Instance.new("Frame", overlay)
-	box.Size             = UDim2.new(0, 420, 0, 0)
+	box.Size             = UDim2.new(1, -20, 0, 0)
 	box.AutomaticSize    = Enum.AutomaticSize.Y
 	box.AnchorPoint      = Vector2.new(0.5, 0.5)
 	box.Position         = UDim2.new(0.5, 0, 0.5, 0)
@@ -3722,6 +3760,8 @@ local function showNXWarning(warning)
 	box.ClipsDescendants = false
 	box.ZIndex           = 91
 	themed(box, "BackgroundColor3", "elevated")
+	local wMaxSz = Instance.new("UISizeConstraint", box)
+	wMaxSz.MaxSize = Vector2.new(420, math.huge)
 	Instance.new("UICorner", box).CornerRadius = DS.corner.lg
 	local wStroke = Instance.new("UIStroke", box)
 	wStroke.Color = ld.color; wStroke.Thickness = 1; wStroke.Transparency = 0.2
@@ -3834,7 +3874,7 @@ local function showNXWarning(warning)
 	wClose.Text = "Entendido"
 	wClose.Font = Enum.Font.GothamMedium
 	wClose.TextSize = DS.text.md
-	wClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+	wClose.TextColor3 = C.onAccent
 	wClose.BorderSizePixel = 0
 	wClose.AutoButtonColor = false
 	Instance.new("UICorner", wClose).CornerRadius = DS.corner.md
@@ -4117,7 +4157,6 @@ local function showCharacterModal(userId, username)
 	end)
 end
 
-print("[NX-DEBUG] ✓ Modals OK, entering render helpers")
 -- ====================== RENDER: FILA NORMAL ======================
 local function addRow(parent, label, value, copyable, valueColor)
 	local DS = _G.NXDS
@@ -4194,7 +4233,7 @@ local function addDescription(parent, text)
 	refresh()
 
 	if isLong then
-		local toggle = DS.makeButton(card, "Mostrar más", "ghost", {order = 6, size = UDim2.new(0, 0, 0, 22)})
+		local toggle = DS.makeButton(card, "Mostrar más", "ghost", {order = 6})
 		toggle.TextSize = DS.text.sm
 		toggle.TextColor3 = C.accent
 		themed(toggle, "TextColor3", "accent")
@@ -4543,10 +4582,17 @@ local function showMiniProfileCard(userId, fallback)
 		end
 	end)
 
-	-- cargar datos en segundo plano
 	task.spawn(function()
-		local prof = apiGet("https://users.roblox.com/v1/users/" .. userId)
-		local fc = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends/count")
+		local cacheKey = "_miniProfile_" .. userId
+		local cached = rawget(_G, cacheKey)
+		local prof, fc
+		if cached and (os.clock() - (cached._at or 0)) < 120 then
+			prof, fc = cached.prof, cached.fc
+		else
+			prof = apiGet("https://users.roblox.com/v1/users/" .. userId)
+			fc = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends/count")
+			rawset(_G, cacheKey, { prof = prof, fc = fc, _at = os.clock() })
+		end
 		if not overlay.Parent then return end
 		if prof then
 			resolvedUser = prof.name or resolvedUser
@@ -4588,11 +4634,13 @@ local function addFriendsDropdown(parent, data, order)
 	header.Text = ""
 	header.BorderSizePixel = 0
 	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
+	themed(header, "BackgroundColor3", "card")
 
 	local hName = Instance.new("TextLabel", header)
 	hName.Size = UDim2.new(0.5, -10, 1, 0); hName.Position = UDim2.new(0, 10, 0, 0)
 	hName.BackgroundTransparency = 1; hName.Font = Enum.Font.Gotham; hName.TextSize = 13
 	hName.TextColor3 = C.subtext; hName.Text = "Amigos"; hName.TextXAlignment = Enum.TextXAlignment.Left
+	themed(hName, "TextColor3", "subtext")
 
 	local hVal = Instance.new("TextLabel", header)
 	hVal.Size = UDim2.new(0.5, -38, 1, 0); hVal.Position = UDim2.new(0.5, 0, 0, 0)
@@ -4600,11 +4648,13 @@ local function addFriendsDropdown(parent, data, order)
 	hVal.TextColor3 = C.text
 	hVal.Text = tostring(data.Friends == nil and "No disponible" or data.Friends)
 	hVal.TextXAlignment = Enum.TextXAlignment.Right; hVal.TextTruncate = Enum.TextTruncate.AtEnd
+	themed(hVal, "TextColor3", "text")
 
 	local chevron = Instance.new("TextLabel", header)
 	chevron.Size = UDim2.new(0, 26, 1, 0); chevron.Position = UDim2.new(1, -28, 0, 0)
 	chevron.BackgroundTransparency = 1; chevron.Font = Enum.Font.GothamBold; chevron.TextSize = 12
 	chevron.TextColor3 = C.accent; chevron.Text = "▼"; chevron.TextXAlignment = Enum.TextXAlignment.Center
+	themed(chevron, "TextColor3", "accent")
 
 	-- zona desplegable: clip animado + scroll interno
 	local clip = Instance.new("Frame", container)
@@ -4622,6 +4672,7 @@ local function addFriendsDropdown(parent, data, order)
 	inner.CanvasSize = UDim2.new(0, 0, 0, 0)
 	inner.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	inner.ClipsDescendants = true
+	themed(inner, "ScrollBarImageColor3", "accent")
 	local ilay = Instance.new("UIListLayout", inner)
 	ilay.Padding = UDim.new(0, 4); ilay.SortOrder = Enum.SortOrder.LayoutOrder
 
@@ -4642,29 +4693,34 @@ local function addFriendsDropdown(parent, data, order)
 		cardBtn.BorderSizePixel = 0
 		cardBtn.LayoutOrder = shown + 1
 		Instance.new("UICorner", cardBtn).CornerRadius = DS.corner.sm
+		themed(cardBtn, "BackgroundColor3", "surface")
 
 		local av = Instance.new("ImageLabel", cardBtn)
 		av.Size = UDim2.new(0, 34, 0, 34); av.Position = UDim2.new(0, 5, 0.5, -17)
 		av.BackgroundColor3 = C.card; av.BorderSizePixel = 0
 		av.Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(id)
 		Instance.new("UICorner", av).CornerRadius = UDim.new(0, 17)
+		themed(av, "BackgroundColor3", "card")
 
 		local dn = Instance.new("TextLabel", cardBtn)
 		dn.Size = UDim2.new(1, -135, 0, 17); dn.Position = UDim2.new(0, 46, 0, 4)
 		dn.BackgroundTransparency = 1; dn.Font = Enum.Font.GothamBold; dn.TextSize = 13
 		dn.TextColor3 = C.text; dn.Text = info.displayName or info.name or ("ID " .. id)
 		dn.TextXAlignment = Enum.TextXAlignment.Left; dn.TextTruncate = Enum.TextTruncate.AtEnd
+		themed(dn, "TextColor3", "text")
 
 		local un = Instance.new("TextLabel", cardBtn)
 		un.Size = UDim2.new(1, -135, 0, 15); un.Position = UDim2.new(0, 46, 0, 23)
 		un.BackgroundTransparency = 1; un.Font = Enum.Font.Gotham; un.TextSize = 12
 		un.TextColor3 = C.subtext; un.Text = "@" .. (info.name or "?")
 		un.TextXAlignment = Enum.TextXAlignment.Left; un.TextTruncate = Enum.TextTruncate.AtEnd
+		themed(un, "TextColor3", "subtext")
 
 		local go = Instance.new("TextLabel", cardBtn)
 		go.Size = UDim2.new(0, 76, 1, 0); go.Position = UDim2.new(1, -80, 0, 0)
 		go.BackgroundTransparency = 1; go.Font = Enum.Font.GothamBold; go.TextSize = 12
 		go.TextColor3 = C.accent; go.Text = "Analizar →"; go.TextXAlignment = Enum.TextXAlignment.Right
+		themed(go, "TextColor3", "accent")
 
 		cardBtn.MouseButton1Click:Connect(function()
 			showMiniProfileCard(id, info)   -- abre la tarjeta modal animada
@@ -4679,6 +4735,7 @@ local function addFriendsDropdown(parent, data, order)
 		loadingLbl.Size = UDim2.new(1, -6, 0, 24); loadingLbl.BackgroundTransparency = 1
 		loadingLbl.Font = Enum.Font.Gotham; loadingLbl.TextSize = 12; loadingLbl.TextColor3 = C.subtext
 		loadingLbl.Text = "Cargando amigos..."; loadingLbl.TextXAlignment = Enum.TextXAlignment.Left
+		themed(loadingLbl, "TextColor3", "subtext")
 		task.spawn(function()
 			local res = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends")
 			if not container.Parent then return end
@@ -4689,6 +4746,7 @@ local function addFriendsDropdown(parent, data, order)
 				err.Font = Enum.Font.Gotham; err.TextSize = 12; err.TextColor3 = C.bad
 				err.Text = "No disponible."
 				err.TextXAlignment = Enum.TextXAlignment.Left
+				themed(err, "TextColor3", "bad")
 				task.wait()
 				targetH = math.min(ilay.AbsoluteContentSize.Y, MAXH)
 				if open then animateTo(targetH) end
@@ -4714,6 +4772,7 @@ local function addFriendsDropdown(parent, data, order)
 				none.Size = UDim2.new(1, -6, 0, 24); none.BackgroundTransparency = 1
 				none.Font = Enum.Font.Gotham; none.TextSize = 12; none.TextColor3 = C.subtext
 				none.Text = "Sin amigos públicos."; none.TextXAlignment = Enum.TextXAlignment.Left
+				themed(none, "TextColor3", "subtext")
 			else
 				hVal.Text = tostring(shown)
 			end
@@ -6458,13 +6517,16 @@ do
 			body.Text = table.concat(lines, "\n")
 		end
 
-		if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
+		if data._namesCached ~= nil then
+			actualizar(data._namesCached or nil)
+		elseif _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
 			_G.NXPlus.nombres(data, function(lista)
 				actualizar(lista)
 			end)
 		else
 			task.spawn(function()
 				local ok, lista = pcall(getNameHistory, data.UserId)
+				data._namesCached = (ok and lista) or false
 				actualizar(ok and lista or nil)
 			end)
 		end
@@ -6677,12 +6739,12 @@ local function render(data, skipEntrance)
 	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	actRow.ClipsDescendants = true
-	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.3, -4, 0, 28)})
+	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.3, -8, 0, 28)})
 	viewCharBtn.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
 
-	local openProfile = DS.makeButton(actRow, "Abrir perfil", "secondary", {order = 2, size = UDim2.new(0.35, -4, 0, 28)})
+	local openProfile = DS.makeButton(actRow, "Abrir perfil", "secondary", {order = 2, size = UDim2.new(0.35, -8, 0, 28)})
 	openProfile.MouseButton1Click:Connect(function()
 		local opened = openURL(data.ProfileUrl)
 		if opened then
@@ -6693,7 +6755,7 @@ local function render(data, skipEntrance)
 		end
 	end)
 
-	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 3, size = UDim2.new(0.35, -4, 0, 28)})
+	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 3, size = UDim2.new(0.35, -8, 0, 28)})
 	copyLink.MouseButton1Click:Connect(function()
 		clipboard(data.ProfileUrl)
 		statusLabel.Text = "Link del perfil copiado"
@@ -6705,11 +6767,12 @@ local function render(data, skipEntrance)
 
 	-- Join server button (only when in-game and public)
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
-		viewCharBtn.Size = UDim2.new(0.25, -5, 0, 28)
-		openProfile.Size = UDim2.new(0.25, -5, 0, 28)
-		copyLink.Size = UDim2.new(0.25, -5, 0, 28)
-		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 4, size = UDim2.new(0.25, -5, 0, 28)})
+		viewCharBtn.Size = UDim2.new(0.25, -8, 0, 28)
+		openProfile.Size = UDim2.new(0.25, -8, 0, 28)
+		copyLink.Size = UDim2.new(0.25, -8, 0, 28)
+		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 4, size = UDim2.new(0.25, -8, 0, 28)})
 		joinBtn.BackgroundColor3 = C.good
+		themed(joinBtn, "BackgroundColor3", "good")
 		joinBtn.MouseButton1Click:Connect(function()
 			statusLabel.Text = "Intentando unirse..."
 			local TS = game:GetService("TeleportService")
@@ -6865,9 +6928,10 @@ local function render(data, skipEntrance)
 	-- username-history por perfil. Fallback al método directo si el módulo no
 	-- estuviera cargado, para no depender de él.
 	local function conNombres(cb)
-		-- Solo la DETECCIÓN va en pcall. Si se envolviera también la llamada, un
-		-- error dentro de cb haría creer que el módulo falló y dispararía además
-		-- el fallback: el historial se pintaría dos veces.
+		if data._namesCached ~= nil then
+			cb(data._namesCached or nil, data._namesHasMore or false)
+			return
+		end
 		local viaModulo
 		pcall(function()
 			if _G.NXPlus and type(_G.NXPlus.nombres) == "function" then
@@ -6998,7 +7062,7 @@ local function render(data, skipEntrance)
 	exportLay.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local function mkBtn(text, ord)
-		return DS.makeButton(exportFrame, text, "secondary", {order = ord, size = UDim2.new(0, 0, 0, 28)})
+		return DS.makeButton(exportFrame, text, "secondary", {order = ord})
 	end
 
 	local order = {
@@ -7135,6 +7199,7 @@ local function render(data, skipEntrance)
 			data._itemsTotalCached = total or 0
 		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
+		if not itemsCard.Parent then return end
 		local b = bodyOf(itemsCard)
 		local pb = bodyOf(priceCard)
 		if not items then
@@ -7185,6 +7250,7 @@ local function render(data, skipEntrance)
 			data._groupsCached = groups or false
 		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
+		if not groupsCard.Parent then return end
 		local b = bodyOf(groupsCard); if not b then return end
 		if not groups then b.Text = "No disponible." ; return end
 		-- Con Data Validation ON se descartan las entradas mal formadas (sin
@@ -7216,6 +7282,7 @@ local function render(data, skipEntrance)
 			data._badgesCached = badges or false
 		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
+		if not badgesCard.Parent then return end
 		local b = bodyOf(badgesCard); if not b then return end
 		if not badges then b.Text = "No disponible." ; return end
 		local descartados = 0
@@ -7658,7 +7725,6 @@ rerenderCurrent = function()
 	end
 end
 
-print("[NX-DEBUG] ✓ Pre-settings OK, entering Settings tab")
 -- ====================== PESTAÑA AJUSTES (rediseño con DS) ======================
 do
 	local DS = _G.NXDS
@@ -7753,7 +7819,7 @@ do
 		fila.LayoutOrder = orden; fila.Size = UDim2.new(1, 0, 0, 28); fila.BackgroundTransparency = 1
 
 		local et = Instance.new("TextLabel", fila)
-		et.Size = UDim2.new(1, -170, 1, 0)
+		et.Size = UDim2.new(0.4, 0, 1, 0)
 		et.BackgroundTransparency = 1
 		et.Font = Enum.Font.GothamMedium; et.TextSize = DS.text.md; et.TextColor3 = C.text
 		et.Text = nombre; et.TextXAlignment = Enum.TextXAlignment.Left
@@ -7762,8 +7828,8 @@ do
 
 		local est = Instance.new("TextLabel", fila)
 		est.AnchorPoint = Vector2.new(1, 0.5)
-		est.Position = UDim2.new(1, -48, 0.5, 0)
-		est.Size = UDim2.new(0, 110, 1, 0)
+		est.Position = UDim2.new(1, -46, 0.5, 0)
+		est.Size = UDim2.new(0.5, -46, 1, 0)
 		est.BackgroundTransparency = 1
 		est.Font = Enum.Font.GothamBold; est.TextSize = DS.text.xs
 		est.TextXAlignment = Enum.TextXAlignment.Right
@@ -7837,7 +7903,6 @@ do
 		end)
 end
 
-print("[NX-DEBUG] ✓ Settings tab OK, entering Admin panel")
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
 -- Pestaña exclusiva para administradores (permissions.admin == true).
 -- Se construye y añade al tab bar dinámicamente desde NXCore.onReady().
@@ -7953,6 +8018,8 @@ local function buildAdminPanel()
 		local st = Instance.new("UIStroke", card)
 		st.Color = color or C.accent; st.Transparency = 0.45; st.Thickness = 1
 		themed(card, "BackgroundColor3", "card")
+		local colorRole = color and nil or "accent"
+		if colorRole then themed(st, "Color", colorRole) end
 		local numLbl = Instance.new("TextLabel", card)
 		numLbl.Size                  = UDim2.new(1, 0, 0, 34)
 		numLbl.Position              = UDim2.new(0, 0, 0, 8)
@@ -7962,6 +8029,7 @@ local function buildAdminPanel()
 		numLbl.TextColor3            = color or C.accent
 		numLbl.Text                  = tostring(value)
 		numLbl.TextXAlignment        = Enum.TextXAlignment.Center
+		if colorRole then themed(numLbl, "TextColor3", colorRole) end
 		local nameLbl = Instance.new("TextLabel", card)
 		nameLbl.Size                  = UDim2.new(1, 0, 0, 16)
 		nameLbl.Position              = UDim2.new(0, 0, 0, 42)
@@ -8224,7 +8292,6 @@ local function buildAdminPanel()
 	showSub("dashboard")
 end
 
-print("[NX-DEBUG] ✓ Admin panel OK, entering main flow")
 -- ====================== FLUJO PRINCIPAL ======================
 local analyzing = false
 
@@ -8558,12 +8625,15 @@ function Shield.textoEstado(data)
 	return "✓ Listo."
 end
 
+local searchGen = 0
 analyze = function(input)
 	if analyzing then return end
 	input = (input or ""):gsub("%s", "")
 	if input == "" then return end
 
 	analyzing = true
+	searchGen = searchGen + 1
+	local mySearchGen = searchGen
 	hideAllSuggestions()
 	statusLabel.Text = "Buscando..."
 	NXWin.startScan()
@@ -8624,13 +8694,20 @@ analyze = function(input)
 			warn("[NX Analyzer] error en analyze: " .. tostring(err))
 		end
 
+		statusLabel.Text = ""
+
 		-- La info se pinta SOLO cuando la animación ha terminado y desaparecido:
 		-- así nunca se dibujan una encima de la otra. `analyzing` se libera aquí
 		-- dentro, de modo que la herramienta sigue "ocupada" durante toda la
 		-- animación (no se puede lanzar otro análisis a medias).
 		local function paint()
+			if mySearchGen ~= searchGen then analyzing = false; return end
 			Shield.emit()
-			render(outData)
+			local renderOk, renderErr = pcall(render, outData)
+			if not renderOk then
+				warn("[NX Analyzer] render error: " .. tostring(renderErr))
+				outStatus = "Error al renderizar."
+			end
 			statusLabel.Text = outStatus
 			analyzing = false
 		end
@@ -8984,9 +9061,13 @@ do
 
 			local lTop = fila(cRec, 4, "Experiencia más visitada")
 			comprobar(miGen, lTop, "topJuego", function()
-				local t = getJSON("https://games.roblox.com/v2/users/" .. uid
-					.. "/games?accessFilter=Public&limit=50&sortOrder=Desc")
-				if not t or type(t.data) ~= "table" or #t.data == 0 then return "nd" end
+				local t = res.juegos and res.juegos.datos
+				if not t then
+					local raw = getJSON("https://games.roblox.com/v2/users/" .. uid
+						.. "/games?accessFilter=Public&limit=50&sortOrder=Desc")
+					t = raw and type(raw.data) == "table" and raw.data or nil
+				end
+				if not t or #t == 0 then return "nd" end
 				local mejor, visitas = nil, -1
 				for _, g in ipairs(t.data) do
 					local v = tonumber(g.placeVisits) or 0
@@ -9075,7 +9156,6 @@ do
 	}
 end
 
-print("[NX-DEBUG] ✓ All sections passed — registering tabs NOW")
 createTab("Perfil", profilePage)
 createTab("Estadísticas", statsPage)
 createTab("Items", itemsPage)
@@ -9933,7 +10013,7 @@ do
 end
 
 
-print(("[Profile Analyzer v3.8.3] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
+print(("[Profile Analyzer v3.9.3] Cargado correctamente. Executor: %s"):format(EXECUTOR_NAME))
 
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -10113,7 +10193,7 @@ do
         local color     = resolveColor(raw.color, preset.color or Color3.fromRGB(255, 255, 255))
         local icon      = _G.NXTagKit.icono(raw.icon or preset.icon)
         local iconImage = normalizeImage(raw.iconImage or raw.image or preset.iconImage)
-        local animation = preset.animation or raw.animation or CONFIG.DEFAULT_ANIMATION
+        local animation = raw.animation or preset.animation or CONFIG.DEFAULT_ANIMATION
         animation       = string.lower(tostring(animation))
         local priority  = tonumber(raw.priority) or preset.priority or 0
 
@@ -10455,6 +10535,7 @@ Animations.luxe = {
     local function flashTag(ctx)
         local s = ctx.isFar and ctx.circleScale or ctx.pillScale
         if not s then return end
+        if not NXHeadTags._anim then s.Scale = 1; return end
         local up = TweenService:Create(s,
             TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             { Scale = 1.28 })
@@ -10917,11 +10998,28 @@ Animations.luxe = {
     local LOD_SPIN   = TweenInfo.new(0.5,  Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
 
     local function setLOD(ctx, far)
-        ctx.transitioning = true   -- pausa el loop de glow para que no pelee con el fade
+        ctx.transitioning = true
+        if not NXHeadTags._anim then
+            if far then
+                ctx.circle.Visible = true
+                ctx.circleScale.Scale = 1
+                ctx.circle.BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY
+                if ctx.circleGlow then ctx.circleGlow.Transparency = 0.25 end
+                if ctx.circleIcon then ctx.circleIcon.Rotation = 0 end
+                ctx.pillScale.Scale = 0
+                if ctx.container then ctx.container.Visible = false end
+            else
+                ctx.container.Visible = true
+                ctx.pillScale.Scale = 1
+                ctx.circle.BackgroundTransparency = 1
+                if ctx.circleGlow then ctx.circleGlow.Transparency = 1 end
+                ctx.circleScale.Scale = 0
+                if ctx.circle then ctx.circle.Visible = false end
+            end
+            ctx.transitioning = false
+            return
+        end
         if far then
-            -- PILL -> CÍRCULO: el círculo crece desde el centro con rebote, aparece
-            -- desde transparente y su logo gira para "asentarse"; la pill se encoge
-            -- y se desvanece a la vez (transición fluida, no un corte).
             ctx.circle.Visible              = true
             ctx.circleScale.Scale           = 0.0
             ctx.circle.BackgroundTransparency = 1
@@ -10945,8 +11043,6 @@ Animations.luxe = {
                 ctx.transitioning = false
             end)
         else
-            -- CÍRCULO -> PILL: la pill reaparece con rebote; el círculo se encoge
-            -- y se desvanece al mismo tiempo.
             ctx.container.Visible = true
             ctx.pillScale.Scale   = 0.0
             TweenService:Create(ctx.pillScale, LOD_POP, { Scale = 1 }):Play()
@@ -11610,7 +11706,10 @@ end)()
 		panel.BorderSizePixel = 0
 		panel.Visible = false
 		panel.ZIndex = 120
+		panel.ClipsDescendants = true
 		panel.Parent = main
+		local panelMaxSize = Instance.new("UISizeConstraint", panel)
+		panelMaxSize.MaxSize = Vector2.new(268, 440)
 		themed(panel, "BackgroundColor3", "card")
 		Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 12)
 		local pStroke = Instance.new("UIStroke", panel)
@@ -12004,11 +12103,16 @@ end)()
 			end
 		end
 
-		playersLabel = cell("", "—/—", Color3.fromRGB(236, 238, 242))
+		playersLabel = cell("", "—/—", C.text)
 		divider()
-		pingLabel    = cell("", "— ms", Color3.fromRGB(236, 238, 242))
+		pingLabel    = cell("", "— ms", C.text)
 		divider()
-		fpsLabel     = cell(nil, "— fps", Color3.fromRGB(120, 230, 150), drawBars)
+		fpsLabel     = cell(nil, "— fps", C.good, drawBars)
+		onRepaint(function()
+			if playersLabel and playersLabel.Parent then playersLabel.TextColor3 = C.text end
+			if pingLabel and pingLabel.Parent then pingLabel.TextColor3 = C.text end
+			if fpsLabel and fpsLabel.Parent then fpsLabel.TextColor3 = C.good end
+		end)
 
 		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid), dibujo
 		-- vectorial (drawFn) o emoji. Prioridad: imagen > dibujo > emoji.
@@ -12740,7 +12844,7 @@ end)()
 	-- volverá a salir SOLO la primera vez (recordado en ProfileAnalyzer_data.json).
 	-- AUTO-ARRANQUE de la intro. TEST_FORCE = true → sale en CADA ejecución.
 	-- Ponlo en false y saldrá SOLO la primera vez (recordado en el guardado).
-	local TEST_FORCE = true
+	local TEST_FORCE = false
 	if (not INTRO_REMOVED) and (store.introEnabled ~= false) and (TEST_FORCE or store.introSeen ~= true) then
 		store.introSeen = true
 		pcall(saveStore)
@@ -13397,7 +13501,7 @@ end)()
 		cargarAvatarAsync(userId, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
-		labelDisplay.Size = UDim2.new(1, -100, 0, 20)
+		labelDisplay.Size = UDim2.new(1, -160, 0, 20)
 		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
@@ -13408,7 +13512,7 @@ end)()
 		pthemed(labelDisplay, "TextColor3", "text")
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
-		labelUser.Size = UDim2.new(1, -100, 0, 18)
+		labelUser.Size = UDim2.new(1, -160, 0, 18)
 		labelUser.Position = UDim2.new(0, 64, 0, 32)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
@@ -13444,7 +13548,7 @@ end)()
 		}
 		tarjetas[plr] = datos
 
-		plr:GetPropertyChangedSignal("DisplayName"):Connect(function()
+		datos.displayNameConn = plr:GetPropertyChangedSignal("DisplayName"):Connect(function()
 			datos.displayName = plr.DisplayName
 			labelDisplay.Text = plr.DisplayName
 			actualizarLista()
@@ -13455,8 +13559,11 @@ end)()
 
 	local function eliminarTarjeta(plr)
 		local datos = tarjetas[plr]
-		if datos and datos.frame then
-			datos.frame:Destroy()
+		if datos then
+			if datos.displayNameConn then
+				pcall(function() datos.displayNameConn:Disconnect() end)
+			end
+			if datos.frame then datos.frame:Destroy() end
 			tarjetas[plr] = nil
 			actualizarLista()
 		end
@@ -13530,7 +13637,7 @@ end)()
 		cargarAvatarAsync(info.id, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
-		labelDisplay.Size = UDim2.new(1, -100, 0, 20)
+		labelDisplay.Size = UDim2.new(1, -160, 0, 20)
 		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
@@ -13541,7 +13648,7 @@ end)()
 		pthemed(labelDisplay, "TextColor3", "text")
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
-		labelUser.Size = UDim2.new(1, -100, 0, 18)
+		labelUser.Size = UDim2.new(1, -160, 0, 18)
 		labelUser.Position = UDim2.new(0, 64, 0, 32)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
