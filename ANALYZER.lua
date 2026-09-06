@@ -4615,6 +4615,7 @@ end
 -- de amigos con animación suave (y se cierra al volver a pulsar). Carga perezosa
 -- + nombres resueltos en lote. Cada amigo abre la tarjeta modal al pulsarlo.
 local function addFriendsDropdown(parent, data, order)
+	local DS = _G.NXDS
 	local MAXH = 300
 	local userId = data.UserId
 
@@ -12853,7 +12854,20 @@ end)()
 end)()
 
 --[[ ==========================================================================
-   Lista de Jugadores Moderna  v2.4   (pegada al Analyzer · misma ejecución)
+   Lista de Jugadores Moderna  v2.5   (pegada al Analyzer · misma ejecución)
+   --------------------------------------------------------------------------
+   Cambios en v2.5 (sobre v2.4):
+   • TARJETAS REDISEÑADAS: más altas (82px), botones en fila HORIZONTAL
+     debajo de la info (con AutomaticSize.X), texto de botón más grande
+     (12pt), bordes sutiles con hover y stroke animados. Nombres de
+     botones cortos ("Nombre", "Usuario", "Analizar") pa' que quepan
+     en horizontal sin recorte.
+   • ANIMACIONES: squish al arrastrar (igual que el Analyzer), bounce on
+     release (Back Out 0.38s), open/close scale pop (0.92→1 al abrir,
+     0.9+fade al cerrar), minimize/maximize con Back easing + micro pop,
+     hover en tarjetas con stroke fade, press feedback en botones
+     (squish 26→24px), copy animation con scale pop, focus/blur en la
+     barra de búsqueda (stroke cambia a accent).
    --------------------------------------------------------------------------
    Cambios en v2.4 (sobre v2.3):
    • COLORES SINCRONIZADOS con el Analyzer. Si el Analyzer está cargado,
@@ -13132,8 +13146,17 @@ end)()
 		if minimizado then
 			size = UDim2.new(size.X.Scale, size.X.Offset, 0, 34)
 		end
-		local info = TweenInfo.new(animar == false and 0 or 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local dur = animar == false and 0 or 0.3
+		local info = TweenInfo.new(dur, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 		TweenService:Create(ventana, info, { Size = size, Position = pos }):Play()
+		-- subtle scale pop on transition
+		if dur > 0 then
+			local ds = ventana:FindFirstChild("DragScale")
+			if ds then
+				ds.Scale = 0.98
+				TweenService:Create(ds, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			end
+		end
 	end
 
 	-- (1) Minimizar: barra horizontal dibujada.
@@ -13173,7 +13196,14 @@ end)()
 	-- (3) Cerrar: la X es una letra (siempre renderiza), blanca sobre rojo.
 	local cerrarBtn = crearControl(3, "bad", function()
 		vivo = false
-		gui:Destroy()
+		local ds = ventana:FindFirstChild("DragScale")
+		if ds then
+			TweenService:Create(ds, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.9 }):Play()
+			TweenService:Create(ventana, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+			task.delay(0.2, function() gui:Destroy() end)
+		else
+			gui:Destroy()
+		end
 	end)
 	do
 		local x = Instance.new("TextLabel", cerrarBtn)
@@ -13239,6 +13269,18 @@ end)()
 	strokeBusqueda.Thickness = 1
 	strokeBusqueda.Transparency = 0.45
 	pthemed(strokeBusqueda, "Color", "border")
+
+	-- focus/blur animation on search bar
+	cajaBusqueda.Focused:Connect(function()
+		TweenService:Create(strokeBusqueda, TweenInfo.new(0.15), { Transparency = 0, Color = col("accent") }):Play()
+	end)
+	cajaBusqueda:GetPropertyChangedSignal("CursorPosition"):Connect(function()
+		if cajaBusqueda:IsFocused() then return end
+		TweenService:Create(strokeBusqueda, TweenInfo.new(0.2), { Transparency = 0.45, Color = col("border") }):Play()
+	end)
+	local function onSearchBlur()
+		TweenService:Create(strokeBusqueda, TweenInfo.new(0.2), { Transparency = 0.45, Color = col("border") }):Play()
+	end
 
 	-- ====================== PANEL DE SUGERENCIAS ======================
 	local panelSugerencias = Instance.new("Frame", ventana)
@@ -13346,13 +13388,18 @@ end)()
 
 	-- ====================== ANIMACIÓN DE BOTÓN COPIADO ======================
 	local function animarCopiado(btn, textoOriginal)
-		btn.Text = "✓ Copiado"
-		TweenService:Create(btn, TweenInfo.new(0.15), { BackgroundColor3 = col("good") }):Play()
-		task.delay(0.9, function()
+		btn.Text = "Copiado"
+		TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col("good") }):Play()
+		-- pop scale
+		local sc = btn:FindFirstChild("CopyScale")
+		if not sc then sc = Instance.new("UIScale", btn); sc.Name = "CopyScale" end
+		sc.Scale = 1.12
+		TweenService:Create(sc, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		task.delay(1.0, function()
 			if btn and btn.Parent then
 				btn.Text = textoOriginal
 				local role = btn:GetAttribute("rolBase") or "accent"
-				TweenService:Create(btn, TweenInfo.new(0.25), { BackgroundColor3 = col(role) }):Play()
+				TweenService:Create(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col(role) }):Play()
 			end
 		end)
 	end
@@ -13360,22 +13407,39 @@ end)()
 	-- Botón estándar de tarjeta (color por ROL → sincronizado con el tema).
 	local function crearBotonTarjeta(parent, texto, orden, role, accion)
 		local btn = Instance.new("TextButton", parent)
-		btn.Size = UDim2.new(1, 0, 0, 18)
+		btn.Size = UDim2.new(1, 0, 0, 26)
 		btn.LayoutOrder = orden
 		btn.Text = texto
 		btn.Font = Enum.Font.GothamBold
-		btn.TextSize = 10
+		btn.TextSize = 12
+		btn.TextTruncate = Enum.TextTruncate.AtEnd
 		btn.BorderSizePixel = 0
 		btn.AutoButtonColor = false
 		btn:SetAttribute("rolBase", role)
-		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 		pthemed(btn, "BackgroundColor3", role)
 		pthemed(btn, "TextColor3", "onAccent")
+		local btnStroke = Instance.new("UIStroke", btn)
+		btnStroke.Thickness = 1; btnStroke.Transparency = 0.7
+		pthemed(btnStroke, "Color", "border")
+		-- press feedback via UIScale (no Size change — safe with AutomaticSize)
+		local pressScale = Instance.new("UIScale", btn)
+		pressScale.Scale = 1
+		-- hover: lighten + stroke
 		btn.MouseEnter:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col(role), 0.08) }):Play()
+			TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = lighten(col(role), 0.10) }):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.12), { Transparency = 0.3 }):Play()
 		end)
 		btn.MouseLeave:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.18), { BackgroundColor3 = col(role) }):Play()
+			TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col(role) }):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = 0.7 }):Play()
+		end)
+		-- press: squish via scale
+		btn.MouseButton1Down:Connect(function()
+			TweenService:Create(pressScale, TweenInfo.new(0.08), { Scale = 0.92 }):Play()
+		end)
+		btn.MouseButton1Up:Connect(function()
+			TweenService:Create(pressScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 		end)
 		btn.MouseButton1Click:Connect(function() accion(btn, texto) end)
 		return btn
@@ -13485,15 +13549,39 @@ end)()
 
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Tarjeta_" .. plr.Name
-		tarjeta.Size = UDim2.new(1, -16, 0, 64)
+		tarjeta.Size = UDim2.new(1, -16, 0, 82)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = 0
+		tarjeta.ClipsDescendants = true
 		pthemed(tarjeta, "BackgroundColor3", "card")
 		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
+		local tStroke = Instance.new("UIStroke", tarjeta)
+		tStroke.Thickness = 1; tStroke.Transparency = 0.6
+		pthemed(tStroke, "Color", "border")
+
+		-- hover en tarjeta entera
+		tarjeta.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseMovement then
+				TweenService:Create(tStroke, TweenInfo.new(0.12), { Transparency = 0.2 }):Play()
+				TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
+			end
+		end)
+		tarjeta.InputEnded:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseMovement then
+				TweenService:Create(tStroke, TweenInfo.new(0.18), { Transparency = 0.6 }):Play()
+				TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
+			end
+		end)
+		onPrepaint(function()
+			if tarjeta.Parent then
+				pcall(function() tStroke.Color = col("border") end)
+				pcall(function() tarjeta.BackgroundColor3 = col("card") end)
+			end
+		end)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
 		avatar.Size = UDim2.new(0, 44, 0, 44)
-		avatar.Position = UDim2.new(0, 10, 0.5, -22)
+		avatar.Position = UDim2.new(0, 10, 0, 8)
 		avatar.Image = avatarCache[userId] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
 		pthemed(avatar, "BackgroundColor3", "avatarBg")
@@ -13501,8 +13589,8 @@ end)()
 		cargarAvatarAsync(userId, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
-		labelDisplay.Size = UDim2.new(1, -160, 0, 20)
-		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
+		labelDisplay.Size = UDim2.new(1, -68, 0, 20)
+		labelDisplay.Position = UDim2.new(0, 64, 0, 8)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
 		labelDisplay.TextSize = 14
@@ -13512,8 +13600,8 @@ end)()
 		pthemed(labelDisplay, "TextColor3", "text")
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
-		labelUser.Size = UDim2.new(1, -160, 0, 18)
-		labelUser.Position = UDim2.new(0, 64, 0, 32)
+		labelUser.Size = UDim2.new(1, -68, 0, 16)
+		labelUser.Position = UDim2.new(0, 64, 0, 28)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
 		labelUser.TextSize = 12
@@ -13522,24 +13610,32 @@ end)()
 		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
 		pthemed(labelUser, "TextColor3", "subtext")
 
-		local columnaBotones = Instance.new("Frame", tarjeta)
-		columnaBotones.Size = UDim2.new(0, 80, 0, 58)
-		columnaBotones.Position = UDim2.new(1, -88, 0.5, -29)
-		columnaBotones.BackgroundTransparency = 1
+		-- botones en fila horizontal debajo de la info
+		local filaBotones = Instance.new("Frame", tarjeta)
+		filaBotones.Size = UDim2.new(1, -20, 0, 26)
+		filaBotones.Position = UDim2.new(0, 10, 0, 50)
+		filaBotones.BackgroundTransparency = 1
 
-		local layoutBotones = Instance.new("UIListLayout", columnaBotones)
+		local layoutBotones = Instance.new("UIListLayout", filaBotones)
+		layoutBotones.FillDirection = Enum.FillDirection.Horizontal
 		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
-		layoutBotones.Padding = UDim.new(0, 2)
+		layoutBotones.Padding = UDim.new(0, 6)
+		layoutBotones.VerticalAlignment = Enum.VerticalAlignment.Center
 
-		crearBotonTarjeta(columnaBotones, "Copiar nombre", 1, "accent", function(btn, txt)
+		local b1 = crearBotonTarjeta(filaBotones, "Nombre", 1, "accent", function(btn, txt)
 			if copiar(plr.DisplayName) then animarCopiado(btn, txt) end
 		end)
-		crearBotonTarjeta(columnaBotones, "Copiar usuario", 2, "accent2", function(btn, txt)
+		local b2 = crearBotonTarjeta(filaBotones, "Usuario", 2, "accent2", function(btn, txt)
 			if copiar(plr.Name) then animarCopiado(btn, txt) end
 		end)
-		crearBotonTarjeta(columnaBotones, "Analizar", 3, "good", function()
+		local b3 = crearBotonTarjeta(filaBotones, "Analizar", 3, "good", function()
 			analizarEnAnalyzer(plr.Name)
 		end)
+
+		-- tamaños fijos proporcionales pa' horizontal
+		b1.Size = UDim2.new(0, 80, 1, 0)
+		b2.Size = UDim2.new(0, 80, 1, 0)
+		b3.Size = UDim2.new(1, -172, 1, 0)  -- rellena el resto (80+80+6+6=172)
 
 		local datos = {
 			frame = tarjeta, userId = userId,
@@ -13613,11 +13709,28 @@ end)()
 	local function crearTarjetaGlobal(info, orden)
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Global_" .. info.id
-		tarjeta.Size = UDim2.new(1, -16, 0, 64)
+		tarjeta.Size = UDim2.new(1, -16, 0, 82)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = orden
+		tarjeta.ClipsDescendants = true
 		pthemed(tarjeta, "BackgroundColor3", "card")
 		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
+		local gStroke = Instance.new("UIStroke", tarjeta)
+		gStroke.Thickness = 1; gStroke.Transparency = 0.6
+		pthemed(gStroke, "Color", "border")
+
+		tarjeta.InputBegan:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseMovement then
+				TweenService:Create(gStroke, TweenInfo.new(0.12), { Transparency = 0.2 }):Play()
+				TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
+			end
+		end)
+		tarjeta.InputEnded:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseMovement then
+				TweenService:Create(gStroke, TweenInfo.new(0.18), { Transparency = 0.6 }):Play()
+				TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
+			end
+		end)
 
 		-- Filito de acento a la izquierda pa' distinguir lo global del servidor
 		local marca = Instance.new("Frame", tarjeta)
@@ -13629,7 +13742,7 @@ end)()
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
 		avatar.Size = UDim2.new(0, 44, 0, 44)
-		avatar.Position = UDim2.new(0, 10, 0.5, -22)
+		avatar.Position = UDim2.new(0, 10, 0, 8)
 		avatar.Image = avatarCache[info.id] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
 		pthemed(avatar, "BackgroundColor3", "avatarBg")
@@ -13637,8 +13750,8 @@ end)()
 		cargarAvatarAsync(info.id, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
-		labelDisplay.Size = UDim2.new(1, -160, 0, 20)
-		labelDisplay.Position = UDim2.new(0, 64, 0, 10)
+		labelDisplay.Size = UDim2.new(1, -68, 0, 20)
+		labelDisplay.Position = UDim2.new(0, 64, 0, 8)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
 		labelDisplay.TextSize = 14
@@ -13648,8 +13761,8 @@ end)()
 		pthemed(labelDisplay, "TextColor3", "text")
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
-		labelUser.Size = UDim2.new(1, -160, 0, 18)
-		labelUser.Position = UDim2.new(0, 64, 0, 32)
+		labelUser.Size = UDim2.new(1, -68, 0, 16)
+		labelUser.Position = UDim2.new(0, 64, 0, 28)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
 		labelUser.TextSize = 12
@@ -13658,23 +13771,30 @@ end)()
 		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
 		pthemed(labelUser, "TextColor3", "subtext")
 
-		local columnaBotones = Instance.new("Frame", tarjeta)
-		columnaBotones.Size = UDim2.new(0, 80, 0, 58)
-		columnaBotones.Position = UDim2.new(1, -88, 0.5, -29)
-		columnaBotones.BackgroundTransparency = 1
-		local layoutBotones = Instance.new("UIListLayout", columnaBotones)
+		-- botones en fila horizontal
+		local filaBotones = Instance.new("Frame", tarjeta)
+		filaBotones.Size = UDim2.new(1, -20, 0, 26)
+		filaBotones.Position = UDim2.new(0, 10, 0, 50)
+		filaBotones.BackgroundTransparency = 1
+		local layoutBotones = Instance.new("UIListLayout", filaBotones)
+		layoutBotones.FillDirection = Enum.FillDirection.Horizontal
 		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
-		layoutBotones.Padding = UDim.new(0, 2)
+		layoutBotones.Padding = UDim.new(0, 6)
+		layoutBotones.VerticalAlignment = Enum.VerticalAlignment.Center
 
-		crearBotonTarjeta(columnaBotones, "Copiar nombre", 1, "accent", function(btn, txt)
+		local gb1 = crearBotonTarjeta(filaBotones, "Nombre", 1, "accent", function(btn, txt)
 			if copiar(info.displayName) then animarCopiado(btn, txt) end
 		end)
-		crearBotonTarjeta(columnaBotones, "Copiar usuario", 2, "accent2", function(btn, txt)
+		local gb2 = crearBotonTarjeta(filaBotones, "Usuario", 2, "accent2", function(btn, txt)
 			if copiar(info.name) then animarCopiado(btn, txt) end
 		end)
-		crearBotonTarjeta(columnaBotones, "Analizar", 3, "good", function()
+		local gb3 = crearBotonTarjeta(filaBotones, "Analizar", 3, "good", function()
 			analizarEnAnalyzer(info.name)
 		end)
+
+		gb1.Size = UDim2.new(0, 80, 1, 0)
+		gb2.Size = UDim2.new(0, 80, 1, 0)
+		gb3.Size = UDim2.new(1, -172, 1, 0)
 	end
 
 	local function buscarGlobal(textoCrudo)
@@ -13841,6 +13961,7 @@ end)()
 	end)
 
 	cajaBusqueda.FocusLost:Connect(function()
+		onSearchBlur()
 		task.delay(0.15, function()
 			if panelSugerencias and panelSugerencias.Parent then
 				panelSugerencias.Visible = false
@@ -13852,8 +13973,10 @@ end)()
 	ltrack(Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end))
 	ltrack(Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end))
 
-	-- ====================== ARRASTRE (mouse + táctil) ======================
+	-- ====================== ARRASTRE (mouse + táctil) con squish ======================
 	local arrastrando, inicioInput, inicioPos = false, nil, nil
+	local dragScale = Instance.new("UIScale", ventana)
+	dragScale.Name = "DragScale"; dragScale.Scale = 1
 	local function esInputArrastre(input)
 		return input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
@@ -13868,9 +13991,13 @@ end)()
 			arrastrando = true
 			inicioInput = input.Position
 			inicioPos = ventana.Position
+			-- squish on grab
+			TweenService:Create(dragScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.97 }):Play()
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					arrastrando = false
+					-- bounce back on release
+					TweenService:Create(dragScale, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 				end
 			end)
 		end
@@ -13883,7 +14010,6 @@ end)()
 				inicioPos.X.Scale, inicioPos.X.Offset + delta.X,
 				inicioPos.Y.Scale, inicioPos.Y.Offset + delta.Y
 			)
-			-- recordar la posición normal pa' restaurar desde pantalla completa
 			if not maximizado then posGuardada = ventana.Position end
 		end
 	end))
@@ -13893,6 +14019,15 @@ end)()
 		crearTarjeta(plr, true)
 	end
 	actualizarLista()
+
+	-- open animation: scale from 0.9 + fade in
+	local openScale = ventana:FindFirstChild("DragScale")
+	if openScale then
+		openScale.Scale = 0.92
+		ventana.BackgroundTransparency = 0.4
+		TweenService:Create(openScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		TweenService:Create(ventana, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0 }):Play()
+	end
 
 	-- ====================== DOCKING (ancla la Lista a la derecha del Analyzer) ======================
 	-- Lee la posición/tamaño REAL del Analyzer al primer frame y se pega a su
@@ -13918,7 +14053,7 @@ end)()
 		end
 	end)
 
-	print("[Lista de Jugadores v2.4] Cargada · colores sincronizados + controles navegador.")
+	print("[Lista de Jugadores v2.5] Cargada · UI rediseñada + animaciones.")
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
