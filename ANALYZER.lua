@@ -10096,6 +10096,8 @@ do
     NXHeadTags._running = false
     NXHeadTags._anim    = true   -- false = pausa glow/shimmer (toggle de Animaciones)
 
+    local function lerp(a, b, t) return a + (b - a) * t end
+
     --==========================================================================
     -- CONFIG  (tweak everything here)
     --==========================================================================
@@ -10124,18 +10126,18 @@ do
         TP_COOLDOWN       = 0.4,   -- segundos mínimos entre TPs (anti-spam / anti doble-click).
 
         -- Visuals  (fondo oscuro estilo "tag NX": casi negro y sólido)
-        PILL_BG               = Color3.fromRGB(9, 9, 13),
-        PILL_BG_TRANSPARENCY  = 0.04,
-        PILL_GRADIENT_TOP     = Color3.fromRGB(24, 24, 32),
-        PILL_GRADIENT_BOTTOM  = Color3.fromRGB(5, 5, 8),
+        PILL_BG               = Color3.fromRGB(8, 8, 14),
+        PILL_BG_TRANSPARENCY  = 0.02,
+        PILL_GRADIENT_TOP     = Color3.fromRGB(28, 28, 38),
+        PILL_GRADIENT_BOTTOM  = Color3.fromRGB(4, 4, 6),
         USERNAME_COLOR        = Color3.fromRGB(255, 255, 255),
 
-        ROLE_FONT       = Enum.Font.GothamBold,
+        ROLE_FONT       = Enum.Font.GothamBlack,
         ICON_FONT       = Enum.Font.GothamBold,
         USERNAME_FONT   = Enum.Font.GothamMedium,
-        ICON_TEXT_SIZE      = 20,
-        ICON_IMAGE_SIZE     = 22,   -- tamaño en px del icono cuando es imagen (rbxassetid)
-        ROLE_TEXT_SIZE      = 18,
+        ICON_TEXT_SIZE      = 21,
+        ICON_IMAGE_SIZE     = 24,
+        ROLE_TEXT_SIZE      = 19,
         USERNAME_TEXT_SIZE  = 14,
 
         DEFAULT_ANIMATION = "gradient", -- used when a tag has no animation and its role has no preset.
@@ -10507,6 +10509,47 @@ Animations.luxe = {
             ctx.role.TextColor3 = Color3.fromHSV((h + drift) % 1, s, v)
         end,
     }
+    -- NX SUPREME — top-tier owner animation. Dual-axis gradient sweep on border,
+    -- prismatic hue orbit on text, pulsing outer glow, and shadow breathing.
+    Animations.elite_supreme = {
+        init = function(ctx)
+            local border, text, base, light, deep = buildEliteGradients(ctx, 0.40, 0.15)
+            ctx.eliteBorder = border
+            ctx.eliteText   = text
+            ctx.eliteBase   = base
+            ctx.eliteLight  = light
+            ctx.eliteDeep   = deep
+            ctx.pillBaseTransparency = ctx.pill.BackgroundTransparency
+        end,
+        update = function(ctx, t)
+            ctx.eliteBorder.Rotation = (t * 80) % 360
+            ctx.eliteText.Offset     = Vector2.new(((t * 0.65) % 2) - 1, 0)
+
+            local a = 0.5 + 0.5 * math.sin(t * 2.4)
+            local b = 0.5 + 0.5 * math.sin(t * 1.6 + 1.2)
+
+            ctx.stroke.Thickness     = lerp(2.4, 3.8, a)
+            ctx.stroke.Transparency  = lerp(0.00, 0.12, a)
+            ctx.roleStroke.Transparency = lerp(0.02, 0.35, a)
+
+            ctx.pill.BackgroundTransparency = lerp(
+                math.max(ctx.pillBaseTransparency - 0.05, 0),
+                ctx.pillBaseTransparency + 0.03, b)
+
+            if ctx.glow then
+                ctx.glow.Thickness    = lerp(4, 8, a)
+                ctx.glow.Transparency = lerp(0.30, 0.65, a)
+            end
+
+            local h, s, v = Color3.toHSV(ctx.eliteBase)
+            local drift = math.sin(t * 0.7) * 0.06
+            ctx.role.TextColor3 = Color3.fromHSV((h + drift) % 1, s, v)
+            if ctx.icon and not ctx.icon:IsA("ImageLabel") then
+                ctx.icon.TextColor3 = Color3.fromHSV((h + drift + 0.5) % 1, s * 0.8, math.min(v + 0.15, 1))
+            end
+        end,
+    }
+
     --==========================================================================
     -- TELEPORT ON CLICK  (tocar el tag de un jugador -> TP a su posición)
     -- Click normal sobre la pill (cerca) o el círculo (lejos) y te llevas a tu
@@ -10576,7 +10619,7 @@ Animations.luxe = {
         local billboard = Instance.new("BillboardGui")
         billboard.Name          = "NXHeadTag_" .. player.UserId
         billboard.Size          = UDim2.fromOffset(360, 90)
-        billboard.StudsOffset   = Vector3.new(0, CONFIG.STUDS_OFFSET_Y, 0)
+        billboard.StudsOffset   = Vector3.new(0, CONFIG.STUDS_OFFSET_Y + (tag.priority or 0) * 0.003, 0)
         billboard.AlwaysOnTop   = CONFIG.ALWAYS_ON_TOP
         billboard.LightInfluence = 0
         billboard.MaxDistance   = (CONFIG.MAX_DISTANCE > 0) and CONFIG.MAX_DISTANCE or 1e4
@@ -10620,30 +10663,36 @@ Animations.luxe = {
         pillCorner.Parent = pill
 
         local pillStroke = Instance.new("UIStroke")
-        pillStroke.Thickness       = 2
+        pillStroke.Thickness       = 2.2
         pillStroke.Color           = tag.color
-        pillStroke.Transparency    = 0.1
+        pillStroke.Transparency    = 0.05
         pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         pillStroke.Parent          = pill
 
-        -- Halo de GLOW para todos (late en el loop, independiente de la animación del rol).
         local glowStroke = Instance.new("UIStroke")
         glowStroke.Thickness       = 4
         glowStroke.Color           = tag.color
-        glowStroke.Transparency    = 0.55
+        glowStroke.Transparency    = 0.40
         glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         glowStroke.Parent          = pill
 
+        local h, s, v = Color3.toHSV(tag.color)
+        local midTint = Color3.fromHSV(h, math.min(s + 0.08, 1), math.max(v * 0.12, 0.04))
         local pillGradient = Instance.new("UIGradient")
         pillGradient.Rotation = 90
-        pillGradient.Color = ColorSequence.new(CONFIG.PILL_GRADIENT_TOP, CONFIG.PILL_GRADIENT_BOTTOM)
+        pillGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.0, CONFIG.PILL_GRADIENT_TOP),
+            ColorSequenceKeypoint.new(0.35, midTint),
+            ColorSequenceKeypoint.new(0.65, CONFIG.PILL_GRADIENT_BOTTOM),
+            ColorSequenceKeypoint.new(1.0, Color3.fromRGB(2, 2, 4)),
+        })
         pillGradient.Parent = pill
 
         local pillPad = Instance.new("UIPadding")
-        pillPad.PaddingLeft   = UDim.new(0, 12)
-        pillPad.PaddingRight  = UDim.new(0, 12)
-        pillPad.PaddingTop    = UDim.new(0, 5)
-        pillPad.PaddingBottom = UDim.new(0, 5)
+        pillPad.PaddingLeft   = UDim.new(0, 14)
+        pillPad.PaddingRight  = UDim.new(0, 14)
+        pillPad.PaddingTop    = UDim.new(0, 6)
+        pillPad.PaddingBottom = UDim.new(0, 6)
         pillPad.Parent        = pill
 
         local hlist = Instance.new("UIListLayout")
@@ -10707,9 +10756,9 @@ Animations.luxe = {
         role.Parent               = pill
 
         local roleStroke = Instance.new("UIStroke")
-        roleStroke.Thickness    = 1.4
+        roleStroke.Thickness    = 1.6
         roleStroke.Color        = Color3.fromRGB(0, 0, 0)
-        roleStroke.Transparency = 0.25
+        roleStroke.Transparency = 0.15
         roleStroke.Parent       = role
 
         ----------------------------------------------------------------------
@@ -10756,9 +10805,9 @@ Animations.luxe = {
         circleCorner.Parent = circle
 
         local circleGlow = Instance.new("UIStroke")
-        circleGlow.Thickness    = 3
+        circleGlow.Thickness    = 3.5
         circleGlow.Color        = tag.color
-        circleGlow.Transparency = 0.25
+        circleGlow.Transparency = 0.20
         circleGlow.Parent       = circle
 
         -- Logo NX dentro del círculo (nunca queda vacío). Si defines CIRCLE_LOGO_IMAGE
@@ -10886,13 +10935,13 @@ Animations.luxe = {
 
         local tag = TagDatabase:Get(player.UserId)
         if not tag then
-            self:remove(player)    -- player has no (longer a) tag
+            self:remove(player)
             return
         end
 
         local character = player.Character
         if not character then
-            return  -- CharacterAdded will re-call this once the body exists
+            return
         end
         local head = character:FindFirstChild("Head")
         if not head then
@@ -11113,8 +11162,8 @@ Animations.luxe = {
                     if CONFIG.GLOW_ALL and not ctx.transitioning and NXHeadTags._anim then
                         local g = 0.5 + 0.5 * math.sin(ctx.elapsed * 2.5)
                         if ctx.glow then
-                            ctx.glow.Transparency = lerp(0.35, 0.78, g)
-                            ctx.glow.Thickness    = lerp(3, 6.5, g)
+                            ctx.glow.Transparency = lerp(0.30, 0.72, g)
+                            ctx.glow.Thickness    = lerp(3.5, 7, g)
                         end
                         if ctx.circleGlow then
                             ctx.circleGlow.Transparency = lerp(0.15, 0.6, g)
