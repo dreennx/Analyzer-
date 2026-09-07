@@ -828,8 +828,8 @@ do
 			cp.MouseEnter:Connect(function() cp.TextTransparency = 0 end)
 			cp.MouseLeave:Connect(function() cp.TextTransparency = 0.6 end)
 			cp.MouseButton1Click:Connect(function()
-				clipboard(tostring(value))
-				statusLabel.Text = "Copiado: " .. label
+				if clipboard then clipboard(tostring(value)) end
+				if statusLabel then statusLabel.Text = "Copiado: " .. label end
 				cp.Text = "✓"
 				task.delay(1, function() if cp and cp.Parent then cp.Text = "📋" end end)
 			end)
@@ -2792,6 +2792,8 @@ local function gatherData(userId)
 end
 
 -- ====================== GUI ======================
+local connections = {}
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "UtilityPanel"
 gui.ResetOnSpawn = false
@@ -2816,11 +2818,14 @@ if (store.introEnabled ~= false) and (store.introSeen ~= true) then
 end
 
 -- ====================== SISTEMA DE CONEXIONES ======================
-local connections = {}
 local function track(conn)
 	table.insert(connections, conn)
 	return conn
 end
+
+-- Declarada antes de cleanupAll para que el cierre siempre resuelva el local
+-- correcto, incluso aunque la implementación de animaciones aparezca después.
+local cancelAllInfinites
 
 local function cleanupAll()
 	for _, c in ipairs(connections) do
@@ -2830,6 +2835,16 @@ local function cleanupAll()
 	cancelAllInfinites()
 	pcall(function() if _G.NXScan and _G.NXScan.stop then _G.NXScan.stop() end end)
 	pcall(function() if _G.NXV2 and _G.NXV2.stop then _G.NXV2.stop() end end)
+	-- Los Head Tags tienen su propio RenderStepped, conexiones de Players y un
+	-- refresco HTTP. Destruir solo la GUI no los detenía, así que al cerrar el
+	-- Analyzer quedaban activos en segundo plano durante toda la sesión.
+	pcall(function() if _G.NXHeadTags and _G.NXHeadTags.Stop then _G.NXHeadTags.Stop() end end)
+	-- La lista forma parte de esta misma sesión; no debe sobrevivir con botones
+	-- que apuntan a un Analyzer ya destruido.
+	pcall(function()
+		local list = playerGui:FindFirstChild("ListaJugadoresModerna")
+		if list then list:Destroy() end
+	end)
 end
 
 track(gui.AncestryChanged:Connect(function(_, newParent)
@@ -2872,7 +2887,7 @@ local function registerInfiniteTween(tw)
 	return tw
 end
 
-local function cancelAllInfinites()
+cancelAllInfinites = function()
 	for i, tw in ipairs(ANIM.infinites) do
 		pcall(function() tw:Cancel() end)
 		ANIM.infinites[i] = nil
@@ -2899,6 +2914,54 @@ local function addHoverStroke(btn)
 	btn.MouseButton1Down:Connect(function() to(0.97, 0.07) end)
 	btn.MouseButton1Up:Connect(function() to(1, 0.12) end)
 	btn.MouseLeave:Connect(function() sc.Scale = 1 end)
+end
+
+local function addShineHover(btn)
+	local sc2 = Instance.new("UIScale", btn)
+	sc2.Name = "HoverScale"
+	local st = btn:FindFirstChildOfClass("UIStroke")
+	local baseStT = st and st.Transparency or 0.5
+	local baseBg = btn.BackgroundColor3
+	local hovered = false
+
+	btn.MouseEnter:Connect(function()
+		if not ANIM.enabled then return end
+		hovered = true
+		motionTween(sc2, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.045 })
+		if st then
+			motionTween(st, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Transparency = math.max(baseStT - 0.35, 0),
+				Color = C.accent
+			})
+		end
+		motionTween(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundColor3 = Color3.new(
+				math.min(baseBg.R + 0.06, 1),
+				math.min(baseBg.G + 0.06, 1),
+				math.min(baseBg.B + 0.06, 1))
+		})
+	end)
+
+	btn.MouseLeave:Connect(function()
+		hovered = false
+		motionTween(sc2, TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 })
+		if st then
+			motionTween(st, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Transparency = baseStT,
+				Color = C.border
+			})
+		end
+		motionTween(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundColor3 = baseBg
+		})
+	end)
+
+	btn.MouseButton1Down:Connect(function()
+		motionTween(sc2, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.92 })
+	end)
+	btn.MouseButton1Up:Connect(function()
+		motionTween(sc2, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = hovered and 1.045 or 1 })
+	end)
 end
 
 local function addDepth(frame)
@@ -2931,6 +2994,7 @@ end
 function Shield.makeSwitch(parent, on, onToggle)
 	local W, H = 40, 20
 	local KNOB = H - 4
+	local STRETCH = 4
 	local track_ = Instance.new("TextButton", parent)
 	track_.Size = UDim2.fromOffset(W, H)
 	track_.AutoButtonColor = false
@@ -2947,24 +3011,44 @@ function Shield.makeSwitch(parent, on, onToggle)
 	knob.ZIndex = 2
 	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
 
+	local knobScale = Instance.new("UIScale", knob)
+	knobScale.Scale = 1
+
 	local estado, ocupado = on, false
 	local latido
 
-	local function pintar()
-		track_.BackgroundColor3 = ocupado and C.warn or (estado and C.good or C.border)
+	local function pintar(animate)
+		local targetColor = ocupado and C.warn or (estado and C.good or C.border)
+		if animate and ANIM.enabled then
+			motionTween(track_, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundColor3 = targetColor })
+		else
+			track_.BackgroundColor3 = targetColor
+		end
 	end
 
 	local function setOn(v, mover)
 		estado = v and true or false
 		local destino = estado and UDim2.new(1, -(KNOB + 2), 0, 2) or UDim2.new(0, 2, 0, 2)
-		if mover == false then knob.Position = destino
-		else motionTween(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = destino }) end
-		pintar()
+		if mover == false then
+			knob.Position = destino
+			knob.Size = UDim2.fromOffset(KNOB, KNOB)
+		elseif ANIM.enabled then
+			knob.Size = UDim2.fromOffset(KNOB + STRETCH, KNOB)
+			motionTween(knob, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = destino })
+			task.delay(0.12, function()
+				if knob and knob.Parent then
+					motionTween(knob, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(KNOB, KNOB) })
+				end
+			end)
+		else
+			knob.Position = destino
+		end
+		pintar(mover ~= false)
 	end
 
 	local function setBusy(b)
 		ocupado = b and true or false
-		pintar()
+		pintar(true)
 		if latido then pcall(function() latido:Cancel() end); latido = nil end
 		if ocupado and ANIM.enabled then
 			knob.BackgroundTransparency = 0
@@ -2977,6 +3061,30 @@ function Shield.makeSwitch(parent, on, onToggle)
 			knob.BackgroundTransparency = 0
 		end
 	end
+
+	track_.MouseEnter:Connect(function()
+		if ocupado then return end
+		if ANIM.enabled then
+			motionTween(knobScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1.12 })
+		end
+	end)
+	track_.MouseLeave:Connect(function()
+		if ANIM.enabled then
+			motionTween(knobScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+		end
+	end)
+
+	track_.MouseButton1Down:Connect(function()
+		if ocupado then return end
+		if ANIM.enabled then
+			motionTween(knobScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.9 })
+		end
+	end)
+	track_.MouseButton1Up:Connect(function()
+		if ANIM.enabled then
+			motionTween(knobScale, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+		end
+	end)
 
 	track_.MouseButton1Click:Connect(function()
 		if ocupado then return end
@@ -3207,7 +3315,46 @@ themed(searchBox, "BackgroundColor3", "input")
 themed(searchBox, "TextColor3", "text")
 local sbStroke = Instance.new("UIStroke", searchBox)
 sbStroke.Thickness = 1; sbStroke.Transparency = 0.7; sbStroke.Color = C.border
+sbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 themed(sbStroke, "Color", "border")
+
+do
+	local sbScale = Instance.new("UIScale", searchBox)
+	searchBox.MouseEnter:Connect(function()
+		if not ANIM.enabled then return end
+		motionTween(sbStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Transparency = 0.35, Color = C.accent
+		})
+	end)
+	searchBox.MouseLeave:Connect(function()
+		if searchBox:IsFocused() then return end
+		motionTween(sbStroke, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Transparency = 0.7, Color = C.border
+		})
+	end)
+	searchBox.Focused:Connect(function()
+		if not ANIM.enabled then return end
+		motionTween(sbStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Transparency = 0.1, Color = C.accent, Thickness = 1.5
+		})
+		motionTween(sbScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.015 })
+		motionTween(searchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundColor3 = Color3.new(
+				math.min(C.input.R + 0.03, 1),
+				math.min(C.input.G + 0.03, 1),
+				math.min(C.input.B + 0.03, 1))
+		})
+	end)
+	searchBox.FocusLost:Connect(function()
+		motionTween(sbStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Transparency = 0.7, Color = C.border, Thickness = 1
+		})
+		motionTween(sbScale, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 })
+		motionTween(searchBox, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			BackgroundColor3 = C.input
+		})
+	end)
+end
 
 -- Lupa vectorial
 local lockGlyph = Instance.new("Frame", searchFrame)
@@ -3274,9 +3421,10 @@ local tabBar = Instance.new("ScrollingFrame", main)
 tabBar.Size = UDim2.new(1, -24, 0, 30)
 tabBar.Position = UDim2.new(0, 12, 0, 96)
 tabBar.BackgroundColor3 = C.bg
-tabBar.BackgroundTransparency = 0
+tabBar.BackgroundTransparency = 1
 themed(tabBar, "BackgroundColor3", "bg")
 tabBar.BorderSizePixel = 0
+tabBar.ZIndex = 3
 tabBar.ScrollBarThickness = 2
 tabBar.ScrollBarImageColor3 = C.accent
 themed(tabBar, "ScrollBarImageColor3", "accent")
@@ -3298,22 +3446,98 @@ local tabs, pages = {}, {}
 local tabByPage = {}
 local onShowByPage = {}
 local activeTab = nil
-local function paintTabs()
+
+-- Indicador compartido: no participa en el layout ni cambia la geometría de
+-- las tabs. Es el mismo fondo activo de siempre, pero ahora viaja entre ellas
+-- y adopta exactamente el ancho de la tab seleccionada.
+local tabIndicator = Instance.new("Frame", main)
+tabIndicator.Name = "TabActiveIndicator"
+tabIndicator.Size = UDim2.fromOffset(0, 0)
+tabIndicator.Position = UDim2.fromOffset(0, 0)
+tabIndicator.BackgroundColor3 = C.accent
+tabIndicator.BorderSizePixel = 0
+tabIndicator.Active = false
+tabIndicator.ZIndex = 2
+Instance.new("UICorner", tabIndicator).CornerRadius = UDim.new(0, 6)
+themed(tabIndicator, "BackgroundColor3", "accent")
+
+local function syncTabIndicator(animate)
+	if not activeTab or not activeTab.Parent then return end
+	local mainSize = main.AbsoluteSize
+	local mainPos = main.AbsolutePosition
+	local tabPos = activeTab.AbsolutePosition
+	local tabSize = activeTab.AbsoluteSize
+	if mainSize.X <= 0 or mainSize.Y <= 0 or tabSize.X <= 0 then return end
+	local barPos = tabBar.AbsolutePosition
+	local barSize = tabBar.AbsoluteSize
+	-- Como el indicador vive fuera del ScrollingFrame para no alterar su
+	-- UIListLayout, se oculta si la tab activa queda fuera del área visible.
+	if tabPos.X < barPos.X or (tabPos.X + tabSize.X) > (barPos.X + barSize.X) then
+		tabIndicator.Visible = false
+		return
+	end
+	tabIndicator.Visible = true
+
+	-- AbsolutePosition incluye el UIScale de la ventana. Convertimos de vuelta
+	-- al espacio local de `main` para que el indicador siga alineado al arrastrar,
+	-- maximizar, redimensionar o animar el panel.
+	local logicalW = main.Size.X.Offset
+	local logicalH = main.Size.Y.Offset
+	if logicalW <= 0 or logicalH <= 0 then return end
+	local scaleX = mainSize.X / logicalW
+	local scaleY = mainSize.Y / logicalH
+	if scaleX <= 0 or scaleY <= 0 then return end
+	local targetPos = UDim2.fromOffset(
+		math.round((tabPos.X - mainPos.X) / scaleX),
+		math.round((tabPos.Y - mainPos.Y) / scaleY)
+	)
+	local targetSize = UDim2.fromOffset(
+		math.round(tabSize.X / scaleX),
+		math.round(tabSize.Y / scaleY)
+	)
+	if animate and ANIM.enabled then
+		motionTween(tabIndicator,
+			TweenInfo.new(0.34, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ Position = targetPos, Size = targetSize })
+	else
+		tabIndicator.Position = targetPos
+		tabIndicator.Size = targetSize
+	end
+end
+
+local function paintTabs(animate)
 	for _, t in ipairs(tabs) do
-		if t == activeTab then
-			t.BackgroundColor3 = C.accent
-			t.BackgroundTransparency = 0
-			t.TextColor3 = C.onAccent
-			t.TextTransparency = 0
+		local isActive = (t == activeTab)
+		local targetColor = isActive and C.onAccent or C.subtext
+		-- El indicador conserva la misma apariencia que antes tenía el botón
+		-- activo; el fondo del botón se deja transparente para que se vea viajar.
+		local targetBg = isActive and C.accent or C.bg
+		if animate and ANIM.enabled then
+			motionTween(t, TweenInfo.new(0.26, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				BackgroundColor3 = targetBg,
+				BackgroundTransparency = 1,
+				TextColor3 = targetColor,
+				TextTransparency = 0,
+			})
 		else
-			t.BackgroundColor3 = C.bg
+			t.BackgroundColor3 = targetBg
 			t.BackgroundTransparency = 1
-			t.TextColor3 = C.subtext
+			t.TextColor3 = targetColor
 			t.TextTransparency = 0
 		end
 	end
+	tabIndicator.BackgroundColor3 = C.accent
+	syncTabIndicator(animate)
 end
 onRepaint(paintTabs)
+
+-- El indicador se mantiene sincronizado aun si el layout cambia, el usuario
+-- desplaza la barra horizontal o la ventana se redimensiona.
+track(tabBar:GetPropertyChangedSignal("CanvasPosition"):Connect(function() syncTabIndicator(false) end))
+track(tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	task.defer(function() syncTabIndicator(false) end)
+end))
+track(main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() syncTabIndicator(false) end))
 
 local function showPage(page)
 	if ANIM.enabled then
@@ -3347,7 +3571,7 @@ local function showPage(page)
 		page.Position = UDim2.new(0, 0, 0, 0)
 	end
 	activeTab = tabByPage[page]
-	paintTabs()
+	paintTabs(true)
 	local cb = onShowByPage[page]
 	if cb then pcall(cb) end
 end
@@ -3364,10 +3588,21 @@ local function createTab(name, page, onShow)
 	btn.TextSize = 13
 	btn.TextColor3 = C.subtext
 	btn.BorderSizePixel = 0
+	btn.ZIndex = 3
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 	local tp = Instance.new("UIPadding", btn)
 	tp.PaddingLeft = UDim.new(0, 16); tp.PaddingRight = UDim.new(0, 16)
 	addHoverStroke(btn)
+	track(btn.MouseEnter:Connect(function()
+		if btn ~= activeTab then
+			motionTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextColor3 = C.text })
+		end
+	end))
+	track(btn.MouseLeave:Connect(function()
+		if btn ~= activeTab then
+			motionTween(btn, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextColor3 = C.subtext })
+		end
+	end))
 	tabByPage[page] = btn
 	if onShow then onShowByPage[page] = onShow end
 	track(btn.MouseButton1Click:Connect(function() showPage(page) end))
@@ -3377,7 +3612,8 @@ local function createTab(name, page, onShow)
 		activeTab = btn
 		page.Visible = true
 	end
-	paintTabs()
+	paintTabs(false)
+	task.defer(function() syncTabIndicator(false) end)
 	return btn
 end
 
@@ -3435,29 +3671,13 @@ local settingsScroll = makeScroll(settingsPage)
 -- ====================== ABRIR URL ======================
 local GuiService = game:GetService("GuiService")
 
--- NOTA: se ELIMINÓ la elevación de identidad del hilo (setthreadidentity(8)).
--- Esa línea ponía el script a nivel CoreScript y NO lo regresaba, lo que
--- puede romper sistemas del cliente como el chat de Roblox. Sin eso,
--- OpenBrowserWindow quizá no abra en algunos executors, pero el flujo cae
--- limpio al modal de "copiar link".
+-- No elevamos la identidad del hilo para abrir enlaces. Esa elevación depende
+-- del executor, amplía privilegios sin necesidad y puede afectar sistemas del
+-- cliente. Si la API protegida no está disponible, caemos a los fallbacks.
 local function openURL(url)
-	-- 1) NAVEGADOR NATIVO de Roblox. OpenBrowserWindow está protegido
-	-- (RobloxScriptSecurity): con identidad normal NO abre (y a veces ni
-	-- tira error -> antes "decía que sí" pero no abría nada). Elevamos a 8
-	-- SOLO dentro de un hilo aparte y desechable: al morir el hilo se va la
-	-- identidad elevada, así el hilo principal NUNCA queda elevado y no se
-	-- rompe el chat de Roblox (ese era el bug por el que se quitó antes).
-	local ok, done = false, false
-	task.spawn(function()
-		pcall(function() if setthreadidentity then setthreadidentity(8) end end)
-		ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
-		done = true
-	end)
-	-- Esperar a que el hilo desechable termine antes de leer 'ok'. Antes se leía
-	-- de inmediato (el spawn aún no había corrido) → SIEMPRE false, así que el
-	-- navegador nativo nunca reportaba éxito y siempre caía a los fallbacks.
-	local t0 = os.clock()
-	while not done and (os.clock() - t0) < 1 do task.wait() end
+	-- 1) NAVEGADOR NATIVO de Roblox. Puede no estar disponible con identidad
+	-- normal; ese fallo es esperado y se maneja con los fallbacks de abajo.
+	local ok = pcall(function() GuiService:OpenBrowserWindow(url) end)
 	if ok then return true end
 	local candidates = {
 		rawget(_G, "open_url"), rawget(_G, "openurl"), rawget(_G, "openUrl"), rawget(_G, "OpenURL"),
@@ -6731,7 +6951,7 @@ local function render(data, skipEntrance)
 	-- Action buttons row under the avatar/info
 	local actRow = Instance.new("Frame", heroCard)
 	actRow.LayoutOrder = 20
-	actRow.Size = UDim2.new(1, 0, 0, 30)
+	actRow.Size = UDim2.new(1, 0, 0, 34)
 	actRow.BackgroundTransparency = 1
 	local actLay = Instance.new("UIListLayout", actRow)
 	actLay.FillDirection = Enum.FillDirection.Horizontal
@@ -6765,6 +6985,10 @@ local function render(data, skipEntrance)
 			if copyLink and copyLink.Parent then copyLink.Text = "Copiar link" end
 		end)
 	end)
+
+	addShineHover(viewCharBtn)
+	addShineHover(openProfile)
+	addShineHover(copyLink)
 
 	-- Join server button (only when in-game and public)
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
@@ -7755,17 +7979,29 @@ do
 	themed(thInfo, "TextColor3", "subtext")
 
 	local themeButtons = {}
-	local function paintThemeButtons()
+	local function paintThemeButtons(animate)
 		for _, b in ipairs(themeButtons) do
 			local tn = b:GetAttribute("ThemeKey")
 			local sel = (store.theme == tn)
 			local own = THEMES[tn]
-			if sel then
-				b.BackgroundColor3 = C.accent
-				b.TextColor3 = C.onAccent
+			local targetBg = sel and C.accent or C.surface
+			local targetTxt = sel and C.onAccent or ((own and own.accent) or C.text)
+			if animate and ANIM.enabled then
+				local sc = b:FindFirstChild("_ThemeScale")
+				if not sc then sc = Instance.new("UIScale", b); sc.Name = "_ThemeScale" end
+				if sel then
+					sc.Scale = 0.88
+					motionTween(sc, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+				else
+					motionTween(sc, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+				end
+				motionTween(b, TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+					BackgroundColor3 = targetBg,
+					TextColor3 = targetTxt,
+				})
 			else
-				b.BackgroundColor3 = C.surface
-				b.TextColor3 = (own and own.accent) or C.text
+				b.BackgroundColor3 = targetBg
+				b.TextColor3 = targetTxt
 			end
 		end
 	end
@@ -7785,10 +8021,10 @@ do
 		tb.MouseButton1Click:Connect(function()
 			setTheme(tn)
 			thInfo.Text = "Tema actual: " .. titleCase(tn)
-			paintThemeButtons()
+			paintThemeButtons(true)
 		end)
 	end
-	paintThemeButtons()
+	paintThemeButtons(false)
 
 	-- NX Head Tags toggle
 	DS.makeToggleRow(settingsScroll,
@@ -7902,6 +8138,197 @@ do
 			if rerenderCurrent then pcall(rerenderCurrent) end
 			if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
 		end)
+end
+
+-- ====================== REPARAR RPA ======================
+do
+	local DS = _G.NXDS
+	local repairCard = DS.makeCard(settingsScroll, {order = 6, title = "Reparar RPA", subtitle = "Detecta y corrige problemas comunes del Analyzer."})
+
+	local repairStatus = Instance.new("TextLabel", repairCard)
+	repairStatus.LayoutOrder = 2
+	repairStatus.Size = UDim2.new(1, 0, 0, 0)
+	repairStatus.AutomaticSize = Enum.AutomaticSize.Y
+	repairStatus.BackgroundTransparency = 1
+	repairStatus.Font = Enum.Font.Gotham
+	repairStatus.TextSize = DS.text.xs
+	repairStatus.TextColor3 = C.subtext
+	repairStatus.Text = ""
+	repairStatus.TextWrapped = true
+	repairStatus.TextXAlignment = Enum.TextXAlignment.Left
+	repairStatus.Visible = false
+	themed(repairStatus, "TextColor3", "subtext")
+
+	local repairBtn = DS.makeButton(repairCard, "Reparar RPA", "primary", {order = 1, size = UDim2.new(1, 0, 0, 32)})
+	local repairing = false
+
+	repairBtn.MouseButton1Click:Connect(function()
+		if repairing then return end
+		repairing = true
+		repairStatus.Visible = true
+		repairStatus.TextColor3 = C.warn
+		repairBtn.Text = "Reparando…"
+
+		-- Spinner visual: el botón pulsa mientras trabaja
+		local spinner
+		if ANIM.enabled then
+			local sc = repairBtn:FindFirstChildOfClass("UIScale")
+			if sc then
+				spinner = TweenService:Create(sc,
+					TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+					{ Scale = 0.97 })
+				spinner:Play()
+			end
+		end
+
+		local log = {}
+		local fixes = 0
+		task.defer(function()
+			-- 1. Limpiar roleMap (entradas muertas de themed())
+			local antes = #roleMap
+			local n = 0
+			for i = 1, #roleMap do
+				local e = roleMap[i]
+				if e.inst then n = n + 1; roleMap[n] = e end
+			end
+			for i = #roleMap, n + 1, -1 do roleMap[i] = nil end
+			local purgados = antes - #roleMap
+			if purgados > 0 then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ roleMap: " .. purgados .. " entradas muertas eliminadas"
+			end
+
+			repairStatus.Text = "Verificando tweens…"
+			task.wait()
+
+			-- 2. Cancelar tweens infinitos huérfanos
+			local tweensBefore = #ANIM.infinites
+			local limpios = 0
+			for i = tweensBefore, 1, -1 do
+				local tw = ANIM.infinites[i]
+				local inst = nil
+				pcall(function() inst = tw.Instance end)
+				if not inst or not inst.Parent then
+					pcall(function() tw:Cancel() end)
+					table.remove(ANIM.infinites, i)
+					limpios = limpios + 1
+				end
+			end
+			if limpios > 0 then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ Tweens: " .. limpios .. " tweens huérfanos cancelados"
+			end
+
+			repairStatus.Text = "Verificando conexiones…"
+			task.wait()
+
+			-- 3. Limpiar connections muertas
+			local connBefore = #connections
+			local connLimpias = 0
+			for i = connBefore, 1, -1 do
+				local c = connections[i]
+				local connected = true
+				pcall(function() connected = c.Connected end)
+				if not connected then
+					table.remove(connections, i)
+					connLimpias = connLimpias + 1
+				end
+			end
+			if connLimpias > 0 then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ Conexiones: " .. connLimpias .. " desconectadas eliminadas"
+			end
+
+			repairStatus.Text = "Verificando store…"
+			task.wait()
+
+			-- 4. Verificar y reparar store
+			local defaults = { theme = "tor", headTags = true, animations = true, ownTag = true, introEnabled = true, introSeen = false, advanced = false }
+			local storeFixed = 0
+			for k, v in pairs(defaults) do
+				if store[k] == nil then
+					store[k] = v
+					storeFixed = storeFixed + 1
+				end
+			end
+			if type(store.theme) ~= "string" or not THEMES[store.theme] then
+				store.theme = "tor"
+				storeFixed = storeFixed + 1
+			end
+			if storeFixed > 0 then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ Store: " .. storeFixed .. " campos reparados"
+				saveStore()
+			end
+
+			repairStatus.Text = "Sincronizando UI…"
+			task.wait()
+
+			-- 5. Re-sincronizar tabs e indicador
+			pcall(function() syncTabIndicator(false) end)
+			pcall(paintTabs, false)
+
+			-- 6. Re-pintar tema (limpia y re-aplica colores)
+			pcall(repaint)
+
+			-- 7. Re-renderizar perfil cargado si existe
+			if currentData then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ Perfil re-renderizado"
+				pcall(render, currentData, true)
+			end
+
+			-- 8. Limpiar GUIs huérfanas del analyzer anterior
+			local orphans = 0
+			pcall(function()
+				for _, ch in ipairs(playerGui:GetChildren()) do
+					if ch ~= gui and ch:IsA("ScreenGui") and ch.Name == "UtilityPanel" then
+						ch:Destroy()
+						orphans = orphans + 1
+					end
+				end
+			end)
+			if orphans > 0 then
+				fixes = fixes + 1
+				log[#log + 1] = "✓ GUIs huérfanas: " .. orphans .. " eliminadas"
+			end
+
+			-- Parar spinner
+			if spinner then pcall(function() spinner:Cancel() end) end
+			local sc = repairBtn:FindFirstChildOfClass("UIScale")
+			if sc then sc.Scale = 1 end
+
+			-- Resultado
+			if fixes == 0 then
+				log[#log + 1] = "Sin problemas detectados."
+				repairStatus.TextColor3 = C.good
+				repairBtn.Text = "Todo en orden"
+			else
+				repairStatus.TextColor3 = C.good
+				repairBtn.Text = fixes .. " reparación" .. (fixes > 1 and "es" or "") .. " aplicada" .. (fixes > 1 and "s" or "")
+			end
+
+			repairStatus.Text = table.concat(log, "\n")
+
+			-- Animación de éxito en el botón
+			if ANIM.enabled then
+				motionTween(repairBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					{ BackgroundColor3 = C.good })
+				task.delay(2.5, function()
+					if repairBtn and repairBtn.Parent then
+						motionTween(repairBtn, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+							{ BackgroundColor3 = C.accent })
+						repairBtn.Text = "Reparar RPA"
+						repairing = false
+					end
+				end)
+			else
+				repairBtn.BackgroundColor3 = C.accent
+				repairBtn.Text = "Reparar RPA"
+				repairing = false
+			end
+		end)
+	end)
 end
 
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
@@ -8707,7 +9134,6 @@ analyze = function(input)
 			local renderOk, renderErr = pcall(render, outData)
 			if not renderOk then
 				warn("[NX Analyzer] render error: " .. tostring(renderErr))
-				outStatus = "Error al renderizar."
 			end
 			statusLabel.Text = outStatus
 			analyzing = false
@@ -12570,9 +12996,10 @@ end)()
 		if hud then hud.Position = UDim2.new(1, -16, 0, 28) end
 	end)
 
-	-- ── 10) BOTONES (panel principal): esquinas redondeadas garantizadas +
-	-- micro-interacción hover/click. Solo UIScale → NO altera el layout ni pelea
-	-- con los colores de tema de cada botón. Idempotente (atributo NXPolished).
+	-- ── 10) BOTONES (panel principal): interacción "CSS smoosh". Roblox no
+	-- ofrece scaleX/scaleY independiente para GUI, así que simulamos el mismo
+	-- gesto visual con compresión rápida, rebote corto y asentamiento al hover;
+	-- UIScale evita alterar los layouts automáticos. Idempotente por botón.
 	local function polishButton(b)
 		if b:GetAttribute("NXPolished") then return end
 		if b:GetAttribute("NXHoverDone") then return end
@@ -12581,14 +13008,36 @@ end)()
 			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
 		end
 		local sc = b:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", b)
-		local function to(scale, dur)
-			if ANIM.enabled then motionTween(sc, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = scale })
+		local hovered, pressId = false, 0
+		local function to(scale, dur, style, direction)
+			if ANIM.enabled then
+				motionTween(sc, TweenInfo.new(dur, style or Enum.EasingStyle.Quad,
+					direction or Enum.EasingDirection.Out), { Scale = scale })
 			else sc.Scale = scale end
 		end
-		track(b.MouseEnter:Connect(function()        to(1.035, 0.12) end))
-		track(b.MouseLeave:Connect(function()        to(1.0,   0.14) end))
-		track(b.MouseButton1Down:Connect(function()  to(0.965, 0.08) end))
-		track(b.MouseButton1Up:Connect(function()    to(1.02,  0.10) end))
+		track(b.MouseEnter:Connect(function()
+			hovered = true
+			to(1.028, 0.16, Enum.EasingStyle.Back)
+		end))
+		track(b.MouseLeave:Connect(function()
+			hovered = false
+			pressId = pressId + 1
+			to(1, 0.14)
+		end))
+		track(b.MouseButton1Down:Connect(function()
+			pressId = pressId + 1
+			to(0.91, 0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		end))
+		track(b.MouseButton1Up:Connect(function()
+			pressId = pressId + 1
+			local myPress = pressId
+			to(1.055, 0.18, Enum.EasingStyle.Back)
+			task.delay(0.13, function()
+				if b.Parent and myPress == pressId then
+					to(hovered and 1.028 or 1, 0.12)
+				end
+			end)
+		end))
 	end
 	pcall(function()
 		for _, d in ipairs(main:GetDescendants()) do
@@ -12997,12 +13446,29 @@ end)()
 		return inst
 	end
 	local prepaintExtra = {}
-	local function onPrepaint(fn) table.insert(prepaintExtra, fn) end
+	local function onPrepaint(fn)
+		table.insert(prepaintExtra, fn)
+		-- El llamador puede liberar su callback cuando destruya el componente
+		-- propietario. Esto evita que jugadores que ya salieron dejen closures
+		-- permanentes en cada cambio de tema.
+		return function()
+			for i = #prepaintExtra, 1, -1 do
+				if prepaintExtra[i] == fn then table.remove(prepaintExtra, i) end
+			end
+		end
+	end
 	local function prepaint()
 		if not vivo then return end
-		for _, e in ipairs(plRoleMap) do
-			if e.inst then pcall(function() e.inst[e.prop] = col(e.role) end) end
+		local n = 0
+		for i = 1, #plRoleMap do
+			local e = plRoleMap[i]
+			if e.inst then
+				n = n + 1
+				plRoleMap[n] = e
+				pcall(function() e.inst[e.prop] = col(e.role) end)
+			end
 		end
+		for i = #plRoleMap, n + 1, -1 do plRoleMap[i] = nil end
 		for _, fn in ipairs(prepaintExtra) do pcall(fn) end
 	end
 	if NXT and NXT.onRepaint then pcall(NXT.onRepaint, prepaint) end
@@ -13094,8 +13560,11 @@ end)()
 	local function ltrack(conn) table.insert(listaConns, conn); return conn end
 	gui.AncestryChanged:Connect(function(_, newP)
 		if not newP then
+			vivo = false
 			for _, c in ipairs(listaConns) do pcall(function() c:Disconnect() end) end
 			table.clear(listaConns)
+			table.clear(plRoleMap)
+			table.clear(prepaintExtra)
 		end
 	end)
 
@@ -13471,24 +13940,39 @@ end)()
 		local btnStroke = Instance.new("UIStroke", btn)
 		btnStroke.Thickness = 1; btnStroke.Transparency = 0.7
 		pthemed(btnStroke, "Color", "border")
-		-- press feedback via UIScale (no Size change — safe with AutomaticSize)
+		-- Smoosh tipo CSS: compresión corta al pulsar, rebote y asentamiento.
+		-- UIScale conserva intacto el UIListLayout horizontal de la tarjeta.
 		local pressScale = Instance.new("UIScale", btn)
 		pressScale.Scale = 1
+		local hovered, pressId = false, 0
 		-- hover: lighten + stroke
 		btn.MouseEnter:Connect(function()
+			hovered = true
 			TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = lighten(col(role), 0.10) }):Play()
 			TweenService:Create(btnStroke, TweenInfo.new(0.12), { Transparency = 0.3 }):Play()
+			TweenService:Create(pressScale, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.028 }):Play()
 		end)
 		btn.MouseLeave:Connect(function()
+			hovered = false
+			pressId = pressId + 1
 			TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col(role) }):Play()
 			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = 0.7 }):Play()
+			TweenService:Create(pressScale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 		end)
-		-- press: squish via scale
+		-- press/release: "smoosh" sin tocar Size (seguro con layout automático)
 		btn.MouseButton1Down:Connect(function()
-			TweenService:Create(pressScale, TweenInfo.new(0.08), { Scale = 0.92 }):Play()
+			pressId = pressId + 1
+			TweenService:Create(pressScale, TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.90 }):Play()
 		end)
 		btn.MouseButton1Up:Connect(function()
-			TweenService:Create(pressScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			pressId = pressId + 1
+			local myPress = pressId
+			TweenService:Create(pressScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.055 }):Play()
+			task.delay(0.13, function()
+				if btn.Parent and myPress == pressId then
+					TweenService:Create(pressScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = hovered and 1.028 or 1 }):Play()
+				end
+			end)
 		end)
 		btn.MouseButton1Click:Connect(function() accion(btn, texto) end)
 		return btn
@@ -13621,12 +14105,13 @@ end)()
 				TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
 			end
 		end)
-		onPrepaint(function()
+		local stopCardPrepaint = onPrepaint(function()
 			if tarjeta.Parent then
 				pcall(function() tStroke.Color = col("border") end)
 				pcall(function() tarjeta.BackgroundColor3 = col("card") end)
 			end
 		end)
+		tarjeta.Destroying:Connect(stopCardPrepaint)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
 		avatar.Size = UDim2.new(0, 44, 0, 44)
