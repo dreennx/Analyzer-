@@ -1115,7 +1115,10 @@ local function postAuth(url, payload)
 	-- 403 => token inválido/ausente: lo tomamos de la cabecera y reintentamos
 	if res and tonumber(res.StatusCode) == 403 then
 		local h = res.Headers or {}
-		local token = h["x-csrf-token"] or h["X-CSRF-TOKEN"] or h["X-Csrf-Token"]
+		local token
+		for k, v in pairs(h) do
+			if string.lower(k) == "x-csrf-token" then token = v; break end
+		end
 		if token then
 			cachedCsrf = token
 			res = doReq(token)
@@ -2177,25 +2180,20 @@ local function getWornItems(userId)
 	for _, id in ipairs(data.assetIds) do
 		table.insert(items, { id = id, name = nil, price = nil })
 	end
-	local total = 0
+	local total = nil
 	-- pedir nombres + precios en lote (catálogo). Si falla, quedan solo los IDs.
 	if #items > 0 then
 		local ids = {}
 		for _, it in ipairs(items) do table.insert(ids, { itemType = "Asset", id = it.id }) end
-		-- FIX (2026-07-26): este endpoint ahora exige X-CSRF-TOKEN. Con apiPost
-		-- (que no lo maneja) devolvía 403 {"message":"XSRF token invalid"}, así
-		-- que los items salían sin NOMBRE y sin PRECIO, y el precio total del
-		-- avatar era siempre 0. postAuth ya hace el 403 -> toma el token de la
-		-- cabecera -> reintenta, que es exactamente lo que pide el endpoint.
 		local resp = postAuth("https://catalog.roblox.com/v1/catalog/items/details", { items = ids })
 		if resp and resp.data then
+			total = 0
 			local byId = {}
 			for _, d in ipairs(resp.data) do byId[d.id] = d end
 			for _, it in ipairs(items) do
 				local d = byId[it.id]
 				if d then
 					it.name = d.name
-					-- precio: lowestPrice (limiteds/reventa) o price (normal)
 					it.price = d.lowestPrice or d.price or 0
 					total = total + (tonumber(it.price) or 0)
 				end
@@ -7066,12 +7064,12 @@ local function render(data, skipEntrance)
 					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
 					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
 						nxIcon.Visible = false
-						nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+						nxLabel.Text = ((t.icon and t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
 					end
 				end)
 			else
 				nxIcon.Visible = false
-				nxLabel.Text = ((t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+				nxLabel.Text = ((t.icon and t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
 			end
 			nxLabel.TextColor3 = t.color
 			nxStroke.Color = t.color
@@ -7164,11 +7162,18 @@ local function render(data, skipEntrance)
 			end
 		end)
 		if viaModulo then viaModulo(data, cb); return end
+		data._namesWaiters = data._namesWaiters or {}
+		table.insert(data._namesWaiters, cb)
+		if data._namesInflight then return end
+		data._namesInflight = true
 		task.spawn(function()
 			local names, hasMore = getNameHistory(data.UserId)
 			data._namesCached = names or false
 			data._namesHasMore = hasMore or false
-			cb(names, hasMore)
+			data._namesInflight = false
+			local esperando = data._namesWaiters or {}
+			data._namesWaiters = nil
+			for _, w in ipairs(esperando) do pcall(w, names, hasMore) end
 		end)
 	end
 	conNombres(function(names, hasMore)
@@ -7417,11 +7422,11 @@ local function render(data, skipEntrance)
 		local items, total
 		if data._itemsCached ~= nil then
 			items = data._itemsCached or nil
-			total = data._itemsTotalCached or 0
+			total = data._itemsTotalCached
 		else
 			items, total = getWornItems(data.UserId)
 			data._itemsCached = items or false
-			data._itemsTotalCached = total or 0
+			data._itemsTotalCached = total
 		end
 		if currentData == nil or currentData.UserId ~= itemsFor then return end
 		if not itemsCard.Parent then return end
@@ -7438,9 +7443,13 @@ local function render(data, skipEntrance)
 			return
 		end
 		if pb then
-			pb.Text = "≈ " .. tostring(total) .. " R$ en total\n"
-				.. "(Suma del precio de catálogo de lo equipado. Aproximado: "
-				.. "los items gratis o sin precio cuentan como 0.)"
+			if total then
+				pb.Text = "≈ " .. tostring(total) .. " R$ en total\n"
+					.. "(Suma del precio de catálogo de lo equipado. Aproximado: "
+					.. "los items gratis o sin precio cuentan como 0.)"
+			else
+				pb.Text = "Precio no disponible (el catálogo no respondió)."
+			end
 		end
 		local names = {}
 		for _, it in ipairs(items) do
@@ -9496,7 +9505,7 @@ do
 				end
 				if not t or #t == 0 then return "nd" end
 				local mejor, visitas = nil, -1
-				for _, g in ipairs(t.data) do
+				for _, g in ipairs(t) do
 					local v = tonumber(g.placeVisits) or 0
 					if v > visitas then mejor, visitas = g.name, v end
 				end
