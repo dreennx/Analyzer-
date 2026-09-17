@@ -660,6 +660,16 @@ local THEMES = {
 		text=Color3.fromRGB(244,234,222), subtext=Color3.fromRGB(168,148,124),
 		modalBg=Color3.fromRGB(30,22,12), modalStep=Color3.fromRGB(24,16,8),
 	},
+	tokyo = {
+		bg=Color3.fromRGB(12,8,22), card=Color3.fromRGB(22,16,38), input=Color3.fromRGB(18,12,32),
+		surface=Color3.fromRGB(22,16,38), surfaceHover=Color3.fromRGB(32,24,52), elevated=Color3.fromRGB(36,28,56),
+		link=Color3.fromRGB(12,8,22), neutral=Color3.fromRGB(34,24,54), border=Color3.fromRGB(56,38,86),
+		divider=Color3.fromRGB(46,32,72), headerBg=Color3.fromRGB(16,10,28), textDisabled=Color3.fromRGB(82,64,108),
+		accent=Color3.fromRGB(180,50,255), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(0,240,140), warn=Color3.fromRGB(255,200,60), bad=Color3.fromRGB(255,60,80),
+		text=Color3.fromRGB(235,225,248), subtext=Color3.fromRGB(148,128,178),
+		modalBg=Color3.fromRGB(16,10,28), modalStep=Color3.fromRGB(10,6,18),
+	},
 	claro = {
 		bg=Color3.fromRGB(238,240,244), card=Color3.fromRGB(255,255,255), input=Color3.fromRGB(248,249,251),
 		surface=Color3.fromRGB(255,255,255), surfaceHover=Color3.fromRGB(242,243,247), elevated=Color3.fromRGB(255,255,255),
@@ -3140,7 +3150,18 @@ header.Size = UDim2.new(1, 0, 0, 36)
 header.BackgroundColor3 = C.headerBg
 header.BackgroundTransparency = 0
 header.BorderSizePixel = 0
+header.ClipsDescendants = true
 themed(header, "BackgroundColor3", "headerBg")
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 10)
+do
+	local btmFill = Instance.new("Frame", header)
+	btmFill.Size = UDim2.new(1, 0, 0, 10)
+	btmFill.Position = UDim2.new(0, 0, 1, -10)
+	btmFill.BackgroundColor3 = C.headerBg
+	btmFill.BorderSizePixel = 0
+	btmFill.ZIndex = header.ZIndex
+	themed(btmFill, "BackgroundColor3", "headerBg")
+end
 
 -- Divider line under header
 local headerDiv = Instance.new("Frame", main)
@@ -3152,8 +3173,8 @@ headerDiv.BorderSizePixel = 0
 themed(headerDiv, "BackgroundColor3", "divider")
 
 local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -100, 1, 0)
-title.Position = UDim2.new(0, 56, 0, 0)
+title.Size = UDim2.new(1, -80, 1, 0)
+title.Position = UDim2.new(0, 14, 0, 0)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.Text = "Roblox Profile Analyzer"
@@ -3163,41 +3184,81 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextTruncate = Enum.TextTruncate.AtEnd
 themed(title, "TextColor3", "text")
 
--- ====================== BRILLO EN MOVIMIENTO (sheen del título) ======================
 do
-local titleShine = title:Clone()
-titleShine.Name = "TitleShine"
-titleShine.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleShine.TextTransparency = 0.4
-titleShine.ZIndex = title.ZIndex + 1
-titleShine.Parent = title.Parent
-local shineGrad = Instance.new("UIGradient", titleShine)
-shineGrad.Rotation = 18
-shineGrad.Transparency = NumberSequence.new({
-	NumberSequenceKeypoint.new(0.00, 1),
-	NumberSequenceKeypoint.new(0.44, 1),
-	NumberSequenceKeypoint.new(0.50, 0.15),
-	NumberSequenceKeypoint.new(0.56, 1),
-	NumberSequenceKeypoint.new(1.00, 1),
-})
-local function syncShine()
-	titleShine.Size = title.Size
-	titleShine.Position = title.Position
-	titleShine.TextXAlignment = title.TextXAlignment
-end
-syncShine()
-track(title:GetPropertyChangedSignal("Size"):Connect(syncShine))
-track(title:GetPropertyChangedSignal("Position"):Connect(syncShine))
-if ANIM.enabled then
-	shineGrad.Offset = Vector2.new(-1, 0)
-	local shineTw = TweenService:Create(shineGrad,
-		TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 2.0),
-		{ Offset = Vector2.new(1, 0) })
-	shineTw:Play()
-	registerInfiniteTween(shineTw)
-else
-	shineGrad.Offset = Vector2.new(2, 0)
-end
+	local function wlighten(c, k) return Color3.new(math.min(c.R+k,1), math.min(c.G+k,1), math.min(c.B+k,1)) end
+
+	local ctrls = Instance.new("Frame", header)
+	ctrls.Name = "WindowControls"
+	ctrls.AnchorPoint = Vector2.new(1, 0.5)
+	ctrls.Position = UDim2.new(1, -10, 0.5, 0)
+	ctrls.AutomaticSize = Enum.AutomaticSize.X
+	ctrls.Size = UDim2.fromOffset(0, 24)
+	ctrls.BackgroundTransparency = 1
+	ctrls.ZIndex = 4
+	local lay = Instance.new("UIListLayout", ctrls)
+	lay.FillDirection = Enum.FillDirection.Horizontal
+	lay.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	lay.VerticalAlignment = Enum.VerticalAlignment.Center
+	lay.Padding = UDim.new(0, 6)
+	lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local minBtn = Instance.new("TextButton", ctrls)
+	minBtn.LayoutOrder = 1
+	minBtn.Size = UDim2.fromOffset(24, 24)
+	minBtn.AutoButtonColor = false
+	minBtn.Text = ""
+	minBtn.BorderSizePixel = 0
+	minBtn.BackgroundColor3 = C.neutral
+	minBtn.ZIndex = 5
+	Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
+	themed(minBtn, "BackgroundColor3", "neutral")
+	local minSt = Instance.new("UIStroke", minBtn)
+	minSt.Thickness = 1; minSt.Transparency = 0.35
+	themed(minSt, "Color", "border")
+	local bar = Instance.new("Frame", minBtn)
+	bar.AnchorPoint = Vector2.new(0.5, 0.5)
+	bar.Position = UDim2.new(0.5, 0, 0.5, 0)
+	bar.Size = UDim2.fromOffset(11, 2)
+	bar.BorderSizePixel = 0
+	bar.ZIndex = 6
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+	themed(bar, "BackgroundColor3", "text")
+	track(minBtn.MouseEnter:Connect(function()
+		motionTween(minBtn, TweenInfo.new(0.12), { BackgroundColor3 = wlighten(C.neutral, 0.12) })
+	end))
+	track(minBtn.MouseLeave:Connect(function()
+		motionTween(minBtn, TweenInfo.new(0.16), { BackgroundColor3 = C.neutral })
+	end))
+	track(minBtn.MouseButton1Click:Connect(function() NXWin.toggleCollapse() end))
+
+	local closeBtn = Instance.new("TextButton", ctrls)
+	closeBtn.LayoutOrder = 2
+	closeBtn.Size = UDim2.fromOffset(24, 24)
+	closeBtn.AutoButtonColor = false
+	closeBtn.Text = ""
+	closeBtn.BorderSizePixel = 0
+	closeBtn.BackgroundColor3 = C.bad
+	closeBtn.ZIndex = 5
+	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+	themed(closeBtn, "BackgroundColor3", "bad")
+	local closeSt = Instance.new("UIStroke", closeBtn)
+	closeSt.Thickness = 1; closeSt.Transparency = 0.35
+	themed(closeSt, "Color", "border")
+	local xLbl = Instance.new("TextLabel", closeBtn)
+	xLbl.Size = UDim2.new(1, 0, 1, 0)
+	xLbl.BackgroundTransparency = 1
+	xLbl.Font = Enum.Font.GothamBold
+	xLbl.TextSize = 14
+	xLbl.Text = "X"
+	xLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	xLbl.ZIndex = 6
+	track(closeBtn.MouseEnter:Connect(function()
+		motionTween(closeBtn, TweenInfo.new(0.12), { BackgroundColor3 = wlighten(C.bad, 0.12) })
+	end))
+	track(closeBtn.MouseLeave:Connect(function()
+		motionTween(closeBtn, TweenInfo.new(0.16), { BackgroundColor3 = C.bad })
+	end))
+	track(closeBtn.MouseButton1Click:Connect(function() NXWin.animatedClose() end))
 end
 
 -- ====================== CIRCULITOS DECORATIVOS (10px, más discretos) ======================
@@ -3272,20 +3333,6 @@ end
 
 NXWin.playOpenAnim()
 
-local function makeTrafficLight(x, color)
-	local b = Instance.new("Frame", header)
-	b.Size = UDim2.new(0, 10, 0, 10)
-	b.Position = UDim2.new(0, x, 0.5, -5)
-	b.BackgroundColor3 = color
-	b.BorderSizePixel = 0
-	b.ZIndex = 3
-	Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
-	return b
-end
-
-makeTrafficLight(14, Color3.fromRGB(255, 95, 86))
-makeTrafficLight(30, Color3.fromRGB(255, 189, 46))
-makeTrafficLight(46, Color3.fromRGB(39, 201, 63))
 
 -- ====================== BÚSQUEDA (responsive: input stretches, status below) ======================
 local searchFrame = Instance.new("Frame", main)
@@ -7976,7 +8023,7 @@ do
 	thBtnRow.AutomaticSize = Enum.AutomaticSize.Y
 	thBtnRow.BackgroundTransparency = 1
 	local thGrid = Instance.new("UIGridLayout", thBtnRow)
-	thGrid.CellSize = UDim2.new(0, 68, 0, 28)
+	thGrid.CellSize = UDim2.new(0, 82, 0, 38)
 	thGrid.CellPadding = UDim2.new(0, 6, 0, 6)
 	thGrid.SortOrder = Enum.SortOrder.LayoutOrder
 	thGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -7993,8 +8040,18 @@ do
 			local tn = b:GetAttribute("ThemeKey")
 			local sel = (store.theme == tn)
 			local own = THEMES[tn]
-			local targetBg = sel and C.accent or C.surface
-			local targetTxt = sel and C.onAccent or ((own and own.accent) or C.text)
+			local st = b:FindFirstChild("_ThemeStroke")
+			if st then
+				if sel then
+					st.Color = C.accent
+					st.Transparency = 0
+					st.Thickness = 2
+				else
+					st.Color = (own and own.border) or C.border
+					st.Transparency = 0.7
+					st.Thickness = 2
+				end
+			end
 			if animate and ANIM.enabled then
 				local sc = b:FindFirstChild("_ThemeScale")
 				if not sc then sc = Instance.new("UIScale", b); sc.Name = "_ThemeScale" end
@@ -8004,28 +8061,37 @@ do
 				else
 					motionTween(sc, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
 				end
-				motionTween(b, TweenInfo.new(0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-					BackgroundColor3 = targetBg,
-					TextColor3 = targetTxt,
-				})
-			else
-				b.BackgroundColor3 = targetBg
-				b.TextColor3 = targetTxt
 			end
 		end
 	end
 	onRepaint(paintThemeButtons)
 
-	local themeOrder = { "negro", "azul", "verde", "tor", "rojo", "morado", "cyan", "rosa", "naranja", "claro" }
+	local themeOrder = { "negro", "azul", "verde", "tor", "rojo", "morado", "cyan", "rosa", "naranja", "tokyo", "claro" }
 	for i, tn in ipairs(themeOrder) do
+		local own = THEMES[tn]
 		local tb = Instance.new("TextButton", thBtnRow)
 		tb.LayoutOrder = i
-		tb.BackgroundColor3 = C.surface
+		tb.BackgroundColor3 = own.bg
+		tb.AutoButtonColor = false
 		tb.Text = titleCase(tn); tb.Font = Enum.Font.GothamMedium; tb.TextSize = DS.text.sm; tb.BorderSizePixel = 0
+		tb.TextColor3 = own.text
 		tb.TextTruncate = Enum.TextTruncate.AtEnd
 		tb:SetAttribute("ThemeKey", tn)
 		Instance.new("UICorner", tb).CornerRadius = DS.corner.sm
-		addHoverStroke(tb)
+		local dot = Instance.new("Frame", tb)
+		dot.AnchorPoint = Vector2.new(1, 0)
+		dot.Size = UDim2.fromOffset(8, 8)
+		dot.Position = UDim2.new(1, -5, 0, 5)
+		dot.BackgroundColor3 = own.accent
+		dot.BorderSizePixel = 0
+		dot.ZIndex = tb.ZIndex + 1
+		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+		local st = Instance.new("UIStroke", tb)
+		st.Name = "_ThemeStroke"
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		st.Thickness = 2
+		st.Transparency = 0.7
+		st.Color = own.border
 		table.insert(themeButtons, tb)
 		tb.MouseButton1Click:Connect(function()
 			setTheme(tn)
@@ -9675,18 +9741,45 @@ local resizeGrip = Instance.new("TextButton", main)
 resizeGrip.Name = "ResizeGrip"
 resizeGrip.Size = UDim2.new(0, 18, 0, 18)
 resizeGrip.Position = UDim2.new(1, -20, 1, -20)
-resizeGrip.BackgroundColor3 = C.accent
-resizeGrip.BackgroundTransparency = 0.25
-resizeGrip.Text = "⤡"
-resizeGrip.Font = Enum.Font.GothamBold
-resizeGrip.TextSize = 14
-resizeGrip.TextColor3 = C.onAccent
+resizeGrip.BackgroundTransparency = 1
+resizeGrip.Text = ""
 resizeGrip.AutoButtonColor = false
 resizeGrip.BorderSizePixel = 0
 resizeGrip.ZIndex = 5
-Instance.new("UICorner", resizeGrip).CornerRadius = UDim.new(0, 4)
-themed(resizeGrip, "BackgroundColor3", "accent")
-themed(resizeGrip, "TextColor3", "onAccent")
+do
+	local gripLines = {}
+	local specs = {
+		{ len = 6,  pos = UDim2.new(0.7, 0, 0.7, 0) },
+		{ len = 10, pos = UDim2.new(0.55, 0, 0.55, 0) },
+		{ len = 14, pos = UDim2.new(0.4, 0, 0.4, 0) },
+	}
+	for _, s in ipairs(specs) do
+		local ln = Instance.new("Frame", resizeGrip)
+		ln.AnchorPoint = Vector2.new(0.5, 0.5)
+		ln.Size = UDim2.fromOffset(1.5, s.len)
+		ln.Position = s.pos
+		ln.Rotation = 45
+		ln.BorderSizePixel = 0
+		ln.BackgroundColor3 = C.accent
+		ln.BackgroundTransparency = 0.3
+		ln.ZIndex = 6
+		themed(ln, "BackgroundColor3", "accent")
+		Instance.new("UICorner", ln).CornerRadius = UDim.new(1, 0)
+		table.insert(gripLines, ln)
+	end
+	track(resizeGrip.MouseEnter:Connect(function()
+		if not ANIM.enabled then return end
+		for _, ln in ipairs(gripLines) do
+			motionTween(ln, TweenInfo.new(0.12), { BackgroundTransparency = 0 })
+		end
+	end))
+	track(resizeGrip.MouseLeave:Connect(function()
+		if not ANIM.enabled then return end
+		for _, ln in ipairs(gripLines) do
+			motionTween(ln, TweenInfo.new(0.18), { BackgroundTransparency = 0.3 })
+		end
+	end))
+end
 
 local resInputConn, resEndedConn
 local function stopResize()
@@ -11996,474 +12089,7 @@ end)()
 	-- Sin el badge, los controles de ventana pasan a la esquina derecha del
 	-- todo (ver abajo) y el título recupera el ancho que ocupaba el logo.
 
-	-- ── 1.5) CONTROLES DE VENTANA (minimizar / expandir / cerrar) ───────────
-	-- En la ESQUINA DERECHA del header (antes iban a la izquierda del logo NX,
-	-- que ya no existe). Iconos DIBUJADOS con Frames (no glifos) para que
-	-- NUNCA salga el cuadrito "tofu"; la X de cerrar es letra (siempre renderiza).
-	-- Mismo estilo que el panel de buscar nombres. TextButton → consumen el clic
-	-- y no arrancan el arrastre de la ventana.
-	pcall(function()
-		local WHITE = Color3.fromRGB(255, 255, 255)
-		local function lighten(c, amt)
-			return Color3.new(c.R + (1 - c.R) * amt, c.G + (1 - c.G) * amt, c.B + (1 - c.B) * amt)
-		end
 
-		local ctrls = Instance.new("Frame")
-		ctrls.Name = "NXWindowControls"
-		ctrls.AnchorPoint = Vector2.new(1, 0.5)
-		ctrls.Position = UDim2.new(1, -10, 0.5, 0)         -- esquina derecha del header
-		ctrls.Size = UDim2.fromOffset(24 * 3 + 6 * 2, 24)  -- 3 botones de 24 + 2 gaps de 6
-		ctrls.BackgroundTransparency = 1
-		ctrls.ZIndex = 4
-		ctrls.Parent = header
-		local lay = Instance.new("UIListLayout", ctrls)
-		lay.FillDirection = Enum.FillDirection.Horizontal
-		lay.HorizontalAlignment = Enum.HorizontalAlignment.Right
-		lay.VerticalAlignment = Enum.VerticalAlignment.Center
-		lay.Padding = UDim.new(0, 6)
-		lay.SortOrder = Enum.SortOrder.LayoutOrder
-
-		local function ctrlButton(order, baseRole, tipText, onClick)
-			local b = Instance.new("TextButton")
-			b.Name = "Ctrl" .. order
-			b.LayoutOrder = order
-			b.Size = UDim2.fromOffset(24, 24)
-			b.AutoButtonColor = false
-			b.Text = ""
-			b.BorderSizePixel = 0
-			b.Active = true
-			b.ZIndex = 5
-			b.BackgroundColor3 = C[baseRole]
-			b.Parent = ctrls
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-			themed(b, "BackgroundColor3", baseRole)
-			local st = Instance.new("UIStroke", b)
-			st.Thickness = 1; st.Transparency = 0.35
-			themed(st, "Color", "border")
-			-- Hover: el botón se aclara un poco (suave).
-			track(b.MouseEnter:Connect(function()
-				motionTween(b, TweenInfo.new(0.12), { BackgroundColor3 = lighten(C[baseRole], 0.12) })
-			end))
-			track(b.MouseLeave:Connect(function()
-				motionTween(b, TweenInfo.new(0.16), { BackgroundColor3 = C[baseRole] })
-			end))
-			track(b.MouseButton1Click:Connect(onClick))
-			attachTip(b, tipText)
-			return b
-		end
-
-		-- (1) Minimizar: barra horizontal dibujada.
-		local minBtn = ctrlButton(1, "neutral", "Minimizar", function() NXWin.toggleCollapse() end)
-		do
-			local bar = Instance.new("Frame", minBtn)
-			bar.AnchorPoint = Vector2.new(0.5, 0.5)
-			bar.Position = UDim2.new(0.5, 0, 0.5, 0)
-			bar.Size = UDim2.new(0, 11, 0, 2)
-			bar.BorderSizePixel = 0
-			bar.ZIndex = 6
-			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-			themed(bar, "BackgroundColor3", "text")
-		end
-
-		-- (2) Expandir / restaurar: cuadro hueco dibujado (con UIStroke).
-		local maxBtn = ctrlButton(2, "neutral", "Expandir / Restaurar", function() NXWin.toggleMaximize() end)
-		do
-			local box = Instance.new("Frame", maxBtn)
-			box.AnchorPoint = Vector2.new(0.5, 0.5)
-			box.Position = UDim2.new(0.5, 0, 0.5, 0)
-			box.Size = UDim2.new(0, 12, 0, 11)
-			box.BackgroundTransparency = 1
-			box.BorderSizePixel = 0
-			box.ZIndex = 6
-			Instance.new("UICorner", box).CornerRadius = UDim.new(0, 2)
-			local bst = Instance.new("UIStroke", box)
-			bst.Thickness = 1.6
-			themed(bst, "Color", "text")
-		end
-
-		-- (3) Cerrar: la X es una letra (siempre renderiza), blanca sobre rojo.
-		local closeBtn = ctrlButton(3, "bad", "Cerrar", function() NXWin.animatedClose() end)
-		do
-			local x = Instance.new("TextLabel", closeBtn)
-			x.Size = UDim2.new(1, 0, 1, 0)
-			x.BackgroundTransparency = 1
-			x.Font = Enum.Font.GothamBold
-			x.TextSize = 14
-			x.Text = "X"
-			x.TextColor3 = WHITE
-			x.ZIndex = 6
-		end
-	end)
-
-	-- ╔════════════════════════════════════════════════════════════════════╗
-	-- ║   NX SHIELDS · escudo del header + panel estilo extensión         ║
-	-- ╠════════════════════════════════════════════════════════════════════╣
-	-- ║  El icono vive a la izquierda de los controles de ventana, como la  ║
-	-- ║  barra de extensiones de Chrome/Brave. Su punto de estado NO es      ║
-	-- ║  decorativo: sale de Shield.estado(), que deriva del resultado real  ║
-	-- ║  de las validaciones del último análisis y de qué protecciones       ║
-	-- ║  están encendidas. Al pulsarlo se abre el panel con los switches.    ║
-	-- ╚════════════════════════════════════════════════════════════════════╝
-	pcall(function()
-		-- Solo TEXTOS aquí: los colores NO se guardan en esta tabla porque se
-		-- congelarían con el tema activo al construirla. Se releen de C (tabla
-		-- viva) en cada llamada, así el escudo sigue el tema al cambiarlo.
-		local TEXTOS = { ok = "Protegido", partial = "Parcial", error = "Error", loading = "Verificando…" }
-		local function paleta()
-			local e = Shield.estado()
-			local mapa = { ok = C.good, partial = C.warn, error = C.bad, loading = C.accent }
-			return mapa[e] or C.good, TEXTOS[e] or TEXTOS.ok, e
-		end
-
-		-- ── Botón escudo (glass + neón, forma de escudo dibujada) ──────────
-		local sBtn = Instance.new("TextButton")
-		sBtn.Name = "NXShieldButton"
-		sBtn.AnchorPoint = Vector2.new(1, 0.5)
-		sBtn.Position = UDim2.new(1, -100, 0.5, 0)       -- a la izquierda de los 3 controles
-		sBtn.Size = UDim2.fromOffset(26, 24)
-		sBtn.AutoButtonColor = false
-		sBtn.Text = ""
-		sBtn.BorderSizePixel = 0
-		sBtn.BackgroundColor3 = C.surface
-		sBtn.BackgroundTransparency = 0.15
-		sBtn.ZIndex = 5
-		sBtn.Parent = header
-		themed(sBtn, "BackgroundColor3", "surface")
-		Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 7)
-		local sStroke = Instance.new("UIStroke", sBtn)
-		sStroke.Thickness = 1.3
-		sStroke.Transparency = 0.25
-
-		-- Escudo DIBUJADO con Frames (no emoji ni asset: nunca sale el cuadrito
-		-- "tofu" ni depende de que Roblox modere una imagen). Cuerpo rectangular
-		-- + punta inferior en diamante rotado, con "NX" encima.
-		local sTop = Instance.new("Frame", sBtn)
-		sTop.AnchorPoint = Vector2.new(0.5, 0)
-		sTop.Position = UDim2.new(0.5, 0, 0.5, -8)
-		sTop.Size = UDim2.fromOffset(14, 9)
-		sTop.BorderSizePixel = 0
-		sTop.BackgroundColor3 = C.good
-		sTop.ZIndex = 6
-		local stc = Instance.new("UICorner", sTop); stc.CornerRadius = UDim.new(0, 3)
-		local sBot = Instance.new("Frame", sBtn)
-		sBot.AnchorPoint = Vector2.new(0.5, 0)
-		sBot.Position = UDim2.new(0.5, 0, 0.5, -2)
-		sBot.Size = UDim2.fromOffset(10, 10)
-		sBot.Rotation = 45
-		sBot.BorderSizePixel = 0
-		sBot.BackgroundColor3 = C.good
-		sBot.ZIndex = 6
-		local sbc = Instance.new("UICorner", sBot); sbc.CornerRadius = UDim.new(0, 3)
-		-- "NX" encima del escudo (letras: siempre renderizan).
-		local sTxt = Instance.new("TextLabel", sBtn)
-		sTxt.BackgroundTransparency = 1
-		sTxt.AnchorPoint = Vector2.new(0.5, 0.5)
-		sTxt.Position = UDim2.new(0.5, 0, 0.5, -1)
-		sTxt.Size = UDim2.fromOffset(24, 12)
-		sTxt.Font = Enum.Font.GothamBold
-		sTxt.Text = "NX"
-		sTxt.TextSize = 9
-		sTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
-		sTxt.ZIndex = 8
-
-		-- Punto de estado (arriba-derecha del icono), como el badge de una extensión.
-		local sDot = Instance.new("Frame", sBtn)
-		sDot.AnchorPoint = Vector2.new(1, 0)
-		sDot.Position = UDim2.new(1, 1, 0, -1)
-		sDot.Size = UDim2.fromOffset(8, 8)
-		sDot.BorderSizePixel = 0
-		sDot.BackgroundColor3 = C.good
-		sDot.ZIndex = 9
-		Instance.new("UICorner", sDot).CornerRadius = UDim.new(1, 0)
-		local sDotStroke = Instance.new("UIStroke", sDot)
-		sDotStroke.Thickness = 1.2
-		sDotStroke.Color = Color3.fromRGB(15, 15, 18)
-
-		-- ── Panel desplegable (dentro de 'main' para que no lo recorte nada) ──
-		local panel = Instance.new("Frame")
-		panel.Name = "NXShieldPanel"
-		panel.AnchorPoint = Vector2.new(1, 0)
-		panel.Position = UDim2.new(1, -12, 0, 38)
-		panel.Size = UDim2.fromOffset(268, 0)
-		panel.AutomaticSize = Enum.AutomaticSize.Y
-		panel.BackgroundColor3 = C.card
-		panel.BackgroundTransparency = 0.04
-		panel.BorderSizePixel = 0
-		panel.Visible = false
-		panel.ZIndex = 120
-		panel.ClipsDescendants = true
-		panel.Parent = main
-		local panelMaxSize = Instance.new("UISizeConstraint", panel)
-		panelMaxSize.MaxSize = Vector2.new(268, 440)
-		themed(panel, "BackgroundColor3", "card")
-		Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 12)
-		local pStroke = Instance.new("UIStroke", panel)
-		pStroke.Thickness = 1.4
-		pStroke.Transparency = 0.35
-		themed(pStroke, "Color", "accent")
-		local pScale = Instance.new("UIScale", panel)
-		local pPad = Instance.new("UIPadding", panel)
-		pPad.PaddingTop = UDim.new(0, 10); pPad.PaddingBottom = UDim.new(0, 10)
-		pPad.PaddingLeft = UDim.new(0, 12); pPad.PaddingRight = UDim.new(0, 12)
-		local pLay = Instance.new("UIListLayout", panel)
-		pLay.Padding = UDim.new(0, 8); pLay.SortOrder = Enum.SortOrder.LayoutOrder
-
-		local function etiqueta(orden, texto, size, role, bold, alto)
-			local l = Instance.new("TextLabel", panel)
-			l.LayoutOrder = orden
-			l.Size = UDim2.new(1, 0, 0, alto or 16)
-			l.BackgroundTransparency = 1
-			l.Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham
-			l.TextSize = size
-			l.TextColor3 = C[role]
-			l.TextXAlignment = Enum.TextXAlignment.Left
-			l.TextWrapped = (alto ~= nil)
-			l.TextYAlignment = Enum.TextYAlignment.Top
-			l.Text = texto
-			l.ZIndex = 121
-			themed(l, "TextColor3", role)
-			return l
-		end
-
-		-- Cabecera del panel: punto + título + estado en texto
-		local cab = Instance.new("Frame", panel)
-		cab.LayoutOrder = 0; cab.Size = UDim2.new(1, 0, 0, 22); cab.BackgroundTransparency = 1
-		cab.ZIndex = 121
-		local cabDot = Instance.new("Frame", cab)
-		cabDot.AnchorPoint = Vector2.new(0, 0.5)
-		cabDot.Position = UDim2.new(0, 0, 0.5, 0)
-		cabDot.Size = UDim2.fromOffset(9, 9)
-		cabDot.BorderSizePixel = 0
-		cabDot.BackgroundColor3 = C.good
-		cabDot.ZIndex = 122
-		Instance.new("UICorner", cabDot).CornerRadius = UDim.new(1, 0)
-		local cabTit = Instance.new("TextLabel", cab)
-		cabTit.Position = UDim2.new(0, 16, 0, 0)
-		cabTit.Size = UDim2.new(1, -16, 1, 0)
-		cabTit.BackgroundTransparency = 1
-		cabTit.Font = Enum.Font.GothamBold
-		cabTit.TextSize = 14
-		cabTit.TextColor3 = C.text
-		cabTit.Text = "NX Shields"
-		cabTit.TextXAlignment = Enum.TextXAlignment.Left
-		cabTit.ZIndex = 122
-		themed(cabTit, "TextColor3", "text")
-		local cabEstado = Instance.new("TextLabel", cab)
-		cabEstado.AnchorPoint = Vector2.new(1, 0.5)
-		cabEstado.Position = UDim2.new(1, 0, 0.5, 0)
-		cabEstado.Size = UDim2.new(0, 110, 1, 0)
-		cabEstado.BackgroundTransparency = 1
-		cabEstado.Font = Enum.Font.GothamBold
-		cabEstado.TextSize = 11
-		cabEstado.TextXAlignment = Enum.TextXAlignment.Right
-		cabEstado.ZIndex = 122
-
-		local function linea(orden)
-			local d = Instance.new("Frame", panel)
-			d.LayoutOrder = orden
-			d.Size = UDim2.new(1, 0, 0, 1)
-			d.BackgroundColor3 = C.border
-			d.BackgroundTransparency = 0.4
-			d.BorderSizePixel = 0
-			d.ZIndex = 121
-			themed(d, "BackgroundColor3", "border")
-		end
-		linea(1)
-
-		--  Usuario Roblox — datos REALES de la sesión, pasados por los validadores.
-		etiqueta(2, "Usuario Roblox", 12, "subtext", true)
-		local usrOk   = Shield.valid.username(player.Name) ~= nil
-		local idOk    = Shield.valid.userId(player.UserId) ~= nil
-		local usrLbl  = etiqueta(3, "", 12, "text", true)
-		usrLbl.Text   = (usrOk and "✓ " or "✕ ") .. player.Name .. "  ·  " .. tostring(player.UserId)
-		usrLbl.TextColor3 = (usrOk and idOk) and C.good or C.bad
-		local execLbl = etiqueta(4, "Executor: " .. EXECUTOR_NAME, 10, "subtext")
-
-		linea(5)
-		etiqueta(6, "Verificaciones", 12, "subtext", true)
-
-		-- Fila de protección con switch real
-		local filas = {}
-		local function filaProt(orden, nombre, clave, desc)
-			local f = Instance.new("Frame", panel)
-			f.LayoutOrder = orden
-			f.Size = UDim2.new(1, 0, 0, 44)
-			f.BackgroundTransparency = 1
-			f.ZIndex = 121
-
-			local nom = Instance.new("TextLabel", f)
-			nom.Size = UDim2.new(1, -56, 0, 18)
-			nom.BackgroundTransparency = 1
-			nom.Font = Enum.Font.GothamBold
-			nom.TextSize = 12
-			nom.TextColor3 = C.text
-			nom.Text = nombre
-			nom.TextXAlignment = Enum.TextXAlignment.Left
-			nom.TextTruncate = Enum.TextTruncate.AtEnd
-			nom.ZIndex = 122
-			themed(nom, "TextColor3", "text")
-
-			local est = Instance.new("TextLabel", f)
-			est.Position = UDim2.new(0, 0, 0, 18)
-			est.Size = UDim2.new(1, -56, 0, 24)
-			est.BackgroundTransparency = 1
-			est.Font = Enum.Font.Gotham
-			est.TextSize = 10
-			est.Text = desc
-			est.TextColor3 = C.subtext
-			est.TextXAlignment = Enum.TextXAlignment.Left
-			est.TextWrapped = true
-			est.TextYAlignment = Enum.TextYAlignment.Top
-			est.ZIndex = 122
-
-			-- Forward-declare: el callback usa setBusy, y en `local a,b,c = expr`
-			-- las variables aún NO existen dentro de expr (sería un global nil).
-			local sw, setOn, setBusy
-			sw, setOn, setBusy = Shield.makeSwitch(f, Shield.flags[clave], function(on)
-				setBusy(true)
-				est.Text = "Ejecutando verificación…"
-				est.TextColor3 = C.warn
-				Shield.setFlag(clave, on, function(ok, detalle)
-					setBusy(false)
-					if not on then
-						est.Text = (clave == "api") and "Verificación API desactivada"
-							or "Validación de datos desactivada"
-						est.TextColor3 = C.subtext
-					elseif ok then
-						est.Text = (clave == "api") and ("API verificada correctamente · " .. tostring(detalle))
-							or ("Datos validados · " .. tostring(detalle))
-						est.TextColor3 = C.good
-					else
-						est.Text = "Falló: " .. tostring(detalle)
-						est.TextColor3 = C.bad
-					end
-				end)
-			end)
-			sw.AnchorPoint = Vector2.new(1, 0)
-			sw.Position = UDim2.new(1, 0, 0, 4)
-			sw.ZIndex = 122
-
-			filas[clave] = { est = est, setOn = setOn, setBusy = setBusy, desc = desc }
-		end
-
-		filaProt(7, "API Validation",  "api",
-			"Comprueba estructura, errores y códigos HTTP de cada respuesta.")
-		filaProt(8, "Data Validation", "data",
-			"Valida username, UserId, fechas, contadores, avatar e items.")
-
-		linea(9)
-		-- Pie con contadores REALES del interceptor + estado del último análisis.
-		local pie = etiqueta(10, "", 10, "subtext", false, 44)
-
-		-- ── Sincronización de todo el estado visible ────────────────────────
-		local function refrescar()
-			local color, texto, est = paleta()
-			sDot.BackgroundColor3   = color
-			sTop.BackgroundColor3   = color
-			sBot.BackgroundColor3   = color
-			sStroke.Color           = color
-			cabDot.BackgroundColor3 = color
-			cabEstado.TextColor3    = color
-			cabEstado.Text          = texto
-
-			for clave, f in pairs(filas) do
-				local on = Shield.flags[clave]
-				f.setOn(on, false)
-				f.setBusy(Shield.busy == clave)
-				if Shield.busy ~= clave then
-					if not on then
-						f.est.Text = (clave == "api") and "Verificación API desactivada"
-							or "Validación de datos desactivada"
-						f.est.TextColor3 = C.subtext
-					else
-						local t = Shield.lastTest and Shield.lastTest[clave]
-						if t and not t.ok then
-							f.est.Text = "Falló: " .. tostring(t.detalle)
-							f.est.TextColor3 = C.bad
-						elseif t and t.ok then
-							f.est.Text = (clave == "api")
-								and ("API verificada correctamente · " .. tostring(t.detalle))
-								or  ("Datos validados · " .. tostring(t.detalle))
-							f.est.TextColor3 = C.good
-						else
-							f.est.Text = f.desc
-							f.est.TextColor3 = C.subtext
-						end
-					end
-				end
-			end
-
-			local r = Shield.run
-			local ESTADOS = {
-				verified = "Verificado", partial = "Parcial",
-				incomplete = "Datos incompletos", error = "Error", loading = "Cargando…",
-			}
-			local ultimo = r and (ESTADOS[r.state] or r.state) or "sin análisis aún"
-			pie.Text = string.format(
-				"Respuestas inspeccionadas: %d  ·  bloqueadas: %d\nCampos validados: %d  ·  rechazados: %d\nÚltimo análisis: %s",
-				Shield.stats.checks, Shield.stats.blocked,
-				Shield.stats.fields, Shield.stats.rejected, ultimo)
-			-- El icono NO late si no hay nada ejecutándose: la animación indica
-			-- proceso real, no adorno.
-			sTxt.TextTransparency = (est == "loading") and 0.35 or 0
-		end
-		refrescar()
-		Shield.onChange(refrescar)
-		onRepaint(refrescar)
-
-		-- ── Abrir / cerrar el panel (animado) ───────────────────────────────
-		local abierto = false
-		local function setAbierto(v)
-			abierto = v
-			if v then
-				refrescar()
-				panel.Visible = true
-				if ANIM.enabled then
-					pScale.Scale = 0.92
-					panel.BackgroundTransparency = 1
-					motionTween(pScale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
-					motionTween(panel, TweenInfo.new(0.16), { BackgroundTransparency = 0.04 })
-				else
-					pScale.Scale = 1
-					panel.BackgroundTransparency = 0.04
-				end
-			else
-				if ANIM.enabled then
-					motionTween(pScale, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.92 })
-					motionTween(panel, TweenInfo.new(0.14), { BackgroundTransparency = 1 }, function()
-						if not abierto then panel.Visible = false end
-					end)
-				else
-					panel.Visible = false
-				end
-			end
-		end
-
-		track(sBtn.MouseButton1Click:Connect(function() setAbierto(not abierto) end))
-		track(sBtn.MouseEnter:Connect(function()
-			motionTween(sBtn, TweenInfo.new(0.12), { BackgroundTransparency = 0 })
-		end))
-		track(sBtn.MouseLeave:Connect(function()
-			motionTween(sBtn, TweenInfo.new(0.16), { BackgroundTransparency = 0.15 })
-		end))
-		attachTip(sBtn, "NX Shields · estado de verificación")
-
-		-- Cerrar al pulsar fuera del panel (como el popup de una extensión).
-		-- NO se filtra por gameProcessedEvent: al pulsar sobre CUALQUIER GUI ese
-		-- flag llega en true, así que filtrar por él impedía cerrar el panel al
-		-- hacer clic en otra parte de la interfaz. El test real es geométrico.
-		track(UserInputService.InputBegan:Connect(function(input)
-			if not abierto then return end
-			if input.UserInputType ~= Enum.UserInputType.MouseButton1
-				and input.UserInputType ~= Enum.UserInputType.Touch then return end
-			local p = input.Position
-			local function dentro(obj)
-				local a, b = obj.AbsolutePosition, obj.AbsoluteSize
-				return p.X >= a.X and p.X <= a.X + b.X and p.Y >= a.Y and p.Y <= a.Y + b.Y
-			end
-			if not dentro(panel) and not dentro(sBtn) then setAbierto(false) end
-		end))
-	end)
 
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
 	-- Iconos con emoji (tu script ya usa emojis => renderizan). Para iconos
@@ -12826,95 +12452,11 @@ end)()
 	local RunService  = game:GetService("RunService")
 	local TextService = game:GetService("TextService")
 
-	-- Mezclas de color: todo el neón se DERIVA de C.accent (respeta el tema).
-	local function lerp(a, b, t) return a + (b - a) * t end
-	local function lighten(c, f) return Color3.new(lerp(c.R,1,f), lerp(c.G,1,f), lerp(c.B,1,f)) end
-	local function darken(c, f)  return Color3.new(lerp(c.R,0,f), lerp(c.G,0,f), lerp(c.B,0,f)) end
-
-	-- ── 1) BRILLO SUPERIOR (specular): finísima línea clara arriba = cristal.
-	pcall(function()
-		local top = Instance.new("Frame", header)
-		top.Name = "TopSpecular"
-		top.Size = UDim2.new(1, -24, 0, 1)
-		top.Position = UDim2.new(0, 12, 0, 1)
-		top.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		top.BackgroundTransparency = 0.55
-		top.BorderSizePixel = 0
-		top.ZIndex = 3
-		local g = Instance.new("UIGradient", top)
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0),
-			NumberSequenceKeypoint.new(1, 1),
-		})
-	end)
-
-	-- ── 2) DIVISIONES verticales (atenuadas en los extremos), tono del tema.
-	local function vdivider(name, pos)
-		local d = Instance.new("Frame", header)
-		d.Name = name
-		d.AnchorPoint = Vector2.new(0.5, 0.5)
-		d.Position = pos
-		d.Size = UDim2.fromOffset(1, 18)
-		d.BackgroundColor3 = C.accent
-		d.BackgroundTransparency = 0.5
-		d.BorderSizePixel = 0
-		d.ZIndex = 3
-		themed(d, "BackgroundColor3", "accent")
-		local g = Instance.new("UIGradient", d)
-		g.Rotation = 90
-		g.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(0.5, 0.15),
-			NumberSequenceKeypoint.new(1, 1),
-		})
-		return d
-	end
-	vdivider("DivLeft",  UDim2.new(0, 74, 0.5, 0))     -- tras los semáforos
-	vdivider("DivRight", UDim2.new(1, -146, 0.5, 0))   -- antes de los controles
-
-	-- ── 3) LOGO genérico (gema/prisma): SIEMPRE renderiza, no depende de un
-	-- asset moderado. Va entre la división izquierda y el título.
-	local gemGrad, gemStroke
-	pcall(function()
-		local gem = Instance.new("Frame", header)
-		gem.Name = "NXGem"
-		gem.AnchorPoint = Vector2.new(0.5, 0.5)
-		gem.Position = UDim2.new(0, 90, 0.5, 0)
-		gem.Size = UDim2.fromOffset(15, 15)
-		gem.Rotation = 45
-		gem.BackgroundColor3 = C.accent
-		gem.BorderSizePixel = 0
-		gem.ZIndex = 3
-		themed(gem, "BackgroundColor3", "accent")
-		Instance.new("UICorner", gem).CornerRadius = UDim.new(0, 3)
-		gemGrad = Instance.new("UIGradient", gem)
-		gemGrad.Rotation = 90
-		gemGrad.Color = ColorSequence.new(lighten(C.accent, 0.45), darken(C.accent, 0.12))
-		gemStroke = Instance.new("UIStroke", gem)
-		gemStroke.Thickness = 1.2
-		gemStroke.Color = lighten(C.accent, 0.55)
-		gemStroke.Transparency = 0.15
-		-- destello interior (faceta)
-		local spark = Instance.new("Frame", gem)
-		spark.AnchorPoint = Vector2.new(0.5, 0.5)
-		spark.Position = UDim2.fromScale(0.5, 0.5)
-		spark.Size = UDim2.fromScale(0.42, 0.42)
-		spark.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		spark.BackgroundTransparency = 0.35
-		spark.BorderSizePixel = 0
-		spark.ZIndex = 4
-		Instance.new("UICorner", spark).CornerRadius = UDim.new(0, 2)
-	end)
-
 	-- ── 4) TÍTULO adaptativo: nunca se sale ni se corta ilegible. Mide el
 	-- ancho REAL disponible y elige el texto MÁS LARGO que quepa entero.
 	local FORMS = { "Roblox Profile Analyzer", "Profile Analyzer", "Analyzer", "NX" }
-	title.Position       = UDim2.new(0, 106, 0, 0)
-	-- Reserva derecha reducida (v3.8.1): ya no está el logo NX. A la derecha solo
-	-- quedan el escudo (~-100) y los 3 controles (~-94..-10), así que el título
-	-- puede crecer hasta -140 y así entra la forma larga con más frecuencia.
-	title.Size           = UDim2.new(1, -140, 1, 0)
+	title.Position       = UDim2.new(0, 14, 0, 0)
+	title.Size           = UDim2.new(1, -80, 1, 0)
 	title.TextTruncate   = Enum.TextTruncate.AtEnd
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	local function widthOf(s)
@@ -12930,29 +12472,9 @@ end)()
 			if widthOf(t) <= avail then chosen = t; break end
 		end
 		if title.Text ~= chosen then title.Text = chosen end
-		local shine = title.Parent:FindFirstChild("TitleShine")   -- el barrido blanco sigue el mismo texto
-		if shine then shine.Text = chosen end
 	end
 	track(title:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() pcall(fitTitle) end))
 	task.defer(function() pcall(fitTitle) end)
-
-	-- Baja el BRILLO del barrido blanco del título (legibilidad: el destello
-	-- blanco era muy fuerte y costaba leer el título).
-	pcall(function()
-		local shine = title.Parent:FindFirstChild("TitleShine")
-		if shine then shine.TextTransparency = 0.6 end
-	end)
-
-	-- ── 5) BORDE NEÓN sobre el título (premium) + respiración suave (smooth).
-	-- Brillo REBAJADO a pedido: stroke fino y bastante transparente = se lee mejor.
-	local titleStroke
-	pcall(function()
-		titleStroke = Instance.new("UIStroke", title)
-		titleStroke.Thickness = 1
-		titleStroke.Color = lighten(C.accent, 0.1)
-		titleStroke.Transparency = 0.72
-		titleStroke.LineJoinMode = Enum.LineJoinMode.Round
-	end)
 
 	-- ── 6) BRILLO SMOOTH que recorre la base de la cabecera (escáner sutil).
 	local sheen, sheenGrad
@@ -12987,18 +12509,9 @@ end)()
 			local p = (t * 0.30) % 2          -- 0..2 → barre de -1 a 1 y vuelve
 			sheenGrad.Offset = Vector2.new(p - 1, 0)
 		end
-		if titleStroke then
-			titleStroke.Transparency = 0.7 + 0.08 * math.sin(t * 1.4)   -- respiración muy suave y tenue
-		end
 	end))
 
 	-- ── 8) Sincronía con el TEMA EN VIVO (recalcula degradados de acento).
-	onRepaint(function()
-		if gemGrad     then pcall(function() gemGrad.Color     = ColorSequence.new(lighten(C.accent,0.45), darken(C.accent,0.12)) end) end
-		if gemStroke   then pcall(function() gemStroke.Color   = lighten(C.accent, 0.55) end) end
-		if titleStroke then pcall(function() titleStroke.Color = lighten(C.accent, 0.1)  end) end
-	end)
-
 	-- ── 9) HUD: subida un poco para aprovechar el espacio, sin pegarla al borde.
 	pcall(function()
 		local hud = gui:FindFirstChild("PrismHUD")
@@ -13792,22 +13305,7 @@ end)()
 		pthemed(handle, "BackgroundColor3", "subtext")
 	end
 
-	local strokeBusqueda = Instance.new("UIStroke", cajaBusqueda)
-	strokeBusqueda.Thickness = 1
-	strokeBusqueda.Transparency = 0.45
-	pthemed(strokeBusqueda, "Color", "border")
-
-	-- focus/blur animation on search bar
-	cajaBusqueda.Focused:Connect(function()
-		TweenService:Create(strokeBusqueda, TweenInfo.new(0.15), { Transparency = 0, Color = col("accent") }):Play()
-	end)
-	cajaBusqueda:GetPropertyChangedSignal("CursorPosition"):Connect(function()
-		if cajaBusqueda:IsFocused() then return end
-		TweenService:Create(strokeBusqueda, TweenInfo.new(0.2), { Transparency = 0.45, Color = col("border") }):Play()
-	end)
-	local function onSearchBlur()
-		TweenService:Create(strokeBusqueda, TweenInfo.new(0.2), { Transparency = 0.45, Color = col("border") }):Play()
-	end
+	local function onSearchBlur() end
 
 	-- ====================== PANEL DE SUGERENCIAS ======================
 	local panelSugerencias = Instance.new("Frame", ventana)
