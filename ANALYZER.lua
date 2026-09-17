@@ -1516,6 +1516,11 @@ local NXCore = (function()
 	-- (Antes el cuerpo era un `return true` fijo, así que licenses.json y
 	--  showLicenseDenied() estaban muertos sin que se notara desde fuera.)
 	function api.isLicensed(userId)
+		-- GRATIS: bypass total. Quitar esta línea para activar licencias.
+		return true
+
+		-- === LÓGICA ORIGINAL (no se ejecuta mientras esté el return arriba) ===
+		--[[
 		if not state.ready or state.failed.licenses then return true end
 		if state.licenses._enforce ~= true then return true end
 		local e = state.licenses[tostring(userId)]
@@ -1525,13 +1530,19 @@ local NXCore = (function()
 			if hasta and os.time() > hasta then return false end
 		end
 		return true
+		]]
 	end
 
 	-- Advertencia del usuario ({ level, message }) o nil si no tiene.
 	function api.getWarning(userId)
+		-- GRATIS: desactivar warnings remotas. Quitar para reactivar.
+		return nil
+
+		--[[
 		if not state.ready then return nil end
 		local w = state.warnings[tostring(userId)]
 		return (type(w) == "table") and w or nil
+		]]
 	end
 
 	-- Tabla de permisos del usuario ({}) si no existe o si aún no cargó.
