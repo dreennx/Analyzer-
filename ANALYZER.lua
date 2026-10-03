@@ -44,6 +44,31 @@ _G.NXServices = {
 	RunService = game:GetService("RunService"),
 }
 
+-- Recurso gráfico generado para las búsquedas. Se carga como asset local del
+-- executor, evitando componer la lupa con Frames y manteniendo bordes limpios.
+_G.NXSearchIcon = ""
+pcall(function()
+	local loadIcon = getsynasset or getcustomasset
+	if type(loadIcon) ~= "function" then return end
+	-- Rutas candidatas: primero relativas al workspace del executor (portables
+	-- entre máquinas y entre executors), luego la ruta absoluta como último
+	-- recurso. La primera que devuelva un asset no vacío gana; si ninguna
+	-- existe, se queda en "" y la lupa simplemente no se dibuja (degradación
+	-- limpia, sin romper la barra de búsqueda).
+	local candidates = {
+		"Analyzer Search Icon.png",
+		"Scripts/Analyzer Search Icon.png",
+		"C:/Users/javie/OneDrive/Documentos/Scripts/Analyzer Search Icon.png",
+	}
+	for _, path in ipairs(candidates) do
+		local ok, asset = pcall(loadIcon, path)
+		if ok and type(asset) == "string" and asset ~= "" then
+			_G.NXSearchIcon = asset
+			break
+		end
+	end
+end)
+
 -- ====================== PERSISTENCIA (archivo) ======================
 -- Si el executor tiene sistema de archivos, guardamos el tema elegido.
 -- (Nombres de archivo inlineados: NO gastar locals de raíz — el chunk roza el
@@ -354,27 +379,47 @@ do
 		val.TextTruncate = Enum.TextTruncate.AtEnd
 
 		if opts.copyable and value then
+			-- Botón de copiar visible: fondo sólido + borde sutil (estilo secondary)
+			local cpSize = 28  -- tamaño mínimo para click fácil
 			local cp = Instance.new("TextButton", row)
-			cp.Size = UDim2.fromOffset(22, 22); cp.AnchorPoint = Vector2.new(1, 0.5)
+			cp.Size = UDim2.fromOffset(cpSize, 22)
+			cp.AnchorPoint = Vector2.new(1, 0.5)
 			cp.Position = UDim2.new(1, 0, 0.5, 0)
-			cp.BackgroundTransparency = 1; cp.Text = "📋"
-			cp.Font = Enum.Font.Gotham; cp.TextSize = 12
+			cp.BackgroundTransparency = 0
+			cp.BackgroundColor3 = C.surface
+			cp.BorderSizePixel = 0
+			-- Texto: "⊕" en vez de emoji (Gotham no renderiza emojis bien)
+			cp.Text = "⊕"
+			cp.Font = Enum.Font.GothamBold; cp.TextSize = 13
+			cp.TextColor3 = C.subtext
 			cp.AutoButtonColor = false; cp.ZIndex = 3
-			cp.TextTransparency = 0.6
-			cp.MouseEnter:Connect(function() cp.TextTransparency = 0 end)
-			cp.MouseLeave:Connect(function() cp.TextTransparency = 0.6 end)
+			-- Esquinas redondeadas como botones secondary
+			Instance.new("UICorner", cp).CornerRadius = UDim.new(0, 4)
+			-- Borde sutil igual que DS.makeButton secondary
+			local cpStroke = Instance.new("UIStroke", cp)
+			cpStroke.Thickness = 1; cpStroke.Color = C.border; cpStroke.Transparency = 0.5
+			cpStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			-- Registrar con themed() para repintado en vivo
+			themed(cp, "BackgroundColor3", "surface")
+			themed(cp, "TextColor3", "subtext")
+			themed(cpStroke, "Color", "border")
+			-- Hover sutil: solo cambio de transparencia del texto
+			cp.MouseEnter:Connect(function() cp.TextColor3 = C.text end)
+			cp.MouseLeave:Connect(function() cp.TextColor3 = C.subtext end)
 			cp.MouseButton1Click:Connect(function()
 				local ok = clipboard(tostring(value))
 				if ok then
 					if statusLabel then statusLabel.Text = "Copiado: " .. label end
 					cp.Text = "✓"
 				else
-					if statusLabel then statusLabel.Text = "No se pudo copiar (executor sin clipboard)" end
+					if statusLabel then statusLabel.Text = "No se pudo copiar al portapapeles." end
 					cp.Text = "✗"
 				end
-				task.delay(1, function() if cp and cp.Parent then cp.Text = "📋" end end)
+				-- Restaurar símbolo original tras 1.2s
+				task.delay(1.2, function() if cp and cp.Parent then cp.Text = "⊕" end end)
 			end)
-			val.Size = UDim2.new(1, -28, 1, 0)
+			-- Ajustar ancho del valor para dejar espacio al botón
+			val.Size = UDim2.new(1, -(cpSize + 6), 1, 0)
 		end
 		return row
 	end
@@ -482,16 +527,19 @@ do
 		row.Size = UDim2.new(1, 0, 0, 28)
 		row.BackgroundTransparency = 1
 
+		-- Etiqueta proporcional (25%) para adaptarse a cualquier ancho de panel
 		local lab = Instance.new("TextLabel", row)
-		lab.Size = UDim2.new(0, 90, 1, 0)
+		lab.Size = UDim2.new(0.25, 0, 1, 0)
 		lab.BackgroundTransparency = 1; lab.Font = Enum.Font.Gotham
 		lab.TextSize = DS.text.sm; lab.TextColor3 = C.subtext
 		lab.Text = label; lab.TextXAlignment = Enum.TextXAlignment.Left
+		lab.TextTruncate = Enum.TextTruncate.AtEnd
 		themed(lab, "TextColor3", "subtext")
 
+		-- Barra de progreso proporcional (44% del ancho)
 		local tr = Instance.new("Frame", row)
-		tr.Position = UDim2.new(0, 96, 0.5, -3)
-		tr.Size = UDim2.new(1, -220, 0, 6)
+		tr.Position = UDim2.new(0.26, 0, 0.5, -3)
+		tr.Size = UDim2.new(0.44, 0, 0, 6)
 		tr.BackgroundColor3 = C.border; tr.BorderSizePixel = 0
 		Instance.new("UICorner", tr).CornerRadius = UDim.new(0, 3)
 		themed(tr, "BackgroundColor3", "border")
@@ -506,13 +554,15 @@ do
 		motionTween(fill, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
 			{ Size = UDim2.new(target, 0, 1, 0) })
 
+		-- Valor proporcional (28% del ancho) con truncado por seguridad
 		local val = Instance.new("TextLabel", row)
-		val.Position = UDim2.new(1, -118, 0, 0)
-		val.Size = UDim2.new(0, 118, 1, 0)
+		val.Position = UDim2.new(0.72, 0, 0, 0)
+		val.Size = UDim2.new(0.28, 0, 1, 0)
 		val.BackgroundTransparency = 1; val.Font = Enum.Font.GothamBold
 		val.TextSize = DS.text.sm; val.TextColor3 = color
 		val.Text = string.format("%d%% · %s", score, levelTxt)
 		val.TextXAlignment = Enum.TextXAlignment.Right
+		val.TextTruncate = Enum.TextTruncate.AtEnd
 		return row, fill, val
 	end
 
@@ -586,9 +636,13 @@ end
 -- ====================== HTTP ROBUSTO ======================
 local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
 local _clipImpl = setclipboard or (syn and syn.write_clipboard) or toclipboard
-local _clipAvail = (_clipImpl ~= nil)
 local function clipboard(text)
-	if not _clipAvail then return false end
+	-- Re-resolver clipboard si no se encontró al inicio (Potassium lo inyecta tarde)
+	if not _clipImpl then
+		_clipImpl = (type(getgenv) == "function" and getgenv().setclipboard)
+			or setclipboard or (syn and syn.write_clipboard) or toclipboard
+	end
+	if not _clipImpl then return false end
 	local ok = pcall(_clipImpl, tostring(text))
 	return ok
 end
@@ -600,10 +654,20 @@ end
 local function rawGet(url)
 	local body, statusCode
 	if httpRequest then
-		local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
-		if ok and res then
-			body = res.Body
-			statusCode = res.StatusCode
+		-- Reintento con backoff ante throttle (429) o fallos transitorios del
+		-- servidor (502/503/504). La recolección en paralelo dispara ~12 llamadas
+		-- a los endpoints de Roblox a la vez, así que el 429 es real. Hasta 3
+		-- intentos con esperas crecientes (0.4s, 0.8s); cualquier otro status
+		-- (200, 404, 403…) sale al primer intento sin penalización.
+		for attempt = 1, 3 do
+			local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
+			if ok and res then
+				body = res.Body
+				statusCode = res.StatusCode
+			end
+			local sc = tonumber(statusCode)
+			if not (sc == 429 or sc == 502 or sc == 503 or sc == 504) then break end
+			if attempt < 3 then task.wait(0.4 * attempt) end
 		end
 	end
 	if body == nil or body == "" then
@@ -700,11 +764,39 @@ _G.NXTagRepo.tags = _G.NXTagRepo.base .. "tags.json"
 --   nil,   códigoHTTP   en cualquier otro caso (sin cuerpo, JSON roto, no-tabla)
 -- Nunca lanza: el que llama decide qué hacer con el nil.
 _G.NXJson = function(url)
+	-- Caché en disco de "último conocido bueno": cada descarga correcta se guarda;
+	-- si una futura descarga falla (GitHub caído/bloqueado, throttle, sin red) o
+	-- devuelve JSON inválido, se recupera la última copia buena en vez de romper.
+	-- Esto quita el punto único de fallo que suponía depender en vivo de un solo
+	-- repositorio. Clave = hash del URL (nombre de archivo seguro). Si el executor
+	-- no tiene FS, cae a comportamiento solo-red idéntico al anterior. No añade
+	-- locals de raíz: todo vive dentro de esta función.
+	-- Nota de seguridad: el Sentinel falla ABIERTO ante nil, así que cachear la
+	-- ban list no debilita el kill-switch (en el peor caso iguala la conducta
+	-- actual; a un baneado mientras tenía red lo deja gateado aunque luego corte).
+	local cacheFile
+	if hasFS then
+		local key = 5381
+		for i = 1, #url do key = (key * 33 + string.byte(url, i)) % 2147483647 end
+		cacheFile = "NXJson_cache_" .. tostring(key) .. ".json"
+	end
 	local body, status = rawGet(url)
-	if not body then return nil, tonumber(status) or status end
-	local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
-	if not ok or type(t) ~= "table" then return nil, tonumber(status) or status end
-	return t, tonumber(status) or status
+	if body then
+		local ok, t = pcall(function() return HttpService:JSONDecode(body) end)
+		if ok and type(t) == "table" then
+			if cacheFile then pcall(writefile, cacheFile, body) end
+			return t, tonumber(status) or status
+		end
+	end
+	-- Descarga fallida o JSON roto: intenta la copia en caché.
+	if cacheFile then
+		local okC, cached = pcall(function()
+			if isfile(cacheFile) then return HttpService:JSONDecode(readfile(cacheFile)) end
+			return nil
+		end)
+		if okC and type(cached) == "table" then return cached, tonumber(status) or status end
+	end
+	return nil, tonumber(status) or status
 end
 
 local nxTags = nil           -- nil = aún no cargado; tabla = listo (puede estar vacía)
@@ -2751,8 +2843,8 @@ _G.NXDS._makeSwitch = Shield.makeSwitch
 local MIN_W, MIN_H = 420, 360
 local main = Instance.new("Frame")
 main.Name = "main"
-main.Size = UDim2.new(0, 620, 0, 500)
-main.Position = UDim2.new(0.5, -310, 0.5, -250)
+main.Size = UDim2.new(0, 660, 0, 520)
+main.Position = UDim2.new(0.5, -330, 0.5, -260)
 main.BackgroundColor3 = C.bg
 main.BackgroundTransparency = 0.02
 main.BorderSizePixel = 0
@@ -2788,31 +2880,23 @@ track(main:GetPropertyChangedSignal("Position"):Connect(syncWindowShadow))
 
 -- Header (36px, color headerBg)
 local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 36)
-header.BackgroundColor3 = C.headerBg
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = C.bg
 header.BackgroundTransparency = 0
 header.BorderSizePixel = 0
 header.ClipsDescendants = true
-themed(header, "BackgroundColor3", "headerBg")
+themed(header, "BackgroundColor3", "bg")
 Instance.new("UICorner", header).CornerRadius = UDim.new(0, 10)
 do
 	local btmFill = Instance.new("Frame", header)
-	btmFill.Size = UDim2.new(1, 0, 0, 10)
-	btmFill.Position = UDim2.new(0, 0, 1, -10)
-	btmFill.BackgroundColor3 = C.headerBg
+	btmFill.Size = UDim2.new(1, 0, 0, 12)
+	btmFill.Position = UDim2.new(0, 0, 1, -12)
+	btmFill.BackgroundColor3 = C.bg
 	btmFill.BorderSizePixel = 0
 	btmFill.ZIndex = header.ZIndex
-	themed(btmFill, "BackgroundColor3", "headerBg")
+	themed(btmFill, "BackgroundColor3", "bg")
 end
 
--- Divider line under header
-local headerDiv = Instance.new("Frame", main)
-headerDiv.Size = UDim2.new(1, 0, 0, 1)
-headerDiv.Position = UDim2.new(0, 0, 0, 36)
-headerDiv.BackgroundColor3 = C.divider
-headerDiv.BackgroundTransparency = 0.4
-headerDiv.BorderSizePixel = 0
-themed(headerDiv, "BackgroundColor3", "divider")
 
 local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, -80, 1, 0)
@@ -2891,19 +2975,21 @@ do
 	xLine1.Position = UDim2.new(0.5, 0, 0.5, 0)
 	xLine1.Size = UDim2.fromOffset(12, 1.6)
 	xLine1.Rotation = 45
-	xLine1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	xLine1.BackgroundColor3 = C.text
 	xLine1.BorderSizePixel = 0
 	xLine1.ZIndex = 6
 	Instance.new("UICorner", xLine1).CornerRadius = UDim.new(1, 0)
+	themed(xLine1, "BackgroundColor3", "text")
 	local xLine2 = Instance.new("Frame", closeBtn)
 	xLine2.AnchorPoint = Vector2.new(0.5, 0.5)
 	xLine2.Position = UDim2.new(0.5, 0, 0.5, 0)
 	xLine2.Size = UDim2.fromOffset(12, 1.6)
 	xLine2.Rotation = -45
-	xLine2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	xLine2.BackgroundColor3 = C.text
 	xLine2.BorderSizePixel = 0
 	xLine2.ZIndex = 6
 	Instance.new("UICorner", xLine2).CornerRadius = UDim.new(1, 0)
+	themed(xLine2, "BackgroundColor3", "text")
 	track(closeBtn.MouseEnter:Connect(function()
 		motionTween(closeBtn, TweenInfo.new(0.12), { BackgroundColor3 = wlighten(C.bad, 0.12) })
 	end))
@@ -2921,12 +3007,23 @@ do
 	local maximized, prevSize, prevPos = false, nil, nil
 	local windowCollapsed, savedCollapseSize = false, nil
 
+	-- Smoosh al arrastrar: UIScale propio, independiente de los tweens de tamaño
+	-- de maximizar/colapsar (varios UIScale sobre el mismo objeto multiplican su
+	-- escala sin pelearse). Local del `do` → no gasta registro de raíz.
+	local dragSquish = Instance.new("UIScale", main)
+	dragSquish.Name = "DragSquish"
+	dragSquish.Scale = 1
+
 	function NXWin.playOpenAnim()
 		introScale.Scale = 1
 		windowShadow.ImageTransparency = 0.6
 	end
 
+	-- Arrastre SIN efecto de escala: se eliminó el smoosh/apretón por completo
+	-- (ni al agarrar ni al soltar) para que no haya rebote ni salto. La ventana
+	-- solo se mueve de posición; dragSquish se mantiene fijo en 1.
 	function NXWin.setDragSquish(on)
+		dragSquish.Scale = 1
 	end
 
 	function NXWin.animatedClose()
@@ -2977,7 +3074,7 @@ NXWin.playOpenAnim()
 -- ====================== BÚSQUEDA (responsive: input stretches, status below) ======================
 local searchFrame = Instance.new("Frame", main)
 searchFrame.Size = UDim2.new(1, -24, 0, 52)
-searchFrame.Position = UDim2.new(0, 12, 0, 42)
+searchFrame.Position = UDim2.new(0, 12, 0, 48)
 searchFrame.BackgroundTransparency = 1
 
 local searchBox = Instance.new("TextBox", searchFrame)
@@ -2994,7 +3091,7 @@ searchBox.BorderSizePixel = 0
 searchBox.TextXAlignment = Enum.TextXAlignment.Left
 Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 8)
 local sbPad = Instance.new("UIPadding", searchBox)
-sbPad.PaddingLeft = UDim.new(0, 32)
+sbPad.PaddingLeft = UDim.new(0, 44)
 sbPad.PaddingRight = UDim.new(0, 8)
 themed(searchBox, "BackgroundColor3", "input")
 themed(searchBox, "TextColor3", "text")
@@ -3004,6 +3101,7 @@ sbStroke.Thickness = 1; sbStroke.Transparency = 0.7; sbStroke.Color = C.border
 sbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 themed(sbStroke, "Color", "border")
 
+local searchIcon
 do
 	searchBox.MouseEnter:Connect(function()
 		if not ANIM.enabled then return end
@@ -3028,6 +3126,9 @@ do
 				math.min(C.input.G + 0.03, 1),
 				math.min(C.input.B + 0.03, 1))
 		})
+		if searchIcon then
+			motionTween(searchIcon, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0 })
+		end
 	end)
 	searchBox.FocusLost:Connect(function()
 		motionTween(sbStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
@@ -3036,35 +3137,35 @@ do
 		motionTween(searchBox, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundColor3 = C.input
 		})
+		if searchIcon then
+			motionTween(searchIcon, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0.18 })
+		end
 	end)
 end
 
--- Lupa vectorial
-local lockGlyph = Instance.new("Frame", searchFrame)
-lockGlyph.Name = "SearchIcon"
-lockGlyph.Size = UDim2.new(0, 16, 0, 32)
-lockGlyph.Position = UDim2.new(0, 8, 0, 0)
-lockGlyph.BackgroundTransparency = 1
-lockGlyph.ZIndex = 2
-do
-	local ring = Instance.new("Frame", lockGlyph)
-	ring.AnchorPoint = Vector2.new(0.5, 0.5)
-	ring.Position = UDim2.new(0.42, 0, 0.5, -1)
-	ring.Size = UDim2.fromOffset(10, 10)
-	ring.BackgroundTransparency = 1; ring.BorderSizePixel = 0; ring.ZIndex = 2
-	Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
-	local rs = Instance.new("UIStroke", ring)
-	rs.Thickness = 1.6; rs.Color = C.subtext
-	themed(rs, "Color", "subtext")
-	local handle = Instance.new("Frame", lockGlyph)
-	handle.AnchorPoint = Vector2.new(0.5, 0.5)
-	handle.Position = UDim2.new(0.74, 0, 0.78, -1)
-	handle.Size = UDim2.fromOffset(5, 1.8)
-	handle.Rotation = 45; handle.BorderSizePixel = 0
-	handle.BackgroundColor3 = C.subtext; handle.ZIndex = 2
-	Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
-	themed(handle, "BackgroundColor3", "subtext")
-end
+-- Lupa generada: una imagen real, sin piezas dibujadas por Frames.
+searchIcon = Instance.new("ImageLabel", searchFrame)
+searchIcon.Name = "SearchIcon"
+searchIcon.Size = UDim2.fromOffset(18, 18)
+searchIcon.Position = UDim2.fromOffset(8, 7)
+searchIcon.BackgroundTransparency = 1
+searchIcon.BorderSizePixel = 0
+searchIcon.Active = false
+searchIcon.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
+searchIcon.ImageColor3 = C.subtext
+searchIcon.ImageTransparency = 0.18
+searchIcon.ScaleType = Enum.ScaleType.Fit
+searchIcon.ZIndex = 2
+themed(searchIcon, "ImageColor3", "subtext")
+local searchDivider = Instance.new("Frame", searchFrame)
+searchDivider.Name = "SearchIconDivider"
+searchDivider.Size = UDim2.fromOffset(1, 16)
+searchDivider.Position = UDim2.fromOffset(34, 8)
+searchDivider.BackgroundColor3 = C.divider
+searchDivider.BackgroundTransparency = 0.3
+searchDivider.BorderSizePixel = 0
+searchDivider.ZIndex = 2
+themed(searchDivider, "BackgroundColor3", "divider")
 
 local analyze
 local function hideAllSuggestions() end
@@ -3102,7 +3203,7 @@ themed(statusLabel, "TextColor3", "subtext")
 -- ====================== PESTAÑAS ======================
 local tabBar = Instance.new("ScrollingFrame", main)
 tabBar.Size = UDim2.new(1, -24, 0, 30)
-tabBar.Position = UDim2.new(0, 12, 0, 96)
+tabBar.Position = UDim2.new(0, 12, 0, 102)
 tabBar.BackgroundColor3 = C.bg
 tabBar.BackgroundTransparency = 1
 themed(tabBar, "BackgroundColor3", "bg")
@@ -3121,8 +3222,8 @@ tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 local content = Instance.new("Frame", main)
-content.Size = UDim2.new(1, -24, 1, -134)
-content.Position = UDim2.new(0, 12, 0, 128)
+content.Size = UDim2.new(1, -24, 1, -140)
+content.Position = UDim2.new(0, 12, 0, 134)
 content.BackgroundTransparency = 1
 
 local tabs, pages = {}, {}
@@ -3296,6 +3397,8 @@ local function makeScroll(parent)
 	layout.Padding = UDim.new(0, 10)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	local pad = Instance.new("UIPadding", sf)
+	-- Padding simétrico izquierda/derecha para todas las pestañas
+	pad.PaddingLeft = UDim.new(0, 8)
 	pad.PaddingRight = UDim.new(0, 8)
 	pad.PaddingTop = UDim.new(0, 4)
 	pad.PaddingBottom = UDim.new(0, 8)
@@ -3474,8 +3577,8 @@ local function showLinkModal(url)
 	info.Font = Enum.Font.Gotham
 	info.TextSize = DS.text.md
 	info.TextColor3 = C.subtext
-	info.Text = "El executor " .. EXECUTOR_NAME .. " no permite abrir el navegador "
-		.. "desde Roblox, pero el link YA está copiado en tu portapapeles."
+	info.Text = "No se puede abrir el navegador desde aquí, "
+		.. "pero el link YA está copiado en tu portapapeles."
 	info.TextXAlignment = Enum.TextXAlignment.Left
 	info.TextYAlignment = Enum.TextYAlignment.Top
 	info.TextWrapped = true
@@ -4092,7 +4195,7 @@ local function addDescription(parent, text)
 			statusLabel.Text = "Copiado: descripción (" .. #text .. " caracteres)"
 			copyDesc.Text = "Copiado"
 		else
-			statusLabel.Text = "No se pudo copiar (executor sin clipboard)"
+			statusLabel.Text = "No se pudo copiar al portapapeles."
 			copyDesc.Text = "Error"
 		end
 		task.delay(1.2, function()
@@ -5249,7 +5352,7 @@ do
 					statusLabel.Text = "✓ Reporte abierto. La descripción está copiada: pégala en el formulario."
 					cerrar()
 				else
-					statusLabel.Text = "No disponible en tu executor. Te dejo el link para copiarlo."
+					statusLabel.Text = "No se puede abrir directamente. El link está listo para copiar."
 					showLinkModal(url)
 				end
 			end)
@@ -6455,9 +6558,9 @@ do
 	_G.NXIntel = I
 end
 
--- Aparición escalonada de tarjetas dentro de un scroll (stagger).
--- Cada tarjeta entra con delay incremental: fondo visible + slide Y, y los
--- textos hacen fade-in 0.05s después. Solo si ANIM.enabled y no es re-render.
+-- Aparición editorial de la información: cada bloque entra una única vez con
+-- un desplazamiento corto y un fundido. El contenido interno aparece después
+-- del contenedor para conservar lectura y jerarquía, sin rebotes ni elásticos.
 local function staggerCards(scroll)
 	if not ANIM.enabled then return end
 	local cards = {}
@@ -6468,16 +6571,17 @@ local function staggerCards(scroll)
 	end
 	table.sort(cards, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
 	for idx, card in ipairs(cards) do
-		local delay_ = (idx - 1) * 0.06
+		local delay_ = math.min((idx - 1) * 0.05, 0.30)
 		local origBgT = card.BackgroundTransparency
 		if origBgT < 1 then
 			card.BackgroundTransparency = 1
 		end
-		local origY = card.Position.Y.Offset
-		card.Position = card.Position + UDim2.fromOffset(0, 8)
-		-- Textos dentro: empiezan invisibles.
+		local origPosition = card.Position
+		card.Position = origPosition + UDim2.fromOffset(0, 8)
+		-- Se incluyen los descendientes para que la información de tarjetas
+		-- compuestas (avatar, métricas, tags) revele su contenido de forma unitaria.
 		local textos = {}
-		for _, ch in ipairs(card:GetChildren()) do
+		for _, ch in ipairs(card:GetDescendants()) do
 			if ch:IsA("TextLabel") or ch:IsA("TextButton") then
 				textos[#textos + 1] = { inst = ch, orig = ch.TextTransparency }
 				ch.TextTransparency = 1
@@ -6486,7 +6590,7 @@ local function staggerCards(scroll)
 		task.delay(delay_, function()
 			if not card.Parent then return end
 			motionTween(card, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-				{ Position = UDim2.new(card.Position.X.Scale, card.Position.X.Offset, card.Position.Y.Scale, origY),
+				{ Position = origPosition,
 				  BackgroundTransparency = origBgT })
 			task.delay(0.05, function()
 				for _, t in ipairs(textos) do
@@ -6634,12 +6738,14 @@ local function render(data, skipEntrance)
 	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	actRow.ClipsDescendants = true
-	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.5, -6, 0, 28)})
+	-- 2 botones: 1 gap de 8px → cada uno resta 4px (mitad del gap)
+	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.5, -4, 0, 28)})
 	viewCharBtn.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
 
-	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 2, size = UDim2.new(0.5, -6, 0, 28)})
+	-- Botón copiar link: mismo ancho proporcional
+	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 2, size = UDim2.new(0.5, -4, 0, 28)})
 	copyLink.MouseButton1Click:Connect(function()
 		local url = data.ProfileUrl or ("https://www.roblox.com/users/" .. tostring(data.UserId) .. "/profile")
 		local ok = clipboard(url)
@@ -6647,7 +6753,7 @@ local function render(data, skipEntrance)
 			statusLabel.Text = "Link del perfil copiado"
 			copyLink.Text = "Copiado!"
 		else
-			statusLabel.Text = "No se pudo copiar (executor sin clipboard)"
+			statusLabel.Text = "No se pudo copiar al portapapeles."
 			copyLink.Text = "Error"
 		end
 		task.delay(1.2, function()
@@ -6658,10 +6764,11 @@ local function render(data, skipEntrance)
 	addShineHover(viewCharBtn)
 	addShineHover(copyLink)
 
-	-- Join server button (only when in-game and public)
+	-- Botón Unirse (solo si está en juego público): 3 botones, 2 gaps de 8px = 16px
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
-		viewCharBtn.Size = UDim2.new(0.333, -6, 0, 28)
-		copyLink.Size = UDim2.new(0.333, -6, 0, 28)
+		-- 3 botones: cada uno resta ~5px para repartir los 2 gaps de 8px
+		viewCharBtn.Size = UDim2.new(0.333, -5, 0, 28)
+		copyLink.Size = UDim2.new(0.333, -5, 0, 28)
 		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 3, size = UDim2.new(0.334, -6, 0, 28)})
 		joinBtn.BackgroundColor3 = C.good
 		themed(joinBtn, "BackgroundColor3", "good")
@@ -6715,6 +6822,7 @@ local function render(data, skipEntrance)
 	nxLabel.Font = Enum.Font.GothamBold
 	nxLabel.TextSize = DS.text.sm
 	nxLabel.TextColor3 = C.text
+	themed(nxLabel, "TextColor3", "text")
 	nxLabel.Text = ""
 
 	do
@@ -6760,11 +6868,53 @@ local function render(data, skipEntrance)
 		end
 	end
 
+	-- Helper: agrega botón "Copiar" a una DataRow
+	local function addCopyButton(row, textToCopy)
+		row.Size = UDim2.new(1, 0, 0, 28)
+		for _, ch in ipairs(row:GetChildren()) do
+			if ch:IsA("TextLabel") and ch.TextXAlignment == Enum.TextXAlignment.Right then
+				ch.Size = UDim2.new(1, -68, 1, 0); break
+			end
+		end
+		local btn = Instance.new("TextButton", row)
+		btn.LayoutOrder = 99
+		btn.Size = UDim2.new(0, 62, 0, 22)
+		btn.AnchorPoint = Vector2.new(1, 0.5)
+		btn.Position = UDim2.new(1, -2, 0.5, 0)
+		btn.BackgroundColor3 = C.surface
+		btn.Text = "Copiar"
+		btn.Font = Enum.Font.GothamMedium
+		btn.TextSize = DS.text.sm
+		btn.TextColor3 = C.text
+		btn.BorderSizePixel = 0
+		btn.AutoButtonColor = false
+		btn.ZIndex = 3
+		themed(btn, "BackgroundColor3", "surface")
+		themed(btn, "TextColor3", "text")
+		Instance.new("UICorner", btn).CornerRadius = DS.corner.sm
+		local st = Instance.new("UIStroke", btn)
+		st.Color = C.border; st.Thickness = 1
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		themed(st, "Color", "border")
+		btn.MouseButton1Click:Connect(function()
+			local ok = clipboard(tostring(textToCopy or ""))
+			btn.Text = ok and "✓ Copiado" or "✗ Sin portapapeles"
+			task.delay(1.1, function()
+				if btn and btn.Parent then btn.Text = "Copiar" end
+			end)
+		end)
+		return btn
+	end
+
 	-- Identity card (data rows grouped)
 	local idCard = DS.makeCard(profileScroll, {order = 1, title = "Identidad"})
-	DS.makeDataRow(idCard, "Username", data.Username, {order = 1, copyable = true})
+	local usernameRow = DS.makeDataRow(idCard, "Username", data.Username, {order = 1})
+	addCopyButton(usernameRow, data.Username)
+
 	DS.makeDataRow(idCard, "Display Name", data.DisplayName, {order = 2})
-	DS.makeDataRow(idCard, "UserId", tostring(data.UserId), {order = 3, copyable = true})
+
+	local userIdRow = DS.makeDataRow(idCard, "UserId", tostring(data.UserId), {order = 3})
+	addCopyButton(userIdRow, data.UserId)
 	DS.makeDataRow(idCard, "Suscripción", data.Subscription or "—", {order = 4})
 	DS.makeDataRow(idCard, "Baneado", data.Banned or "No",
 		{order = 5, valueColor = (data.Banned == "Sí") and C.bad or nil})
@@ -7043,7 +7193,7 @@ local function render(data, skipEntrance)
 				statusLabel.Text = "✓ Copiado a portapapeles (TXT)"
 				flashBtn(txtBtn, "Copiado ✓")
 			else
-				statusLabel.Text = "No disponible (tu executor no da acceso al portapapeles)."
+				statusLabel.Text = "Portapapeles no disponible."
 				flashBtn(txtBtn, "Error")
 			end
 		end)
@@ -7057,7 +7207,7 @@ local function render(data, skipEntrance)
 				statusLabel.Text = "✓ Copiado a portapapeles (JSON)"
 				flashBtn(jsonBtn, "Copiado ✓")
 			else
-				statusLabel.Text = "No disponible (tu executor no da acceso al portapapeles)."
+				statusLabel.Text = "Portapapeles no disponible."
 				flashBtn(jsonBtn, "Error")
 			end
 		end)
@@ -7332,7 +7482,8 @@ local function render(data, skipEntrance)
 	summaryLbl.Size = UDim2.new(1, 0, 0, 0)
 	summaryLbl.AutomaticSize = Enum.AutomaticSize.Y
 	summaryLbl.BackgroundTransparency = 1
-	summaryLbl.Font = Enum.Font.Gotham; summaryLbl.TextSize = 12
+	-- Usar constante DS en vez de número mágico para consistencia
+	summaryLbl.Font = Enum.Font.Gotham; summaryLbl.TextSize = DS.text.sm
 	summaryLbl.TextColor3 = C.text
 	summaryLbl.TextWrapped = true
 	summaryLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -7358,30 +7509,16 @@ local function render(data, skipEntrance)
 	-- Los desgloses son la letra pequeña del modelo: solo en modo avanzado.
 	-- Por defecto plegados; al pulsar el toggle se despliegan.
 	if Shield.adv() then
+		-- Tarjeta colapsable de Confianza (usa DS.makeCard para consistencia visual)
 		do
 			local trustBody = "Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• ")
-			local tCard = Instance.new("Frame", analysisScroll)
-			tCard.LayoutOrder = 4
-			tCard.Size = UDim2.new(1, -4, 0, 0)
-			tCard.AutomaticSize = Enum.AutomaticSize.Y
-			tCard.BackgroundColor3 = C.card
-			tCard.BorderSizePixel = 0
-			tCard.ClipsDescendants = true
-			Instance.new("UICorner", tCard).CornerRadius = UDim.new(0, 8)
-			themed(tCard, "BackgroundColor3", "card")
-			local tStr = Instance.new("UIStroke", tCard)
-			tStr.Color = C.border; tStr.Thickness = 1; tStr.Transparency = 0.5
-			themed(tStr, "Color", "border")
-			local tPad = Instance.new("UIPadding", tCard)
-			tPad.PaddingTop = UDim.new(0, 8); tPad.PaddingBottom = UDim.new(0, 8)
-			tPad.PaddingLeft = UDim.new(0, 10); tPad.PaddingRight = UDim.new(0, 10)
-			local tLay = Instance.new("UIListLayout", tCard)
-			tLay.Padding = UDim.new(0, 4); tLay.SortOrder = Enum.SortOrder.LayoutOrder
+			local tCard = DS.makeCard(analysisScroll, {order = 4})
 
+			-- Título con color dinámico (trustColor) — se busca el primer TextLabel si el card no tiene title
 			local tTitle = Instance.new("TextLabel", tCard)
 			tTitle.LayoutOrder = 0; tTitle.Size = UDim2.new(1, 0, 0, 20)
 			tTitle.BackgroundTransparency = 1
-			tTitle.Font = Enum.Font.GothamBold; tTitle.TextSize = 14
+			tTitle.Font = Enum.Font.GothamBold; tTitle.TextSize = DS.text.md
 			tTitle.TextColor3 = trustColor
 			tTitle.Text = "Confianza: " .. trustScore .. "/100  (" .. trustLvl .. ")"
 			tTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -7389,7 +7526,7 @@ local function render(data, skipEntrance)
 			local tToggle = Instance.new("TextButton", tCard)
 			tToggle.LayoutOrder = 1; tToggle.Size = UDim2.new(1, 0, 0, 16)
 			tToggle.BackgroundTransparency = 1
-			tToggle.Font = Enum.Font.Gotham; tToggle.TextSize = 11
+			tToggle.Font = Enum.Font.Gotham; tToggle.TextSize = DS.text.xs
 			tToggle.TextColor3 = C.subtext
 			tToggle.Text = "Detalle ▸"
 			tToggle.TextXAlignment = Enum.TextXAlignment.Left
@@ -7399,7 +7536,7 @@ local function render(data, skipEntrance)
 			tBody.LayoutOrder = 2; tBody.Size = UDim2.new(1, 0, 0, 0)
 			tBody.AutomaticSize = Enum.AutomaticSize.Y
 			tBody.BackgroundTransparency = 1
-			tBody.Font = Enum.Font.Gotham; tBody.TextSize = 13
+			tBody.Font = Enum.Font.Gotham; tBody.TextSize = DS.text.md
 			tBody.TextColor3 = C.text; tBody.TextWrapped = true
 			tBody.TextXAlignment = Enum.TextXAlignment.Left
 			tBody.TextYAlignment = Enum.TextYAlignment.Top
@@ -7415,7 +7552,7 @@ local function render(data, skipEntrance)
 			end)
 		end
 
-		-- Riesgo ALT: explicación contextual + desglose ponderado (colapsable).
+		-- Tarjeta colapsable de Riesgo ALT (usa DS.makeCard para consistencia visual)
 		do
 			local altContext
 			if altScore >= 61 then
@@ -7438,28 +7575,13 @@ local function render(data, skipEntrance)
 				.. "\n\nDesglose ponderado (riesgo por área):\n" .. table.concat(bd, "\n")
 				.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt."
 
-			local aCard = Instance.new("Frame", analysisScroll)
-			aCard.LayoutOrder = 5
-			aCard.Size = UDim2.new(1, -4, 0, 0)
-			aCard.AutomaticSize = Enum.AutomaticSize.Y
-			aCard.BackgroundColor3 = C.card
-			aCard.BorderSizePixel = 0
-			aCard.ClipsDescendants = true
-			Instance.new("UICorner", aCard).CornerRadius = UDim.new(0, 8)
-			themed(aCard, "BackgroundColor3", "card")
-			local aStr = Instance.new("UIStroke", aCard)
-			aStr.Color = C.border; aStr.Thickness = 1; aStr.Transparency = 0.5
-			themed(aStr, "Color", "border")
-			local aPad = Instance.new("UIPadding", aCard)
-			aPad.PaddingTop = UDim.new(0, 8); aPad.PaddingBottom = UDim.new(0, 8)
-			aPad.PaddingLeft = UDim.new(0, 10); aPad.PaddingRight = UDim.new(0, 10)
-			local aLay = Instance.new("UIListLayout", aCard)
-			aLay.Padding = UDim.new(0, 4); aLay.SortOrder = Enum.SortOrder.LayoutOrder
+			local aCard = DS.makeCard(analysisScroll, {order = 5})
 
+			-- Título con color dinámico (altColor)
 			local aTitle = Instance.new("TextLabel", aCard)
 			aTitle.LayoutOrder = 0; aTitle.Size = UDim2.new(1, 0, 0, 20)
 			aTitle.BackgroundTransparency = 1
-			aTitle.Font = Enum.Font.GothamBold; aTitle.TextSize = 14
+			aTitle.Font = Enum.Font.GothamBold; aTitle.TextSize = DS.text.md
 			aTitle.TextColor3 = altColor
 			aTitle.Text = "Riesgo de ALT: " .. altScore .. "/100  (" .. altLvl .. ")"
 			aTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -7467,7 +7589,7 @@ local function render(data, skipEntrance)
 			local aToggle = Instance.new("TextButton", aCard)
 			aToggle.LayoutOrder = 1; aToggle.Size = UDim2.new(1, 0, 0, 16)
 			aToggle.BackgroundTransparency = 1
-			aToggle.Font = Enum.Font.Gotham; aToggle.TextSize = 11
+			aToggle.Font = Enum.Font.Gotham; aToggle.TextSize = DS.text.xs
 			aToggle.TextColor3 = C.subtext
 			aToggle.Text = "Detalle ▸"
 			aToggle.TextXAlignment = Enum.TextXAlignment.Left
@@ -7477,7 +7599,7 @@ local function render(data, skipEntrance)
 			aBody.LayoutOrder = 2; aBody.Size = UDim2.new(1, 0, 0, 0)
 			aBody.AutomaticSize = Enum.AutomaticSize.Y
 			aBody.BackgroundTransparency = 1
-			aBody.Font = Enum.Font.Gotham; aBody.TextSize = 13
+			aBody.Font = Enum.Font.Gotham; aBody.TextSize = DS.text.md
 			aBody.TextColor3 = C.text; aBody.TextWrapped = true
 			aBody.TextXAlignment = Enum.TextXAlignment.Left
 			aBody.TextYAlignment = Enum.TextYAlignment.Top
@@ -8142,18 +8264,7 @@ local function buildAdminPanel()
 		statCard(grid, "Permisos",   NXCore.countOf("permissions"),  C.subtext, 4)
 
 		-- Estado de carga de archivos remotos
-		local stCard = Instance.new("Frame", sf)
-		stCard.LayoutOrder      = 2
-		stCard.Size             = UDim2.new(1, -4, 0, 0)
-		stCard.AutomaticSize    = Enum.AutomaticSize.Y
-		stCard.BackgroundColor3 = C.card; stCard.BorderSizePixel = 0
-		Instance.new("UICorner", stCard).CornerRadius = UDim.new(0, 8)
-		themed(stCard, "BackgroundColor3", "card")
-		local stp = Instance.new("UIPadding", stCard)
-		stp.PaddingTop = UDim.new(0,10); stp.PaddingBottom = UDim.new(0,10)
-		stp.PaddingLeft = UDim.new(0,12); stp.PaddingRight = UDim.new(0,12)
-		local stLay = Instance.new("UIListLayout", stCard)
-		stLay.Padding = UDim.new(0, 5); stLay.SortOrder = Enum.SortOrder.LayoutOrder
+		local stCard = DS.makeCard(sf, {order = 2})
 
 		local stTitle = Instance.new("TextLabel", stCard)
 		stTitle.LayoutOrder = 0; stTitle.Size = UDim2.new(1,0,0,20)
@@ -8817,7 +8928,7 @@ do
 	local function tarjeta(orden, titulo, subtitulo)
 		local card = Instance.new("Frame", scroll)
 		card.LayoutOrder = orden
-		card.Size = UDim2.new(1, -4, 0, 0)
+		card.Size = UDim2.new(1, 0, 0, 0)
 		card.AutomaticSize = Enum.AutomaticSize.Y
 		card.BackgroundColor3 = C.card
 		card.BorderSizePixel = 0
@@ -8858,7 +8969,7 @@ do
 		f.BackgroundTransparency = 1
 
 		local et = Instance.new("TextLabel", f)
-		et.Size = UDim2.new(0, 150, 1, 0)
+		et.Size = UDim2.new(0.4, 0, 1, 0)
 		et.BackgroundTransparency = 1
 		et.Font = Enum.Font.Gotham; et.TextSize = 12; et.TextColor3 = C.subtext
 		et.Text = etiqueta; et.TextXAlignment = Enum.TextXAlignment.Left
@@ -8867,8 +8978,8 @@ do
 
 		local anchoBoton = url and 62 or 0
 		local v = Instance.new("TextLabel", f)
-		v.Size = UDim2.new(1, -154 - anchoBoton, 1, 0)
-		v.Position = UDim2.new(0, 154, 0, 0)
+		v.Size = UDim2.new(0.6, -anchoBoton - 4, 1, 0)
+		v.Position = UDim2.new(0.4, 4, 0, 0)
 		v.BackgroundTransparency = 1
 		v.Font = Enum.Font.GothamBold; v.TextSize = 12; v.TextColor3 = C.subtext
 		v.Text = "Comprobando…"; v.TextXAlignment = Enum.TextXAlignment.Left
@@ -8891,7 +9002,7 @@ do
 					statusLabel.Text = "Abierto en el navegador."
 				else
 					clipboard(url)
-					statusLabel.Text = "No disponible en tu executor. Link copiado."
+					statusLabel.Text = "No se puede abrir directamente. Link copiado."
 				end
 			end)
 		end
@@ -9171,80 +9282,131 @@ NXCore.onReady(function()
 	end
 end)
 
--- ====================== ARRASTRE (sin conexión global permanente) ======================
-local dragInputConn, dragEndedConn
+-- ====================== ARRASTRE SUAVE (sin conexión global permanente) ======================
+-- Todo en do...end para no gastar registros de raíz: las conexiones y el estado
+-- del arrastre son locales de bloque.
+do
+	local RunService = _G.NXServices.RunService
+	local dragInputConn, dragEndedConn, dragRenderConn
+	local function stopDrag()
+		if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
+		if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
+		if dragRenderConn then dragRenderConn:Disconnect(); dragRenderConn = nil end
+	end
 
-local function stopDrag()
-	if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
-	if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
+	track(header.InputBegan:Connect(function(input)
+		local t = input.UserInputType
+		if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
+		local startMouse = input.Position
+		local startPos = main.Position
+		stopDrag()
+		-- La ventana PERSIGUE un objetivo (targetPos) con un lerp por frame,
+		-- independiente de los FPS → arrastre suave. El lerp nunca se pasa del
+		-- destino, así que NO hay overshoot ni rebote. Al soltar sigue asentándose
+		-- hasta llegar (<0.5px) y la conexión por frame se desconecta sola.
+		local targetPos = startPos
+		local dragging = true
+		dragInputConn = UserInputService.InputChanged:Connect(function(i)
+			if i.UserInputType == Enum.UserInputType.MouseMovement
+				or i.UserInputType == Enum.UserInputType.Touch then
+				local d = i.Position - startMouse
+				targetPos = UDim2.new(
+					startPos.X.Scale, startPos.X.Offset + d.X,
+					startPos.Y.Scale, startPos.Y.Offset + d.Y
+				)
+			end
+		end)
+		dragRenderConn = RunService.RenderStepped:Connect(function(dt)
+			local a = 1 - math.exp(-18 * dt)   -- respuesta ~18/s: fluido pero al día
+			main.Position = main.Position:Lerp(targetPos, a)
+			if not dragging then
+				local p = main.Position
+				if math.abs(p.X.Offset - targetPos.X.Offset) < 0.5
+					and math.abs(p.Y.Offset - targetPos.Y.Offset) < 0.5 then
+					main.Position = targetPos
+					if dragRenderConn then dragRenderConn:Disconnect(); dragRenderConn = nil end
+				end
+			end
+		end)
+		dragEndedConn = input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+				if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
+				if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
+			end
+		end)
+	end))
 end
 
-track(header.InputBegan:Connect(function(input)
-	local t = input.UserInputType
-	if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
-	local startMouse = input.Position
-	local startPos = main.Position
-	stopDrag()
-	NXWin.setDragSquish(true)
-	dragInputConn = UserInputService.InputChanged:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseMovement
-			or i.UserInputType == Enum.UserInputType.Touch then
-			local d = i.Position - startMouse
-			main.Position = UDim2.new(
-				startPos.X.Scale, startPos.X.Offset + d.X,
-				startPos.Y.Scale, startPos.Y.Offset + d.Y
-			)
-		end
-	end)
-	dragEndedConn = input.Changed:Connect(function()
-		if input.UserInputState == Enum.UserInputState.End then
-			stopDrag(); NXWin.setDragSquish(false)
-		end
-	end)
-end))
-
 -- ====================== REDIMENSIONAR (agarre esquina inferior derecha) ======================
-local resizeGrip = Instance.new("TextButton", main)
+-- Agarre de redimensionar POR FUERA del panel: va parented al ScreenGui (no a
+-- `main`, que recorta con ClipsDescendants y lo ocultaría) y se pega a la esquina
+-- inferior-derecha, 2px hacia afuera. Una función de sync lo mantiene en la
+-- esquina al mover o redimensionar la ventana (incluido el arrastre suave por
+-- frame y los tweens de maximizar/colapsar).
+local resizeGrip = Instance.new("TextButton", gui)
 resizeGrip.Name = "ResizeGrip"
-resizeGrip.Size = UDim2.new(0, 18, 0, 18)
-resizeGrip.Position = UDim2.new(1, -20, 1, -20)
+resizeGrip.Size = UDim2.new(0, 22, 0, 22)
+resizeGrip.AnchorPoint = Vector2.new(0, 0)
+resizeGrip.ClipsDescendants = true
 resizeGrip.BackgroundTransparency = 1
 resizeGrip.Text = ""
 resizeGrip.AutoButtonColor = false
 resizeGrip.BorderSizePixel = 0
 resizeGrip.ZIndex = 5
 do
-	local gripLines = {}
-	local specs = {
-		{ len = 6,  pos = UDim2.new(0.7, 0, 0.7, 0) },
-		{ len = 10, pos = UDim2.new(0.55, 0, 0.55, 0) },
-		{ len = 14, pos = UDim2.new(0.4, 0, 0.4, 0) },
-	}
-	for _, s in ipairs(specs) do
-		local ln = Instance.new("Frame", resizeGrip)
-		ln.AnchorPoint = Vector2.new(0.5, 0.5)
-		ln.Size = UDim2.fromOffset(1.5, s.len)
-		ln.Position = s.pos
-		ln.Rotation = 45
-		ln.BorderSizePixel = 0
-		ln.BackgroundColor3 = C.accent
-		ln.BackgroundTransparency = 0.3
-		ln.ZIndex = 6
-		themed(ln, "BackgroundColor3", "accent")
-		Instance.new("UICorner", ln).CornerRadius = UDim.new(1, 0)
-		table.insert(gripLines, ln)
+	local function syncResizeGrip()
+		resizeGrip.Position = UDim2.new(
+			main.Position.X.Scale, main.Position.X.Offset + main.Size.X.Offset + 2,
+			main.Position.Y.Scale, main.Position.Y.Offset + main.Size.Y.Offset + 2
+		)
 	end
+	syncResizeGrip()
+	track(main:GetPropertyChangedSignal("Position"):Connect(syncResizeGrip))
+	track(main:GetPropertyChangedSignal("Size"):Connect(syncResizeGrip))
+end
+do
+	-- Icono curvo: un CÍRCULO (Frame con UICorner completo) solo con borde
+	-- (UIStroke, sin relleno), centrado en la esquina del grip. El grip recorta
+	-- (ClipsDescendants), así que únicamente asoma el cuarto de arco que abraza la
+	-- esquina → una línea curva, más notoria que las rayitas. Un punto de acento
+	-- en el vértice remata el agarre.
+	local arc = Instance.new("Frame", resizeGrip)
+	arc.Name = "Arc"
+	arc.AnchorPoint = Vector2.new(0, 0)
+	arc.Size = UDim2.fromOffset(34, 34)
+	arc.Position = UDim2.fromOffset(-17, -17)   -- centro del círculo = esquina interior (0,0): arco volteado
+	arc.BackgroundTransparency = 1
+	arc.ZIndex = 6
+	Instance.new("UICorner", arc).CornerRadius = UDim.new(0, 17)  -- = círculo
+	local arcStroke = Instance.new("UIStroke", arc)
+	arcStroke.Color = C.accent
+	arcStroke.Thickness = 2.5
+	arcStroke.Transparency = 0.1
+	themed(arcStroke, "Color", "accent")
+
+	-- Punto en el vértice exterior de la esquina.
+	local dot = Instance.new("Frame", resizeGrip)
+	dot.Name = "Dot"
+	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+	dot.Size = UDim2.fromOffset(4, 4)
+	dot.Position = UDim2.fromOffset(4, 4)
+	dot.BorderSizePixel = 0
+	dot.BackgroundColor3 = C.accent
+	dot.BackgroundTransparency = 0.1
+	dot.ZIndex = 7
+	themed(dot, "BackgroundColor3", "accent")
+	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
 	track(resizeGrip.MouseEnter:Connect(function()
 		if not ANIM.enabled then return end
-		for _, ln in ipairs(gripLines) do
-			motionTween(ln, TweenInfo.new(0.12), { BackgroundTransparency = 0 })
-		end
+		motionTween(arcStroke, TweenInfo.new(0.12), { Transparency = 0, Thickness = 3.2 })
+		motionTween(dot, TweenInfo.new(0.12), { BackgroundTransparency = 0 })
 	end))
 	track(resizeGrip.MouseLeave:Connect(function()
 		if not ANIM.enabled then return end
-		for _, ln in ipairs(gripLines) do
-			motionTween(ln, TweenInfo.new(0.18), { BackgroundTransparency = 0.3 })
-		end
+		motionTween(arcStroke, TweenInfo.new(0.18), { Transparency = 0.1, Thickness = 2.5 })
+		motionTween(dot, TweenInfo.new(0.18), { BackgroundTransparency = 0.1 })
 	end))
 end
 
@@ -12462,19 +12624,19 @@ end)()
 	end)
 
 	-- ====================== VENTANA PRINCIPAL ======================
-	local ANCHO, ALTO = 380, 480
+	local ANCHO, ALTO = 400, 520
 	local ventana = Instance.new("Frame")
 	ventana.Name = "Ventana"
 	ventana.Size = UDim2.new(0, ANCHO, 0, ALTO)
 	-- Posición inicial = FALLBACK (se aplica si el Analyzer no está cargado).
 	-- El docking real (anclar a la derecha del Analyzer con un gap) se hace al
 	-- final del init en task.defer → ver "DOCKING" más abajo.
-	ventana.Position = UDim2.new(0.5, 308, 0.5, -ALTO/2)
+	ventana.Position = UDim2.new(0.5, 338, 0.5, -ALTO/2)
 	ventana.BorderSizePixel = 0
 	ventana.ClipsDescendants = true
 	ventana.Parent = gui
 	pthemed(ventana, "BackgroundColor3", "bg")
-	Instance.new("UICorner", ventana).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", ventana).CornerRadius = UDim.new(0, 12)
 
 	local borde = Instance.new("UIStroke", ventana)
 	borde.Thickness = 1.2
@@ -12484,10 +12646,10 @@ end)()
 	-- ====================== ENCABEZADO ======================
 	local encabezado = Instance.new("Frame", ventana)
 	encabezado.Name = "Encabezado"
-	encabezado.Size = UDim2.new(1, 0, 0, 34)
+	encabezado.Size = UDim2.new(1, 0, 0, 38)
 	encabezado.BorderSizePixel = 0
 	pthemed(encabezado, "BackgroundColor3", "header")
-	Instance.new("UICorner", encabezado).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", encabezado).CornerRadius = UDim.new(0, 12)
 
 	local titulo = Instance.new("TextLabel", encabezado)
 	titulo.Size = UDim2.new(1, -110, 1, 0)
@@ -12495,7 +12657,7 @@ end)()
 	titulo.BackgroundTransparency = 1
 	titulo.Font = Enum.Font.GothamBold
 	titulo.Text = "Jugadores: 0"
-	titulo.TextSize = 14
+	titulo.TextSize = 15
 	titulo.TextXAlignment = Enum.TextXAlignment.Left
 	titulo.TextTruncate = Enum.TextTruncate.AtEnd
 	pthemed(titulo, "TextColor3", "accent")
@@ -12550,7 +12712,7 @@ end)()
 		size = NORMAL_SIZE
 		pos = posGuardada
 		if minimizado then
-			size = UDim2.new(size.X.Scale, size.X.Offset, 0, 34)
+			size = UDim2.new(size.X.Scale, size.X.Offset, 0, 38)
 		end
 		local dur = animar == false and 0 or 0.3
 		local info = TweenInfo.new(dur, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -12595,8 +12757,8 @@ end)()
 
 	-- ====================== BARRA DE BÚSQUEDA (estilo barra de direcciones) ======================
 	local cajaBusqueda = Instance.new("TextBox", ventana)
-	cajaBusqueda.Size = UDim2.new(1, -16, 0, 30)
-	cajaBusqueda.Position = UDim2.new(0, 8, 0, 42)
+	cajaBusqueda.Size = UDim2.new(1, -16, 0, 32)
+	cajaBusqueda.Position = UDim2.new(0, 8, 0, 46)
 	cajaBusqueda.PlaceholderText = "Buscar en el servidor o en todo Roblox"
 	cajaBusqueda.Font = Enum.Font.Gotham
 	cajaBusqueda.TextSize = 13
@@ -12619,42 +12781,38 @@ end)()
 	cajaStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	pthemed(cajaStroke, "Color", "border")
 
-	-- Icono LUPA dibujado (aro + mango), temable. Antes era un label vacío.
-	local lockGlyph = Instance.new("Frame", cajaBusqueda)
-	lockGlyph.Name = "SearchIcon"
-	lockGlyph.Size = UDim2.new(0, 16, 0, 16)
-	lockGlyph.Position = UDim2.new(0, 9, 0.5, -8)
-	lockGlyph.BackgroundTransparency = 1
-	lockGlyph.ZIndex = 2
-	do
-		local ring = Instance.new("Frame", lockGlyph)
-		ring.AnchorPoint = Vector2.new(0.5, 0.5)
-		ring.Position = UDim2.new(0.42, 0, 0.42, 0)
-		ring.Size = UDim2.fromOffset(10, 10)
-		ring.BackgroundTransparency = 1
-		ring.BorderSizePixel = 0
-		ring.ZIndex = 2
-		Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
-		local rs = Instance.new("UIStroke", ring)
-		rs.Thickness = 1.6
-		pthemed(rs, "Color", "subtext")
-		local handle = Instance.new("Frame", lockGlyph)
-		handle.AnchorPoint = Vector2.new(0.5, 0.5)
-		handle.Position = UDim2.new(0.72, 0, 0.72, 0)
-		handle.Size = UDim2.fromOffset(5, 1.8)
-		handle.Rotation = 45
-		handle.BorderSizePixel = 0
-		handle.ZIndex = 2
-		Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
-		pthemed(handle, "BackgroundColor3", "subtext")
+	-- Lupa generada: asset raster independiente, no formas dibujadas por código.
+	local searchIcon = Instance.new("ImageLabel", cajaBusqueda)
+	searchIcon.Name = "SearchIcon"
+	searchIcon.Size = UDim2.fromOffset(14, 14)
+	searchIcon.Position = UDim2.fromOffset(-22, 9)
+	searchIcon.BackgroundTransparency = 1
+	searchIcon.BorderSizePixel = 0
+	searchIcon.Active = false
+	searchIcon.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
+	searchIcon.ImageColor3 = col("subtext")
+	searchIcon.ImageTransparency = 0.18
+	searchIcon.ScaleType = Enum.ScaleType.Fit
+	searchIcon.ZIndex = 2
+	pthemed(searchIcon, "ImageColor3", "subtext")
+	local function setSearchFocusState(focused)
+		local strokeColor = focused and col("accent") or col("border")
+		TweenService:Create(cajaStroke, TweenInfo.new(focused and 0.16 or 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Color = strokeColor, Transparency = focused and 0.15 or 0.7, Thickness = focused and 1.4 or 1,
+		}):Play()
+		TweenService:Create(searchIcon, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			ImageTransparency = focused and 0 or 0.18,
+		}):Play()
 	end
+	cajaBusqueda.Focused:Connect(function() setSearchFocusState(true) end)
+	cajaBusqueda.FocusLost:Connect(function() setSearchFocusState(false) end)
 
 	local function onSearchBlur() end
 
 	-- ====================== PANEL DE SUGERENCIAS ======================
 	local panelSugerencias = Instance.new("Frame", ventana)
 	panelSugerencias.Size = UDim2.new(1, -16, 0, 0)
-	panelSugerencias.Position = UDim2.new(0, 8, 0, 74)
+	panelSugerencias.Position = UDim2.new(0, 8, 0, 84)
 	panelSugerencias.BorderSizePixel = 0
 	panelSugerencias.Visible = false
 	panelSugerencias.ZIndex = 5
@@ -12673,8 +12831,8 @@ end)()
 
 	-- ====================== ÁREA DE TARJETAS ======================
 	local scroll = Instance.new("ScrollingFrame", ventana)
-	scroll.Size = UDim2.new(1, -8, 1, -80)
-	scroll.Position = UDim2.new(0, 4, 0, 78)
+	scroll.Size = UDim2.new(1, -8, 1, -90)
+	scroll.Position = UDim2.new(0, 4, 0, 86)
 	scroll.BackgroundTransparency = 0.5
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 5
@@ -12901,6 +13059,34 @@ end)()
 			(not globalActivo) and (not hayVisiblesLocal) and (hayJugadores or hayFiltro)
 	end
 
+	-- Entrada breve para resultados: primero se asienta la tarjeta y después se
+	-- revela su información. Es deliberadamente sobria (Quad/Quint), sin pop,
+	-- rebote ni elasticidad.
+	local function revelarTarjeta(tarjeta, bordeTarjeta, elementos)
+		if not store.animations then return end
+		tarjeta.BackgroundTransparency = 1
+		bordeTarjeta.Transparency = 1
+		for _, elemento in ipairs(elementos) do elemento.TextTransparency = 1 end
+		task.defer(function()
+			if not tarjeta.Parent then return end
+			TweenService:Create(tarjeta, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 0,
+			}):Play()
+			TweenService:Create(bordeTarjeta, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Transparency = 0.6,
+			}):Play()
+			task.delay(0.06, function()
+				for _, elemento in ipairs(elementos) do
+					if elemento.Parent then
+						TweenService:Create(elemento, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							TextTransparency = 0,
+						}):Play()
+					end
+				end
+			end)
+		end)
+	end
+
 	-- ====================== CREAR TARJETA (jugador del servidor) ======================
 	local function crearTarjeta(plr, diferir)
 		if tarjetas[plr] then return end
@@ -12908,7 +13094,7 @@ end)()
 
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Tarjeta_" .. plr.Name
-		tarjeta.Size = UDim2.new(1, -16, 0, 82)
+		tarjeta.Size = UDim2.new(1, -16, 0, 88)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = 0
 		tarjeta.ClipsDescendants = true
@@ -12940,7 +13126,7 @@ end)()
 		tarjeta.Destroying:Connect(stopCardPrepaint)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
-		avatar.Size = UDim2.new(0, 44, 0, 44)
+		avatar.Size = UDim2.new(0, 46, 0, 46)
 		avatar.Position = UDim2.new(0, 10, 0, 8)
 		avatar.Image = avatarCache[userId] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
@@ -12973,7 +13159,7 @@ end)()
 		-- botones en fila horizontal debajo de la info
 		local filaBotones = Instance.new("Frame", tarjeta)
 		filaBotones.Size = UDim2.new(1, -20, 0, 26)
-		filaBotones.Position = UDim2.new(0, 10, 0, 50)
+		filaBotones.Position = UDim2.new(0, 10, 0, 55)
 		filaBotones.BackgroundTransparency = 1
 
 		local layoutBotones = Instance.new("UIListLayout", filaBotones)
@@ -12996,6 +13182,7 @@ end)()
 		b1.Size = UDim2.new(0, 80, 1, 0)
 		b2.Size = UDim2.new(0, 80, 1, 0)
 		b3.Size = UDim2.new(1, -172, 1, 0)  -- rellena el resto (80+80+6+6=172)
+		revelarTarjeta(tarjeta, tStroke, { labelDisplay, labelUser, b1, b2, b3 })
 
 		local datos = {
 			frame = tarjeta, userId = userId,
@@ -13069,7 +13256,7 @@ end)()
 	local function crearTarjetaGlobal(info, orden)
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Global_" .. info.id
-		tarjeta.Size = UDim2.new(1, -16, 0, 82)
+		tarjeta.Size = UDim2.new(1, -16, 0, 88)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = orden
 		tarjeta.ClipsDescendants = true
@@ -13101,7 +13288,7 @@ end)()
 		Instance.new("UICorner", marca).CornerRadius = UDim.new(0, 2)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
-		avatar.Size = UDim2.new(0, 44, 0, 44)
+		avatar.Size = UDim2.new(0, 46, 0, 46)
 		avatar.Position = UDim2.new(0, 10, 0, 8)
 		avatar.Image = avatarCache[info.id] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
@@ -13134,7 +13321,7 @@ end)()
 		-- botones en fila horizontal
 		local filaBotones = Instance.new("Frame", tarjeta)
 		filaBotones.Size = UDim2.new(1, -20, 0, 26)
-		filaBotones.Position = UDim2.new(0, 10, 0, 50)
+		filaBotones.Position = UDim2.new(0, 10, 0, 55)
 		filaBotones.BackgroundTransparency = 1
 		local layoutBotones = Instance.new("UIListLayout", filaBotones)
 		layoutBotones.FillDirection = Enum.FillDirection.Horizontal
@@ -13155,6 +13342,7 @@ end)()
 		gb1.Size = UDim2.new(0, 80, 1, 0)
 		gb2.Size = UDim2.new(0, 80, 1, 0)
 		gb3.Size = UDim2.new(1, -172, 1, 0)
+		revelarTarjeta(tarjeta, gStroke, { labelDisplay, labelUser, gb1, gb2, gb3 })
 	end
 
 	local function buscarGlobal(textoCrudo)
@@ -13295,6 +13483,16 @@ end)()
 			txt.TextTruncate = Enum.TextTruncate.AtEnd
 			txt.ZIndex = 7
 			pthemed(txt, "TextColor3", "text")
+			if store.animations then
+				txt.TextTransparency = 1
+				task.delay((i - 1) * 0.035, function()
+					if txt.Parent then
+						TweenService:Create(txt, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							TextTransparency = 0,
+						}):Play()
+					end
+				end)
+			end
 
 			fila.MouseEnter:Connect(function()
 				TweenService:Create(fila, TweenInfo.new(0.1), { BackgroundTransparency = 0 }):Play()
@@ -13346,11 +13544,37 @@ end)()
 			or input.UserInputType == Enum.UserInputType.Touch
 	end
 
+	-- Arrastre SUAVE sin efecto de escala: el gesto fija un objetivo (objetivoPos)
+	-- y un lerp por frame acerca la ventana a él, independiente de los FPS. El lerp
+	-- nunca se pasa del destino → arrastre fluido, sin overshoot ni rebote. Al
+	-- soltar sigue asentándose hasta llegar y la conexión por frame se desconecta
+	-- sola. dragScale queda fijo en 1 (nunca cambia de tamaño).
+	dragScale.Scale = 1
+	local RunService = _S.RunService or game:GetService("RunService")
+	local objetivoPos = ventana.Position
+	local arrastreRender
+
 	ltrack(encabezado.InputBegan:Connect(function(input)
 		if esInputArrastre(input) then
 			arrastrando = true
 			inicioInput = input.Position
 			inicioPos = ventana.Position
+			objetivoPos = ventana.Position
+			if arrastreRender then arrastreRender:Disconnect(); arrastreRender = nil end
+			arrastreRender = RunService.RenderStepped:Connect(function(dt)
+				local a = 1 - math.exp(-18 * dt)
+				ventana.Position = ventana.Position:Lerp(objetivoPos, a)
+				posGuardada = ventana.Position
+				if not arrastrando then
+					local p = ventana.Position
+					if math.abs(p.X.Offset - objetivoPos.X.Offset) < 0.5
+						and math.abs(p.Y.Offset - objetivoPos.Y.Offset) < 0.5 then
+						ventana.Position = objetivoPos
+						posGuardada = objetivoPos
+						arrastreRender:Disconnect(); arrastreRender = nil
+					end
+				end
+			end)
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					arrastrando = false
@@ -13362,11 +13586,10 @@ end)()
 	ltrack(UserInputService.InputChanged:Connect(function(input)
 		if arrastrando and esMovimientoArrastre(input) then
 			local delta = input.Position - inicioInput
-			ventana.Position = UDim2.new(
+			objetivoPos = UDim2.new(
 				inicioPos.X.Scale, inicioPos.X.Offset + delta.X,
 				inicioPos.Y.Scale, inicioPos.Y.Offset + delta.Y
 			)
-			posGuardada = ventana.Position
 		end
 	end))
 
