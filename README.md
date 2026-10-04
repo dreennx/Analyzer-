@@ -1,7 +1,4 @@
-<p align="center">
-  <img src="assets/icons/icon Copy.png" width="120" alt="Analyzer Logo"/>
-</p>
-
+<h1 align="center">NX Analyzer</h1>
 <h1 align="center">NX Analyzer</h1>
 
 <p align="center">
