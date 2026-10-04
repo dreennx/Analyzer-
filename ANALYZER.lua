@@ -1,5 +1,6 @@
 --[[
    Roblox Public Profile Analyzer  v3.9.3
+   © 2024-2026 dreennx — Todos los derechos reservados.
    ---------------------------------------------------------------
    Cambios en v3.9.3 (sobre v3.9.2) — UI PREMIUM + ANIMACIONES + CORRECCIONES:
      • NX Scan (3 nodos) corre SIEMPRE, incluso con animaciones OFF.
@@ -37,12 +38,18 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 _G.NXServices = {
+-- NX·d7e3a © dreennx
 	Players = Players,
 	HttpService = HttpService,
 	UserInputService = UserInputService,
 	TweenService = TweenService,
 	RunService = game:GetService("RunService"),
 }
+
+do
+	_G._NX_OWNER = "dreennx"
+	_G._NX_SIG = "d7e3a-9f2b1-4a8c2-e5d07-b3f19"
+end
 
 -- Recurso gráfico generado para las búsquedas. Se carga como asset local del
 -- executor, evitando componer la lupa con Frames y manteniendo bordes limpios.
@@ -121,7 +128,7 @@ local THEMES = {
 		bg=Color3.fromRGB(26,27,30), card=Color3.fromRGB(34,36,39), input=Color3.fromRGB(30,31,34),
 		surface=Color3.fromRGB(34,36,39), surfaceHover=Color3.fromRGB(42,44,48), elevated=Color3.fromRGB(46,48,53),
 		link=Color3.fromRGB(26,27,30), neutral=Color3.fromRGB(40,42,46), border=Color3.fromRGB(58,60,66),
-		divider=Color3.fromRGB(50,52,58), headerBg=Color3.fromRGB(30,31,34), textDisabled=Color3.fromRGB(85,87,94),
+		divider=Color3.fromRGB(50,52,58),textDisabled=Color3.fromRGB(85,87,94),
 		accent=Color3.fromRGB(224,226,230), onAccent=Color3.fromRGB(26,27,30),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,178,50), bad=Color3.fromRGB(237,66,69),
 		text=Color3.fromRGB(224,225,228), subtext=Color3.fromRGB(139,141,148),
@@ -131,7 +138,7 @@ local THEMES = {
 		bg=Color3.fromRGB(18,24,42), card=Color3.fromRGB(28,36,62), input=Color3.fromRGB(24,30,54),
 		surface=Color3.fromRGB(28,36,62), surfaceHover=Color3.fromRGB(36,44,72), elevated=Color3.fromRGB(40,50,82),
 		link=Color3.fromRGB(18,24,42), neutral=Color3.fromRGB(38,48,80), border=Color3.fromRGB(52,64,100),
-		divider=Color3.fromRGB(44,56,90), headerBg=Color3.fromRGB(22,28,50), textDisabled=Color3.fromRGB(80,90,120),
+		divider=Color3.fromRGB(44,56,90),textDisabled=Color3.fromRGB(80,90,120),
 		accent=Color3.fromRGB(88,101,242), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,178,50), bad=Color3.fromRGB(237,66,69),
 		text=Color3.fromRGB(240,240,245), subtext=Color3.fromRGB(160,165,185),
@@ -141,7 +148,7 @@ local THEMES = {
 		bg=Color3.fromRGB(14,22,16), card=Color3.fromRGB(22,34,26), input=Color3.fromRGB(20,30,23),
 		surface=Color3.fromRGB(22,34,26), surfaceHover=Color3.fromRGB(30,44,34), elevated=Color3.fromRGB(34,50,38),
 		link=Color3.fromRGB(14,22,16), neutral=Color3.fromRGB(30,46,34), border=Color3.fromRGB(44,66,50),
-		divider=Color3.fromRGB(38,56,42), headerBg=Color3.fromRGB(18,28,20), textDisabled=Color3.fromRGB(75,95,80),
+		divider=Color3.fromRGB(38,56,42),textDisabled=Color3.fromRGB(75,95,80),
 		accent=Color3.fromRGB(60,220,130), onAccent=Color3.fromRGB(8,16,10),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,190,90), bad=Color3.fromRGB(230,100,100),
 		text=Color3.fromRGB(225,235,228), subtext=Color3.fromRGB(120,140,128),
@@ -151,7 +158,7 @@ local THEMES = {
 		bg=Color3.fromRGB(24,18,34), card=Color3.fromRGB(35,26,48), input=Color3.fromRGB(30,22,42),
 		surface=Color3.fromRGB(35,26,48), surfaceHover=Color3.fromRGB(44,34,58), elevated=Color3.fromRGB(50,38,66),
 		link=Color3.fromRGB(24,18,34), neutral=Color3.fromRGB(46,34,62), border=Color3.fromRGB(65,50,88),
-		divider=Color3.fromRGB(55,42,74), headerBg=Color3.fromRGB(28,21,40), textDisabled=Color3.fromRGB(90,78,110),
+		divider=Color3.fromRGB(55,42,74),textDisabled=Color3.fromRGB(90,78,110),
 		accent=Color3.fromRGB(160,100,210), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
 		text=Color3.fromRGB(235,230,242), subtext=Color3.fromRGB(150,135,168),
@@ -161,7 +168,7 @@ local THEMES = {
 		bg=Color3.fromRGB(24,14,16), card=Color3.fromRGB(38,22,25), input=Color3.fromRGB(32,18,21),
 		surface=Color3.fromRGB(38,22,25), surfaceHover=Color3.fromRGB(48,30,34), elevated=Color3.fromRGB(54,34,38),
 		link=Color3.fromRGB(24,14,16), neutral=Color3.fromRGB(50,28,32), border=Color3.fromRGB(76,42,48),
-		divider=Color3.fromRGB(62,36,40), headerBg=Color3.fromRGB(28,16,19), textDisabled=Color3.fromRGB(100,72,78),
+		divider=Color3.fromRGB(62,36,40),textDisabled=Color3.fromRGB(100,72,78),
 		accent=Color3.fromRGB(237,66,69), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(255,90,90),
 		text=Color3.fromRGB(240,228,230), subtext=Color3.fromRGB(165,135,140),
@@ -171,7 +178,7 @@ local THEMES = {
 		bg=Color3.fromRGB(20,16,32), card=Color3.fromRGB(30,24,48), input=Color3.fromRGB(26,20,42),
 		surface=Color3.fromRGB(30,24,48), surfaceHover=Color3.fromRGB(40,32,60), elevated=Color3.fromRGB(46,38,68),
 		link=Color3.fromRGB(20,16,32), neutral=Color3.fromRGB(42,32,66), border=Color3.fromRGB(62,48,98),
-		divider=Color3.fromRGB(52,40,80), headerBg=Color3.fromRGB(24,18,38), textDisabled=Color3.fromRGB(88,76,115),
+		divider=Color3.fromRGB(52,40,80),textDisabled=Color3.fromRGB(88,76,115),
 		accent=Color3.fromRGB(170,110,255), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(232,226,245), subtext=Color3.fromRGB(150,138,175),
@@ -181,7 +188,7 @@ local THEMES = {
 		bg=Color3.fromRGB(12,22,24), card=Color3.fromRGB(18,34,37), input=Color3.fromRGB(16,30,33),
 		surface=Color3.fromRGB(18,34,37), surfaceHover=Color3.fromRGB(26,44,48), elevated=Color3.fromRGB(30,50,54),
 		link=Color3.fromRGB(12,22,24), neutral=Color3.fromRGB(26,46,50), border=Color3.fromRGB(38,68,74),
-		divider=Color3.fromRGB(32,56,62), headerBg=Color3.fromRGB(14,26,28), textDisabled=Color3.fromRGB(68,96,100),
+		divider=Color3.fromRGB(32,56,62),textDisabled=Color3.fromRGB(68,96,100),
 		accent=Color3.fromRGB(0,220,210), onAccent=Color3.fromRGB(6,18,18),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(224,238,238), subtext=Color3.fromRGB(120,150,150),
@@ -191,7 +198,7 @@ local THEMES = {
 		bg=Color3.fromRGB(26,16,22), card=Color3.fromRGB(40,24,34), input=Color3.fromRGB(34,20,28),
 		surface=Color3.fromRGB(40,24,34), surfaceHover=Color3.fromRGB(52,32,44), elevated=Color3.fromRGB(58,36,50),
 		link=Color3.fromRGB(26,16,22), neutral=Color3.fromRGB(52,30,44), border=Color3.fromRGB(78,46,66),
-		divider=Color3.fromRGB(64,38,54), headerBg=Color3.fromRGB(30,18,26), textDisabled=Color3.fromRGB(105,78,92),
+		divider=Color3.fromRGB(64,38,54),textDisabled=Color3.fromRGB(105,78,92),
 		accent=Color3.fromRGB(255,110,190), onAccent=Color3.fromRGB(28,10,20),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(245,228,238), subtext=Color3.fromRGB(170,135,155),
@@ -201,7 +208,7 @@ local THEMES = {
 		bg=Color3.fromRGB(26,18,10), card=Color3.fromRGB(40,28,16), input=Color3.fromRGB(34,24,14),
 		surface=Color3.fromRGB(40,28,16), surfaceHover=Color3.fromRGB(52,36,22), elevated=Color3.fromRGB(58,42,26),
 		link=Color3.fromRGB(26,18,10), neutral=Color3.fromRGB(52,36,20), border=Color3.fromRGB(78,56,32),
-		divider=Color3.fromRGB(64,46,26), headerBg=Color3.fromRGB(30,22,12), textDisabled=Color3.fromRGB(105,88,68),
+		divider=Color3.fromRGB(64,46,26),textDisabled=Color3.fromRGB(105,88,68),
 		accent=Color3.fromRGB(255,150,50), onAccent=Color3.fromRGB(28,16,6),
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(244,234,222), subtext=Color3.fromRGB(168,148,124),
@@ -211,7 +218,7 @@ local THEMES = {
 		bg=Color3.fromRGB(12,8,22), card=Color3.fromRGB(22,16,38), input=Color3.fromRGB(18,12,32),
 		surface=Color3.fromRGB(22,16,38), surfaceHover=Color3.fromRGB(32,24,52), elevated=Color3.fromRGB(36,28,56),
 		link=Color3.fromRGB(12,8,22), neutral=Color3.fromRGB(34,24,54), border=Color3.fromRGB(56,38,86),
-		divider=Color3.fromRGB(46,32,72), headerBg=Color3.fromRGB(16,10,28), textDisabled=Color3.fromRGB(82,64,108),
+		divider=Color3.fromRGB(46,32,72),textDisabled=Color3.fromRGB(82,64,108),
 		accent=Color3.fromRGB(180,50,255), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(0,240,140), warn=Color3.fromRGB(255,200,60), bad=Color3.fromRGB(255,60,80),
 		text=Color3.fromRGB(235,225,248), subtext=Color3.fromRGB(148,128,178),
@@ -221,7 +228,7 @@ local THEMES = {
 		bg=Color3.fromRGB(238,240,244), card=Color3.fromRGB(255,255,255), input=Color3.fromRGB(248,249,251),
 		surface=Color3.fromRGB(255,255,255), surfaceHover=Color3.fromRGB(242,243,247), elevated=Color3.fromRGB(255,255,255),
 		link=Color3.fromRGB(238,240,244), neutral=Color3.fromRGB(228,231,237), border=Color3.fromRGB(205,210,220),
-		divider=Color3.fromRGB(218,222,230), headerBg=Color3.fromRGB(248,249,251), textDisabled=Color3.fromRGB(170,175,185),
+		divider=Color3.fromRGB(218,222,230),textDisabled=Color3.fromRGB(170,175,185),
 		accent=Color3.fromRGB(88,101,242), onAccent=Color3.fromRGB(255,255,255),
 		good=Color3.fromRGB(40,160,90), warn=Color3.fromRGB(205,135,30), bad=Color3.fromRGB(220,70,70),
 		text=Color3.fromRGB(22,26,34), subtext=Color3.fromRGB(95,105,120),
@@ -305,6 +312,7 @@ _G.NXTheme = {
 -- ====================== DESIGN SYSTEM (tokens + component builders) ======================
 -- Todo en do...end: NO gasta locals de raíz. Los builders se exponen vía _G.NXDS.
 do
+-- ds·nx·9f2b1
 	local DS = {}
 
 	DS.corner = { sm = UDim.new(0, 6), md = UDim.new(0, 8), lg = UDim.new(0, 12), pill = UDim.new(1, 0) }
@@ -348,6 +356,7 @@ do
 			s.TextXAlignment = Enum.TextXAlignment.Left
 			themed(s, "TextColor3", "subtext")
 		end
+
 		return card, body
 	end
 
@@ -393,16 +402,9 @@ do
 			cp.Font = Enum.Font.GothamBold; cp.TextSize = 13
 			cp.TextColor3 = C.subtext
 			cp.AutoButtonColor = false; cp.ZIndex = 3
-			-- Esquinas redondeadas como botones secondary
 			Instance.new("UICorner", cp).CornerRadius = UDim.new(0, 4)
-			-- Borde sutil igual que DS.makeButton secondary
-			local cpStroke = Instance.new("UIStroke", cp)
-			cpStroke.Thickness = 1; cpStroke.Color = C.border; cpStroke.Transparency = 0.5
-			cpStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			-- Registrar con themed() para repintado en vivo
 			themed(cp, "BackgroundColor3", "surface")
 			themed(cp, "TextColor3", "subtext")
-			themed(cpStroke, "Color", "border")
 			-- Hover sutil: solo cambio de transparencia del texto
 			cp.MouseEnter:Connect(function() cp.TextColor3 = C.text end)
 			cp.MouseLeave:Connect(function() cp.TextColor3 = C.subtext end)
@@ -443,10 +445,6 @@ do
 			themed(btn, "BackgroundColor3", "accent"); themed(btn, "TextColor3", "onAccent")
 		elseif style == "secondary" then
 			themed(btn, "BackgroundColor3", "surface"); themed(btn, "TextColor3", "text")
-			local bst = Instance.new("UIStroke", btn)
-			bst.Thickness = 1; bst.Color = C.border; bst.Transparency = 0.5
-			bst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			themed(bst, "Color", "border")
 		else
 			themed(btn, "TextColor3", "subtext")
 		end
@@ -2570,6 +2568,7 @@ end
 
 -- ====================== GUI ======================
 local connections = {}
+-- conn·nx·4a8c2 © dreennx
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "UtilityPanel"
@@ -2684,25 +2683,72 @@ end
 local function addHoverStroke(btn)
 	btn.AutoButtonColor = false
 	btn:SetAttribute("NXHoverDone", true)
+	local hs = Instance.new("UIStroke", btn)
+	hs.Name = "HoverStroke"
+	hs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	hs.Thickness = 1
+	hs.Transparency = 1
+	hs.Color = C.accent
+	themed(hs, "Color", "accent")
+	local hsTween
+	btn.MouseEnter:Connect(function()
+		if not ANIM.enabled then hs.Transparency = 0.4; return end
+		if hsTween then pcall(function() hsTween:Cancel() end) end
+		hsTween = TweenService:Create(hs, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 0.4 })
+		hsTween:Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		if not ANIM.enabled then hs.Transparency = 1; return end
+		if hsTween then pcall(function() hsTween:Cancel() end) end
+		hsTween = TweenService:Create(hs, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 1 })
+		hsTween:Play()
+	end)
+	btn.MouseButton1Down:Connect(function()
+		if not ANIM.enabled then return end
+		if hsTween then pcall(function() hsTween:Cancel() end) end
+		hsTween = TweenService:Create(hs, TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 0.15 })
+		hsTween:Play()
+	end)
+	btn.MouseButton1Up:Connect(function()
+		if not ANIM.enabled then return end
+		if hsTween then pcall(function() hsTween:Cancel() end) end
+		hsTween = TweenService:Create(hs, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Transparency = 0.4 })
+		hsTween:Play()
+	end)
 end
 
 local function addShineHover(btn)
 	local baseBg = btn.BackgroundColor3
+	local shineTw
+
+	local alive = true
+	pcall(function()
+		btn.Destroying:Connect(function() alive = false end)
+	end)
+	onRepaint(function()
+		if not alive then error("dead") end
+		baseBg = btn.BackgroundColor3
+	end)
 
 	btn.MouseEnter:Connect(function()
 		if not ANIM.enabled then return end
-		motionTween(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if shineTw then pcall(function() shineTw:Cancel() end) end
+		shineTw = TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundColor3 = Color3.new(
 				math.min(baseBg.R + 0.06, 1),
 				math.min(baseBg.G + 0.06, 1),
 				math.min(baseBg.B + 0.06, 1))
 		})
+		shineTw:Play()
 	end)
 
 	btn.MouseLeave:Connect(function()
-		motionTween(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if shineTw then pcall(function() shineTw:Cancel() end) end
+		if not ANIM.enabled then btn.BackgroundColor3 = baseBg; return end
+		shineTw = TweenService:Create(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundColor3 = baseBg
 		})
+		shineTw:Play()
 	end)
 end
 
@@ -2878,7 +2924,7 @@ syncWindowShadow()
 track(main:GetPropertyChangedSignal("Size"):Connect(syncWindowShadow))
 track(main:GetPropertyChangedSignal("Position"):Connect(syncWindowShadow))
 
--- Header (36px, color headerBg)
+-- Header
 local header = Instance.new("Frame", main)
 header.Size = UDim2.new(1, 0, 0, 40)
 header.BackgroundColor3 = C.bg
@@ -2963,38 +3009,26 @@ do
 	closeBtn.AutoButtonColor = false
 	closeBtn.Text = ""
 	closeBtn.BorderSizePixel = 0
-	closeBtn.BackgroundColor3 = C.bad
+	closeBtn.BackgroundColor3 = C.bg
 	closeBtn.ZIndex = 5
 	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
-	themed(closeBtn, "BackgroundColor3", "bad")
-	local closeSt = Instance.new("UIStroke", closeBtn)
-	closeSt.Thickness = 1; closeSt.Transparency = 0.35
-	themed(closeSt, "Color", "border")
-	local xLine1 = Instance.new("Frame", closeBtn)
-	xLine1.AnchorPoint = Vector2.new(0.5, 0.5)
-	xLine1.Position = UDim2.new(0.5, 0, 0.5, 0)
-	xLine1.Size = UDim2.fromOffset(12, 1.6)
-	xLine1.Rotation = 45
-	xLine1.BackgroundColor3 = C.text
-	xLine1.BorderSizePixel = 0
-	xLine1.ZIndex = 6
-	Instance.new("UICorner", xLine1).CornerRadius = UDim.new(1, 0)
-	themed(xLine1, "BackgroundColor3", "text")
-	local xLine2 = Instance.new("Frame", closeBtn)
-	xLine2.AnchorPoint = Vector2.new(0.5, 0.5)
-	xLine2.Position = UDim2.new(0.5, 0, 0.5, 0)
-	xLine2.Size = UDim2.fromOffset(12, 1.6)
-	xLine2.Rotation = -45
-	xLine2.BackgroundColor3 = C.text
-	xLine2.BorderSizePixel = 0
-	xLine2.ZIndex = 6
-	Instance.new("UICorner", xLine2).CornerRadius = UDim.new(1, 0)
-	themed(xLine2, "BackgroundColor3", "text")
+	themed(closeBtn, "BackgroundColor3", "bg")
+	closeBtn.BackgroundTransparency = 1
+	local closeIco = Instance.new("ImageLabel", closeBtn)
+	closeIco.Size = UDim2.fromOffset(20, 20)
+	closeIco.AnchorPoint = Vector2.new(0.5, 0.5)
+	closeIco.Position = UDim2.new(0.5, 0, 0.5, 0)
+	closeIco.BackgroundTransparency = 1
+	closeIco.Image = (_G.NXIcons and _G.NXIcons.close) or ""
+	closeIco.ImageColor3 = C.text
+	closeIco.ScaleType = Enum.ScaleType.Fit
+	closeIco.ZIndex = 6
+	themed(closeIco, "ImageColor3", "text")
 	track(closeBtn.MouseEnter:Connect(function()
-		motionTween(closeBtn, TweenInfo.new(0.12), { BackgroundColor3 = wlighten(C.bad, 0.12) })
+		motionTween(closeIco, TweenInfo.new(0.12), { ImageColor3 = C.bad })
 	end))
 	track(closeBtn.MouseLeave:Connect(function()
-		motionTween(closeBtn, TweenInfo.new(0.16), { BackgroundColor3 = C.bad })
+		motionTween(closeIco, TweenInfo.new(0.16), { ImageColor3 = C.text })
 	end))
 	track(closeBtn.MouseButton1Click:Connect(function() NXWin.animatedClose() end))
 end
@@ -3029,6 +3063,7 @@ do
 	function NXWin.animatedClose()
 		if not ANIM.enabled then gui:Destroy(); return end
 		motionTween(windowShadow, TweenInfo.new(0.18), { ImageTransparency = 1 })
+		motionTween(introScale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.92 })
 		motionTween(main, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }, function()
 			gui:Destroy()
 		end)
@@ -3042,7 +3077,7 @@ do
 			savedCollapseSize = main.Size
 			windowCollapsed = true
 			motionTween(main, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-				{ Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 36) })
+				{ Size = UDim2.new(main.Size.X.Scale, main.Size.X.Offset, 0, 40) })
 		end
 	end
 
@@ -3060,7 +3095,7 @@ do
 			local w = math.max(MIN_W, math.floor(vp.X * 0.9))
 			local h = math.max(MIN_H, math.floor(vp.Y * 0.9))
 			targetSize = UDim2.new(0, w, 0, h)
-			targetPos  = UDim2.new(0.5, -w/2, 0.5, -h/2)
+			targetPos  = UDim2.fromOffset(math.floor(vp.X * 0.05), math.floor(vp.Y * 0.05))
 			maximized = true
 		end
 		windowCollapsed = false
@@ -3073,7 +3108,7 @@ NXWin.playOpenAnim()
 
 -- ====================== BÚSQUEDA (responsive: input stretches, status below) ======================
 local searchFrame = Instance.new("Frame", main)
-searchFrame.Size = UDim2.new(1, -24, 0, 52)
+searchFrame.Size = UDim2.new(1, -24, 0, 36)
 searchFrame.Position = UDim2.new(0, 12, 0, 48)
 searchFrame.BackgroundTransparency = 1
 
@@ -3103,42 +3138,62 @@ themed(sbStroke, "Color", "border")
 
 local searchIcon
 do
+	local sbTw, sbBoxTw
 	searchBox.MouseEnter:Connect(function()
 		if not ANIM.enabled then return end
-		motionTween(sbStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if sbTw then pcall(function() sbTw:Cancel() end) end
+		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			Transparency = 0.35, Color = C.accent
 		})
+		sbTw:Play()
 	end)
 	searchBox.MouseLeave:Connect(function()
 		if searchBox:IsFocused() then return end
-		motionTween(sbStroke, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if sbTw then pcall(function() sbTw:Cancel() end) end
+		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			Transparency = 0.7, Color = C.border
 		})
+		sbTw:Play()
 	end)
 	searchBox.Focused:Connect(function()
 		if not ANIM.enabled then return end
-		motionTween(sbStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if sbTw then pcall(function() sbTw:Cancel() end) end
+		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			Transparency = 0.1, Color = C.accent, Thickness = 1.5
 		})
-		motionTween(searchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		sbTw:Play()
+		if sbBoxTw then pcall(function() sbBoxTw:Cancel() end) end
+		sbBoxTw = TweenService:Create(searchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundColor3 = Color3.new(
 				math.min(C.input.R + 0.03, 1),
 				math.min(C.input.G + 0.03, 1),
 				math.min(C.input.B + 0.03, 1))
 		})
+		sbBoxTw:Play()
 		if searchIcon then
 			motionTween(searchIcon, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0 })
 		end
 	end)
 	searchBox.FocusLost:Connect(function()
-		motionTween(sbStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		if sbTw then pcall(function() sbTw:Cancel() end) end
+		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			Transparency = 0.7, Color = C.border, Thickness = 1
 		})
-		motionTween(searchBox, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		sbTw:Play()
+		if sbBoxTw then pcall(function() sbBoxTw:Cancel() end) end
+		sbBoxTw = TweenService:Create(searchBox, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			BackgroundColor3 = C.input
 		})
+		sbBoxTw:Play()
 		if searchIcon then
 			motionTween(searchIcon, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0.18 })
+		end
+	end)
+	onRepaint(function()
+		if searchBox:IsFocused() then
+			sbStroke.Color = C.accent
+			sbStroke.Transparency = 0.1
+			sbStroke.Thickness = 1.5
 		end
 	end)
 end
@@ -3199,11 +3254,13 @@ statusLabel.Text = ""
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
 themed(statusLabel, "TextColor3", "subtext")
+statusLabel.Visible = false
+statusLabel.Size = UDim2.new(0, 0, 0, 0)
 
 -- ====================== PESTAÑAS ======================
 local tabBar = Instance.new("ScrollingFrame", main)
 tabBar.Size = UDim2.new(1, -24, 0, 30)
-tabBar.Position = UDim2.new(0, 12, 0, 102)
+tabBar.Position = UDim2.new(0, 12, 0, 88)
 tabBar.BackgroundColor3 = C.bg
 tabBar.BackgroundTransparency = 1
 themed(tabBar, "BackgroundColor3", "bg")
@@ -3222,9 +3279,18 @@ tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 local content = Instance.new("Frame", main)
-content.Size = UDim2.new(1, -24, 1, -140)
-content.Position = UDim2.new(0, 12, 0, 134)
+content.Size = UDim2.new(1, -24, 1, -124)
+content.Position = UDim2.new(0, 12, 0, 120)
 content.BackgroundTransparency = 1
+
+local transitionOverlay = Instance.new("Frame", content)
+transitionOverlay.Name = "TransitionOverlay"
+transitionOverlay.Size = UDim2.new(1, 0, 1, 0)
+transitionOverlay.BackgroundColor3 = C.bg
+transitionOverlay.BorderSizePixel = 0
+transitionOverlay.ZIndex = 50
+transitionOverlay.Visible = false
+themed(transitionOverlay, "BackgroundColor3", "bg")
 
 local tabs, pages = {}, {}
 local tabByPage = {}
@@ -3324,17 +3390,33 @@ end))
 track(main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() syncTabIndicator(false) end))
 
 local function showPage(page)
+	transitionOverlay.BackgroundTransparency = 0
+	transitionOverlay.Visible = true
+
 	for _, p in pairs(pages) do
-		if p ~= page then p.Visible = false end
+		if p ~= page then
+			p.Visible = false
+			p.Position = UDim2.new(0, 0, 0, 0)
+		end
 	end
+
 	page.Visible = true
-	if ANIM.enabled then
-		page.Position = UDim2.new(0, 0, 0, 8)
-		motionTween(page, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-			{ Position = UDim2.new(0, 0, 0, 0) })
-	else
-		page.Position = UDim2.new(0, 0, 0, 0)
-	end
+	page.Position = UDim2.new(0, 0, 0, 0)
+
+	task.defer(function()
+		if ANIM.enabled then
+			motionTween(transitionOverlay,
+				TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ BackgroundTransparency = 1 },
+				function()
+					transitionOverlay.Visible = false
+				end)
+		else
+			transitionOverlay.BackgroundTransparency = 1
+			transitionOverlay.Visible = false
+		end
+	end)
+
 	activeTab = tabByPage[page]
 	paintTabs(true)
 	local cb = onShowByPage[page]
@@ -3357,7 +3439,6 @@ local function createTab(name, page, onShow)
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 	local tp = Instance.new("UIPadding", btn)
 	tp.PaddingLeft = UDim.new(0, 16); tp.PaddingRight = UDim.new(0, 16)
-	addHoverStroke(btn)
 	track(btn.MouseEnter:Connect(function()
 		if btn ~= activeTab then
 			motionTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextColor3 = C.text })
@@ -3387,7 +3468,7 @@ local function makeScroll(parent)
 	sf.Size = UDim2.new(1, 0, 1, 0)
 	sf.BackgroundTransparency = 1
 	sf.BorderSizePixel = 0
-	sf.ScrollBarThickness = 3
+	sf.ScrollBarThickness = 0
 	sf.ScrollBarImageColor3 = C.accent
 	sf.CanvasSize = UDim2.new(0, 0, 0, 0)
 	sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -3692,11 +3773,16 @@ local function showLinkModal(url)
 	themed(mCloseBtn, "TextColor3", "onAccent")
 	Instance.new("UICorner", mCloseBtn).CornerRadius = DS.corner.md
 
+	local escConn
 	local function closeLink()
+		if escConn then escConn:Disconnect(); escConn = nil end
 		motionTween(bScale, TweenInfo.new(0.14), { Scale = 0.88 })
 		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
 		task.delay(0.16, function() if overlay.Parent then overlay:Destroy() end end)
 	end
+	escConn = UserInputService.InputBegan:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.Escape then closeLink() end
+	end)
 	mCloseBtn.MouseButton1Click:Connect(closeLink)
 
 	overlay.InputBegan:Connect(function(input)
@@ -3736,7 +3822,7 @@ local function showNXWarning(warning)
 	overlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
 	overlay.BackgroundTransparency = 1
 	overlay.ZIndex                 = 90
-	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.52 })
+	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.5 })
 
 	local box = Instance.new("Frame", overlay)
 	box.Size             = UDim2.new(1, -20, 0, 0)
@@ -3849,11 +3935,16 @@ local function showNXWarning(warning)
 	wSign.TextXAlignment = Enum.TextXAlignment.Right
 	themed(wSign, "TextColor3", "textDisabled")
 
+	local wEscConn
 	local function closeWarn()
+		if wEscConn then wEscConn:Disconnect(); wEscConn = nil end
 		motionTween(wScale, TweenInfo.new(0.14), { Scale = 0.88 })
 		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
 		task.delay(0.16, function() if overlay.Parent then overlay:Destroy() end end)
 	end
+	wEscConn = UserInputService.InputBegan:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.Escape then closeWarn() end
+	end)
 	local wClose = Instance.new("TextButton", box)
 	wClose.LayoutOrder = 4
 	wClose.Size = UDim2.new(1, 0, 0, 36)
@@ -3869,7 +3960,8 @@ local function showNXWarning(warning)
 	wClose.MouseButton1Click:Connect(closeWarn)
 
 	overlay.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+		if inp.UserInputType == Enum.UserInputType.MouseButton1
+			or inp.UserInputType == Enum.UserInputType.Touch then
 			local p = inp.Position
 			local bp, bs = box.AbsolutePosition, box.AbsoluteSize
 			if p.X < bp.X or p.X > bp.X + bs.X or p.Y < bp.Y or p.Y > bp.Y + bs.Y then
@@ -4037,17 +4129,23 @@ local function showCharacterModal(userId, username)
 	local bs = Instance.new("UIStroke", box)
 	bs.Color = C.border; bs.Transparency = 0.1; bs.Thickness = 1
 	themed(bs, "Color", "border")
-	addDropShadow(box, overlay, 60, 30, 0.4)
+	local charShadow = addDropShadow(box, overlay, 60, 30, 0.4)
 	local scale = Instance.new("UIScale", box)
 	scale.Scale = 0.85
 	motionTween(scale, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 		{ Scale = 1 })
 
+	local cmEscConn
 	local function closeModal()
+		if cmEscConn then cmEscConn:Disconnect(); cmEscConn = nil end
 		motionTween(scale, TweenInfo.new(0.13), { Scale = 0.85 })
+		motionTween(charShadow, TweenInfo.new(0.13), { ImageTransparency = 1 })
 		motionTween(overlay, TweenInfo.new(0.13), { BackgroundTransparency = 1 })
 		task.delay(0.15, function() if overlay and overlay.Parent then overlay:Destroy() end end)
 	end
+	cmEscConn = UserInputService.InputBegan:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.Escape then closeModal() end
+	end)
 
 	local mtitle = Instance.new("TextLabel", box)
 	mtitle.Size = UDim2.new(1, -50, 0, 30)
@@ -4101,7 +4199,13 @@ local function showCharacterModal(userId, username)
 	subBar.BackgroundTransparency = 1
 	subBar.ZIndex = 63
 
+	local subBarLayout = Instance.new("UIListLayout", subBar)
+	subBarLayout.FillDirection = Enum.FillDirection.Horizontal
+	subBarLayout.Padding = UDim.new(0, 6)
+	subBarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
 	local sub2DButtons = {}
+	local activeBtn
 	local function set2DKind(kind, btn)
 		img2D.Image = ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
 		for _, b in ipairs(sub2DButtons) do
@@ -4110,13 +4214,14 @@ local function showCharacterModal(userId, username)
 		end
 		btn.BackgroundColor3 = C.accent
 		btn.TextColor3 = C.onAccent
+		activeBtn = btn
 	end
 
 	local kinds = { {"Cuerpo", "Avatar"}, {"Busto", "AvatarBust"}, {"Cabeza", "AvatarHeadShot"} }
 	for i, k in ipairs(kinds) do
 		local b = Instance.new("TextButton", subBar)
+		b.LayoutOrder = i
 		b.Size = UDim2.new(0, 86, 1, 0)
-		b.Position = UDim2.new(0, (i - 1) * 92, 0, 0)
 		b.BackgroundColor3 = C.surface
 		b.Text = k[1]
 		b.Font = Enum.Font.GothamMedium
@@ -4130,6 +4235,16 @@ local function showCharacterModal(userId, username)
 		b.MouseButton1Click:Connect(function() set2DKind(k[2], b) end)
 	end
 	set2DKind("Avatar", sub2DButtons[1])
+	onRepaint(function()
+		if activeBtn and activeBtn.Parent then
+			for _, b in ipairs(sub2DButtons) do
+				b.BackgroundColor3 = C.surface
+				b.TextColor3 = C.subtext
+			end
+			activeBtn.BackgroundColor3 = C.accent
+			activeBtn.TextColor3 = C.onAccent
+		end
+	end)
 
 	overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -4216,12 +4331,15 @@ local function addDescription(parent, text)
 	themed(body, "TextColor3", "text")
 
 	local COLLAPSED = 180
-	local isLong = #text > COLLAPSED
+	local isLong = (utf8.len(text) or #text) > COLLAPSED
 	local expanded = false
 
 	local function refresh()
 		if (not isLong) or expanded then body.Text = text
-		else body.Text = text:sub(1, COLLAPSED) .. "..." end
+		else
+			local cut = utf8.offset(text, COLLAPSED + 1)
+			body.Text = (cut and text:sub(1, cut - 1) or text:sub(1, COLLAPSED)) .. "..."
+		end
 	end
 	refresh()
 
@@ -4240,14 +4358,14 @@ local function addDescription(parent, text)
 end
 
 -- ====================== RENDER: TARJETA DE TEXTO (Análisis) ======================
-local function addNoteCard(parent, titleText, bodyText, accentColor)
+local function addNoteCard(parent, titleText, bodyText, accentRole)
 	local DS = _G.NXDS
 	local card = DS.makeCard(parent, { title = titleText })
-	-- Override title color if a specific accent was given
-	if accentColor then
+	if accentRole then
 		for _, ch in ipairs(card:GetChildren()) do
 			if ch:IsA("TextLabel") and ch.Text == titleText then
-				ch.TextColor3 = accentColor
+				ch.TextColor3 = C[accentRole] or C.accent
+				themed(ch, "TextColor3", accentRole)
 				break
 			end
 		end
@@ -4324,7 +4442,7 @@ local function showMiniProfileCard(userId, fallback)
 	overlay.BackgroundTransparency = 1
 	overlay.BorderSizePixel = 0
 	overlay.ZIndex = 70
-	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.45 })
+	motionTween(overlay, TweenInfo.new(0.2), { BackgroundTransparency = 0.5 })
 
 	local DS = _G.NXDS
 	local card = Instance.new("Frame", overlay)
@@ -4340,17 +4458,23 @@ local function showMiniProfileCard(userId, fallback)
 	local cstroke = Instance.new("UIStroke", card)
 	cstroke.Color = C.border; cstroke.Transparency = 0.1; cstroke.Thickness = 1
 	themed(cstroke, "Color", "border")
-	addDropShadow(card, overlay, 70, 30, 0.4)
+	local miniShadow = addDropShadow(card, overlay, 70, 30, 0.4)
 	local scale = Instance.new("UIScale", card)
 	scale.Scale = 0.85
 	motionTween(scale, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 		{ Scale = 1 })
 
+	local mpEscConn
 	local function closeCard()
+		if mpEscConn then mpEscConn:Disconnect(); mpEscConn = nil end
 		motionTween(scale, TweenInfo.new(0.14), { Scale = 0.85 })
+		motionTween(miniShadow, TweenInfo.new(0.14), { ImageTransparency = 1 })
 		motionTween(overlay, TweenInfo.new(0.14), { BackgroundTransparency = 1 })
 		task.delay(0.16, function() if overlay and overlay.Parent then overlay:Destroy() end end)
 	end
+	mpEscConn = UserInputService.InputBegan:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.Escape then closeCard() end
+	end)
 
 	-- contenido (UIListLayout vertical). La X va fuera del layout.
 	local body = Instance.new("Frame", card)
@@ -4739,6 +4863,9 @@ local function addFriendsDropdown(parent, data, order)
 		loadingLbl.Font = Enum.Font.Gotham; loadingLbl.TextSize = 12; loadingLbl.TextColor3 = C.subtext
 		loadingLbl.Text = "Cargando amigos..."; loadingLbl.TextXAlignment = Enum.TextXAlignment.Left
 		themed(loadingLbl, "TextColor3", "subtext")
+		registerInfiniteTween(TweenService:Create(loadingLbl,
+			TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+			{ TextTransparency = 0.5 })):Play()
 		task.spawn(function()
 			local res = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends")
 			if not container.Parent then return end
@@ -6433,8 +6560,8 @@ do
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
 		themed(card, "BackgroundColor3", "card")
 		local cStroke = Instance.new("UIStroke", card)
-		cStroke.Color = C.accent; cStroke.Thickness = 1.2; cStroke.Transparency = 0.35
-		themed(cStroke, "Color", "accent")
+		cStroke.Color = C.border; cStroke.Thickness = 1; cStroke.Transparency = 0.6
+		themed(cStroke, "Color", "border")
 		local cPad = Instance.new("UIPadding", card)
 		cPad.PaddingTop = UDim.new(0, 8); cPad.PaddingBottom = UDim.new(0, 8)
 		cPad.PaddingLeft = UDim.new(0, 10); cPad.PaddingRight = UDim.new(0, 10)
@@ -6563,48 +6690,259 @@ end
 -- del contenedor para conservar lectura y jerarquía, sin rebotes ni elásticos.
 local function staggerCards(scroll)
 	if not ANIM.enabled then return end
-	local cards = {}
+
+	local SLIDE_X   = 56
+	local SLIDE_Y   = 5
+	local STAGGER   = 0.06
+	local MAX_DELAY = 0.42
+	local DUR_SLIDE = 0.40
+	local DUR_FADE  = 0.26
+
+	local entries = {}
 	for _, ch in ipairs(scroll:GetChildren()) do
-		if ch:IsA("Frame") and not ch:IsA("UIListLayout") then
-			cards[#cards + 1] = ch
+		if ch:IsA("Frame") then
+			local e = { card = ch, origBgT = ch.BackgroundTransparency, textos = {}, imgs = {}, strokes = {} }
+			if e.origBgT < 1 then ch.BackgroundTransparency = 1 end
+			for _, d in ipairs(ch:GetDescendants()) do
+				if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+					e.textos[#e.textos + 1] = { inst = d, orig = d.TextTransparency }
+					d.TextTransparency = 1
+				elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
+					e.imgs[#e.imgs + 1] = { inst = d, orig = d.ImageTransparency }
+					d.ImageTransparency = 1
+				elseif d:IsA("UIStroke") then
+					e.strokes[#e.strokes + 1] = { inst = d, orig = d.Transparency }
+					d.Transparency = 1
+				end
+			end
+			entries[#entries + 1] = e
 		end
 	end
-	table.sort(cards, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
-	for idx, card in ipairs(cards) do
-		local delay_ = math.min((idx - 1) * 0.05, 0.30)
-		local origBgT = card.BackgroundTransparency
-		if origBgT < 1 then
-			card.BackgroundTransparency = 1
-		end
-		local origPosition = card.Position
-		card.Position = origPosition + UDim2.fromOffset(0, 8)
-		-- Se incluyen los descendientes para que la información de tarjetas
-		-- compuestas (avatar, métricas, tags) revele su contenido de forma unitaria.
-		local textos = {}
-		for _, ch in ipairs(card:GetDescendants()) do
-			if ch:IsA("TextLabel") or ch:IsA("TextButton") then
-				textos[#textos + 1] = { inst = ch, orig = ch.TextTransparency }
-				ch.TextTransparency = 1
+	if #entries == 0 then return end
+	table.sort(entries, function(a, b) return a.card.LayoutOrder < b.card.LayoutOrder end)
+
+	task.defer(function()
+		task.wait()
+		if not scroll.Parent then return end
+
+		local layout = scroll:FindFirstChildOfClass("UIListLayout")
+		if not layout then return end
+
+		for _, e in ipairs(entries) do
+			if e.card.Parent then
+				e.origPos = e.card.Position
 			end
 		end
-		task.delay(delay_, function()
-			if not card.Parent then return end
-			motionTween(card, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-				{ Position = origPosition,
-				  BackgroundTransparency = origBgT })
-			task.delay(0.05, function()
-				for _, t in ipairs(textos) do
-					if t.inst.Parent then
-						motionTween(t.inst, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-							{ TextTransparency = t.orig })
+
+		layout.Parent = nil
+		local staggerScroll = scroll
+
+		local lastDelay = 0
+		for idx, e in ipairs(entries) do
+			local card = e.card
+			if card.Parent and e.origPos then
+				local offsetX = (idx % 2 == 1) and -SLIDE_X or SLIDE_X
+				card.Position = e.origPos + UDim2.fromOffset(offsetX, SLIDE_Y)
+
+				local delay_ = math.min((idx - 1) * STAGGER, MAX_DELAY)
+				if delay_ > lastDelay then lastDelay = delay_ end
+				task.delay(delay_, function()
+					if not card.Parent then return end
+					motionTween(card, TweenInfo.new(DUR_SLIDE, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+						{ Position = e.origPos, BackgroundTransparency = e.origBgT })
+					for _, s in ipairs(e.strokes) do
+						if s.inst.Parent then
+							motionTween(s.inst, TweenInfo.new(DUR_SLIDE, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+								{ Transparency = s.orig })
+						end
 					end
+					task.delay(0.07, function()
+						for _, t in ipairs(e.textos) do
+							if t.inst.Parent then
+								motionTween(t.inst, TweenInfo.new(DUR_FADE, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+									{ TextTransparency = t.orig })
+								end
+						end
+						for _, im in ipairs(e.imgs) do
+							if im.inst.Parent then
+								motionTween(im.inst, TweenInfo.new(DUR_FADE, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+									{ ImageTransparency = im.orig })
+							end
+						end
+					end)
+				end)
+			end
+		end
+
+		task.delay(lastDelay + DUR_SLIDE + 0.15, function()
+			if staggerScroll.Parent and layout and not layout.Parent then
+				layout.Parent = staggerScroll
+			end
+		end)
+	end)
+end
+
+-- ====================== ICONOS DE IDENTIDAD ======================
+-- Descarga y cachea los iconos del grid de Identidad como assets locales del
+-- executor (mismo patrón que _G.NXSearchIcon). Todo en do..end: NO gasta locals
+-- de raíz. Síncrono: los iconos están listos antes del primer render().
+do
+	_G.NXIcons = {}
+	local loadIcon = getsynasset or getcustomasset
+	if type(loadIcon) ~= "function" then loadIcon = nil end
+	local BASE = "https://raw.githubusercontent.com/dreennx/Analyzer-/main/assets/icons/"
+	local defs = {
+		{ "username",    "Icono Username.png" },
+		{ "displayname", "Icon Displayname.png" },
+		{ "userid",      "Icon ID.png" },
+		{ "suscripcion", "Icon Suscripcion.png" },
+		{ "ban",         "Icon Ban.png" },
+		{ "creacion",    "Icon Creacion de la cuenta.png" },
+		{ "edad",        "Icon Edad de la cuenta.png" },
+		{ "link",        "Icon Copy Link.png" },
+		{ "copy",        "icon Copy.png" },
+		{ "close",       "Icono X de cerrar panel.png" },
+	}
+	for _, def in ipairs(defs) do
+		local key, file = def[1], def[2]
+		_G.NXIcons[key] = ""
+		pcall(function()
+			if not loadIcon then return end
+			local localPath = "NX_icon_" .. key .. ".png"
+			if hasFS and isfile(localPath) then
+				local ok, asset = pcall(loadIcon, localPath)
+				if ok and type(asset) == "string" and asset ~= "" then
+					_G.NXIcons[key] = asset; return
 				end
+			end
+			local body = rawGet(BASE .. file:gsub(" ", "%%20"))
+			if not body or body == "" then return end
+			if hasFS then pcall(writefile, localPath, body) end
+			local ok, asset = pcall(loadIcon, localPath)
+			if ok and type(asset) == "string" and asset ~= "" then
+				_G.NXIcons[key] = asset
+			end
+		end)
+	end
+end
+
+-- ====================== TOAST NOTIFICATION ======================
+-- Notificación glass premium con animación pill-expand. Parent = main.
+-- Todo en do..end: NO gasta locals de raíz.
+do
+-- toast·nx·e5d07
+	local activeToast = nil
+	local activeTweens = {}
+	local TS = TweenService
+
+	_G.NXToast = function(iconKey, message)
+		for _, tw in ipairs(activeTweens) do
+			tw:Cancel()
+		end
+		activeTweens = {}
+		if activeToast and activeToast.Parent then
+			activeToast:Destroy()
+		end
+		activeToast = nil
+
+		local toast = Instance.new("Frame")
+		toast.Name = "NXToastFrame"
+		toast.Size = UDim2.new(0, 0, 0, 40)
+		toast.AnchorPoint = Vector2.new(0.5, 0)
+		toast.Position = UDim2.new(0.5, 0, 0, 6)
+		toast.BackgroundColor3 = C.elevated
+		toast.BackgroundTransparency = 0.12
+		toast.BorderSizePixel = 0
+		toast.ZIndex = 100
+		toast.ClipsDescendants = true
+		Instance.new("UICorner", toast).CornerRadius = UDim.new(0, 20)
+		themed(toast, "BackgroundColor3", "elevated")
+
+		local tStroke = Instance.new("UIStroke", toast)
+		tStroke.Color = C.accent; tStroke.Thickness = 1; tStroke.Transparency = 0.5
+		themed(tStroke, "Color", "accent")
+
+		local iconAsset = ""
+		if _G.NXIcons and type(_G.NXIcons) == "table" and iconKey then
+			iconAsset = _G.NXIcons[iconKey] or ""
+		end
+		local textOffset = 14
+		local img
+		if iconAsset ~= "" then
+			img = Instance.new("ImageLabel", toast)
+			img.Size = UDim2.fromOffset(20, 20)
+			img.AnchorPoint = Vector2.new(0, 0.5)
+			img.Position = UDim2.new(0, 12, 0.5, 0)
+			img.BackgroundTransparency = 1
+			img.Image = iconAsset
+			img.ImageColor3 = C.accent
+			img.ImageTransparency = 1
+			img.ScaleType = Enum.ScaleType.Fit
+			img.ZIndex = 101
+			themed(img, "ImageColor3", "accent")
+			textOffset = 38
+		end
+
+		local lbl = Instance.new("TextLabel", toast)
+		lbl.Size = UDim2.new(1, -(textOffset + 10), 1, 0)
+		lbl.Position = UDim2.new(0, textOffset, 0, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamMedium
+		lbl.TextSize = 13
+		lbl.TextColor3 = C.text
+		lbl.TextTransparency = 1
+		lbl.Text = message or "Copiado"
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.ZIndex = 101
+		themed(lbl, "TextColor3", "text")
+
+		toast.Parent = main
+		activeToast = toast
+
+		local expandInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		local tw1 = TS:Create(toast, expandInfo, { Size = UDim2.new(0, 260, 0, 40) })
+		tw1:Play()
+		activeTweens[#activeTweens + 1] = tw1
+
+		task.delay(0.12, function()
+			if activeToast ~= toast then return end
+			local fadeInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			local tw2 = TS:Create(lbl, fadeInfo, { TextTransparency = 0 })
+			tw2:Play()
+			activeTweens[#activeTweens + 1] = tw2
+			if img then
+				local tw3 = TS:Create(img, fadeInfo, { ImageTransparency = 0 })
+				tw3:Play()
+				activeTweens[#activeTweens + 1] = tw3
+			end
+		end)
+
+		task.delay(2.2, function()
+			if activeToast ~= toast then return end
+			local fadeOut = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			local tw4 = TS:Create(lbl, fadeOut, { TextTransparency = 1 })
+			tw4:Play()
+			if img then
+				TS:Create(img, fadeOut, { ImageTransparency = 1 }):Play()
+			end
+			task.delay(0.15, function()
+				if activeToast ~= toast then return end
+				local shrink = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+				local tw5 = TS:Create(toast, shrink, { Size = UDim2.new(0, 0, 0, 40) })
+				tw5:Play()
+				task.delay(0.3, function()
+					if activeToast == toast then activeToast = nil end
+					if toast and toast.Parent then toast:Destroy() end
+					activeTweens = {}
+				end)
 			end)
 		end)
 	end
 end
 
 local function render(data, skipEntrance)
+-- render·nx·b3f19 © dreennx
 	clearScroll(profileScroll)
 	clearScroll(statsScroll)
 	clearScroll(itemsScroll)
@@ -6621,13 +6959,26 @@ local function render(data, skipEntrance)
 	-- cambiar de tema. Analizar muchos perfiles sin tocar el tema dejaba miles de
 	-- entradas muertas apiladas. Los clearScroll de arriba ya destruyeron el
 	-- contenido anterior (Destroying es síncrono), así que aquí ya están en nil.
-	if #roleMap > 800 then
+	if #roleMap > 200 then
 		local n = 0
 		for i = 1, #roleMap do
 			local e = roleMap[i]
 			if e.inst then n = n + 1; roleMap[n] = e end
 		end
 		for i = #roleMap, n + 1, -1 do roleMap[i] = nil end
+	end
+
+	do
+		local n = 0
+		for i = 1, #repaintExtra do
+			local fn = repaintExtra[i]
+			local ok = pcall(fn)
+			if ok then
+				n = n + 1
+				repaintExtra[n] = fn
+			end
+		end
+		for i = #repaintExtra, n + 1, -1 do repaintExtra[i] = nil end
 	end
 
 	if not data then return end
@@ -6644,11 +6995,57 @@ local function render(data, skipEntrance)
 		end
 	end
 
+	local staggerIndex = 0
+	local function animateCardIn(card)
+		if not ANIM.enabled or skipEntrance then return end
+		local d = staggerIndex * 0.12
+		staggerIndex = staggerIndex + 1
+
+		local scaleEffect = Instance.new("UIScale", card)
+		scaleEffect.Scale = 0.92
+
+		card.BackgroundTransparency = 1
+
+		local st = card:FindFirstChildOfClass("UIStroke")
+		if st then st.Transparency = 1 end
+		for _, ch in ipairs(card:GetChildren()) do
+			if ch:IsA("TextLabel") then ch.TextTransparency = 1 end
+			if ch:IsA("ImageLabel") then ch.ImageTransparency = 1 end
+			if ch:IsA("TextButton") then ch.TextTransparency = 1; ch.BackgroundTransparency = 1 end
+		end
+
+		task.delay(d, function()
+			if not card.Parent then return end
+			local growInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			local fadeInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+			TweenService:Create(scaleEffect, growInfo, { Scale = 1 }):Play()
+			motionTween(card, fadeInfo, { BackgroundTransparency = 0 })
+			if st then TweenService:Create(st, fadeInfo, { Transparency = 0.6 }):Play() end
+
+			task.delay(0.12, function()
+				if not card.Parent then return end
+				for _, ch in ipairs(card:GetChildren()) do
+					if ch:IsA("TextLabel") then TweenService:Create(ch, fadeInfo, { TextTransparency = 0 }):Play() end
+					if ch:IsA("ImageLabel") then TweenService:Create(ch, fadeInfo, { ImageTransparency = 0 }):Play() end
+					if ch:IsA("TextButton") then
+						TweenService:Create(ch, fadeInfo, { TextTransparency = 0, BackgroundTransparency = 0 }):Play()
+					end
+				end
+			end)
+
+			task.delay(0.6, function()
+				if scaleEffect and scaleEffect.Parent then scaleEffect:Destroy() end
+			end)
+		end)
+	end
+
 	-- ---------- PESTAÑA PERFIL (layout: avatar LEFT + info RIGHT) ----------
 	local DS = _G.NXDS
 
 	-- Hero card: avatar + display name + username + status + NX tag in one card
 	local heroCard = DS.makeCard(profileScroll, {order = 0})
+	animateCardIn(heroCard)
 	local heroInner = Instance.new("Frame", heroCard)
 	heroInner.LayoutOrder = 10
 	heroInner.Size = UDim2.new(1, 0, 0, 110)
@@ -6738,38 +7135,18 @@ local function render(data, skipEntrance)
 	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	actRow.ClipsDescendants = true
-	-- 2 botones: 1 gap de 8px → cada uno resta 4px (mitad del gap)
-	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(0.5, -4, 0, 28)})
+	-- 1 botón: ancho completo
+	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(1, 0, 0, 28)})
 	viewCharBtn.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
 
-	-- Botón copiar link: mismo ancho proporcional
-	local copyLink = DS.makeButton(actRow, "Copiar link", "primary", {order = 2, size = UDim2.new(0.5, -4, 0, 28)})
-	copyLink.MouseButton1Click:Connect(function()
-		local url = data.ProfileUrl or ("https://www.roblox.com/users/" .. tostring(data.UserId) .. "/profile")
-		local ok = clipboard(url)
-		if ok then
-			statusLabel.Text = "Link del perfil copiado"
-			copyLink.Text = "Copiado!"
-		else
-			statusLabel.Text = "No se pudo copiar al portapapeles."
-			copyLink.Text = "Error"
-		end
-		task.delay(1.2, function()
-			if copyLink and copyLink.Parent then copyLink.Text = "Copiar link" end
-		end)
-	end)
-
 	addShineHover(viewCharBtn)
-	addShineHover(copyLink)
 
-	-- Botón Unirse (solo si está en juego público): 3 botones, 2 gaps de 8px = 16px
+	-- 2 botones: 1 gap de 8px
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
-		-- 3 botones: cada uno resta ~5px para repartir los 2 gaps de 8px
-		viewCharBtn.Size = UDim2.new(0.333, -5, 0, 28)
-		copyLink.Size = UDim2.new(0.333, -5, 0, 28)
-		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 3, size = UDim2.new(0.334, -6, 0, 28)})
+		viewCharBtn.Size = UDim2.new(0.5, -4, 0, 28)
+		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 3, size = UDim2.new(0.5, -4, 0, 28)})
 		joinBtn.BackgroundColor3 = C.good
 		themed(joinBtn, "BackgroundColor3", "good")
 		joinBtn.MouseButton1Click:Connect(function()
@@ -6873,12 +7250,12 @@ local function render(data, skipEntrance)
 		row.Size = UDim2.new(1, 0, 0, 28)
 		for _, ch in ipairs(row:GetChildren()) do
 			if ch:IsA("TextLabel") and ch.TextXAlignment == Enum.TextXAlignment.Right then
-				ch.Size = UDim2.new(1, -68, 1, 0); break
+				ch.Size = UDim2.new(1, -86, 1, 0); break
 			end
 		end
 		local btn = Instance.new("TextButton", row)
 		btn.LayoutOrder = 99
-		btn.Size = UDim2.new(0, 62, 0, 22)
+		btn.Size = UDim2.new(0, 72, 0, 22)
 		btn.AnchorPoint = Vector2.new(1, 0.5)
 		btn.Position = UDim2.new(1, -2, 0.5, 0)
 		btn.BackgroundColor3 = C.surface
@@ -6906,44 +7283,190 @@ local function render(data, skipEntrance)
 		return btn
 	end
 
-	-- Identity card (data rows grouped)
-	local idCard = DS.makeCard(profileScroll, {order = 1, title = "Identidad"})
-	local usernameRow = DS.makeDataRow(idCard, "Username", data.Username, {order = 1})
-	addCopyButton(usernameRow, data.Username)
+	-- Identity card (grid layout)
+	local idCard = DS.makeCard(profileScroll, {order = 1})
+	animateCardIn(idCard)
 
-	DS.makeDataRow(idCard, "Display Name", data.DisplayName, {order = 2})
+	-- Custom header: circular icon + title/subtitle
+	do
+		local hdr = Instance.new("Frame", idCard)
+		hdr.LayoutOrder = 0; hdr.Size = UDim2.new(1, 0, 0, 42); hdr.BackgroundTransparency = 1
 
-	local userIdRow = DS.makeDataRow(idCard, "UserId", tostring(data.UserId), {order = 3})
-	addCopyButton(userIdRow, data.UserId)
-	DS.makeDataRow(idCard, "Suscripción", data.Subscription or "—", {order = 4})
-	DS.makeDataRow(idCard, "Baneado", data.Banned or "No",
-		{order = 5, valueColor = (data.Banned == "Sí") and C.bad or nil})
-	DS.makeDataRow(idCard, "Creación", data.Created or "—", {order = 6})
-	DS.makeDataRow(idCard, "Edad de cuenta", data.AccountAge or "—", {order = 7})
+		local ico = Instance.new("Frame", hdr)
+		ico.Size = UDim2.fromOffset(36, 36)
+		ico.Position = UDim2.new(0, 0, 0.5, 0); ico.AnchorPoint = Vector2.new(0, 0.5)
+		ico.BackgroundColor3 = C.accent; ico.BackgroundTransparency = 0.85; ico.BorderSizePixel = 0
+		Instance.new("UICorner", ico).CornerRadius = DS.corner.pill
+		themed(ico, "BackgroundColor3", "accent")
+		local hdrAsset = _G.NXIcons and _G.NXIcons.username or ""
+		if hdrAsset ~= "" then
+			local icoImg = Instance.new("ImageLabel", ico)
+			icoImg.Size = UDim2.fromOffset(22, 22)
+			icoImg.AnchorPoint = Vector2.new(0.5, 0.5)
+			icoImg.Position = UDim2.new(0.5, 0, 0.5, 0)
+			icoImg.BackgroundTransparency = 1
+			icoImg.Image = hdrAsset
+			icoImg.ImageColor3 = C.accent
+			icoImg.ScaleType = Enum.ScaleType.Fit
+			themed(icoImg, "ImageColor3", "accent")
+		end
 
-	-- Link row inside identity card
-	local linkRow = Instance.new("Frame", idCard)
-	linkRow.LayoutOrder = 8
-	linkRow.Size = UDim2.new(1, 0, 0, 28)
-	linkRow.BackgroundTransparency = 1
-	local linkBox = Instance.new("TextBox", linkRow)
-	linkBox.Size = UDim2.new(1, 0, 1, 0)
-	linkBox.BackgroundColor3 = C.link
-	linkBox.BackgroundTransparency = 0.5
-	linkBox.Font = Enum.Font.Code
-	linkBox.TextSize = 11
-	linkBox.TextColor3 = C.accent
-	linkBox.Text = data.ProfileUrl
-	linkBox.ClearTextOnFocus = false
-	linkBox.TextEditable = false
-	linkBox.TextXAlignment = Enum.TextXAlignment.Left
-	linkBox.TextTruncate = Enum.TextTruncate.AtEnd
-	linkBox.BorderSizePixel = 0
-	themed(linkBox, "BackgroundColor3", "link")
-	themed(linkBox, "TextColor3", "accent")
-	Instance.new("UICorner", linkBox).CornerRadius = DS.corner.sm
-	local lbPad = Instance.new("UIPadding", linkBox)
-	lbPad.PaddingLeft = UDim.new(0, 8); lbPad.PaddingRight = UDim.new(0, 8)
+		local ttl = Instance.new("TextLabel", hdr)
+		ttl.Size = UDim2.new(1, -44, 0, 20); ttl.Position = UDim2.new(0, 44, 0, 2)
+		ttl.BackgroundTransparency = 1; ttl.Font = Enum.Font.GothamBold; ttl.TextSize = DS.text.xl
+		ttl.TextColor3 = C.text; ttl.Text = "Identidad"; ttl.TextXAlignment = Enum.TextXAlignment.Left
+		themed(ttl, "TextColor3", "text")
+
+		local sub = Instance.new("TextLabel", hdr)
+		sub.Size = UDim2.new(1, -44, 0, 14); sub.Position = UDim2.new(0, 44, 0, 24)
+		sub.BackgroundTransparency = 1; sub.Font = Enum.Font.Gotham; sub.TextSize = DS.text.sm
+		sub.TextColor3 = C.subtext; sub.Text = "Información básica de la cuenta"
+		sub.TextXAlignment = Enum.TextXAlignment.Left
+		themed(sub, "TextColor3", "subtext")
+	end
+
+	-- Grid container
+	local idGrid = Instance.new("Frame", idCard)
+	idGrid.LayoutOrder = 2; idGrid.Size = UDim2.new(1, 0, 0, 0)
+	idGrid.AutomaticSize = Enum.AutomaticSize.Y; idGrid.BackgroundTransparency = 1
+	local gridLay = Instance.new("UIGridLayout", idGrid)
+	gridLay.CellSize = UDim2.new(0.5, -5, 0, 72)
+	gridLay.CellPadding = UDim2.new(0, 10, 0, 10)
+	gridLay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	-- Helper: one mini-card in the grid (do..end to avoid root locals)
+	do
+		local NXI = _G.NXIcons or {}
+		local COPY_ICON = NXI.copy or ""
+		local cellStagger = 0
+		local function makeInfoCell(icon, label, value, order, copyValue, valueRole, iconKey)
+			local hasIcon = (icon ~= "")
+			local textX = hasIcon and 32 or 0
+			local cell = Instance.new("Frame", idGrid)
+			cell.LayoutOrder = order; cell.BackgroundColor3 = C.card; cell.BorderSizePixel = 0
+			cell.ClipsDescendants = true
+			Instance.new("UICorner", cell).CornerRadius = DS.corner.md
+			themed(cell, "BackgroundColor3", "card")
+			local cst = Instance.new("UIStroke", cell)
+			cst.Color = C.border; cst.Thickness = 1; cst.Transparency = 0.6
+			themed(cst, "Color", "border")
+			local cp = Instance.new("UIPadding", cell)
+			cp.PaddingLeft = UDim.new(0, DS.pad.card); cp.PaddingRight = UDim.new(0, DS.pad.card)
+			cp.PaddingTop = UDim.new(0, DS.pad.card); cp.PaddingBottom = UDim.new(0, DS.pad.card)
+
+			if hasIcon then
+				local icoImg = Instance.new("ImageLabel", cell)
+				icoImg.Size = UDim2.fromOffset(24, 24)
+				icoImg.AnchorPoint = Vector2.new(0, 0.5)
+				icoImg.Position = UDim2.new(0, 0, 0.5, 0)
+				icoImg.BackgroundTransparency = 1
+				icoImg.Image = icon
+				icoImg.ImageColor3 = C.accent
+				icoImg.ScaleType = Enum.ScaleType.Fit
+				themed(icoImg, "ImageColor3", "accent")
+			end
+
+			local rOff = copyValue and -34 or 0
+			local lbl = Instance.new("TextLabel", cell)
+			lbl.Size = UDim2.new(1, -textX + rOff, 0, 12); lbl.Position = UDim2.new(0, textX, 0, 6)
+			lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.Gotham; lbl.TextSize = DS.text.xs
+			lbl.TextColor3 = C.subtext; lbl.Text = label
+			lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.TextTruncate = Enum.TextTruncate.AtEnd
+			themed(lbl, "TextColor3", "subtext")
+
+			local val = Instance.new("TextLabel", cell)
+			val.Size = UDim2.new(1, -textX + rOff, 0, 16); val.Position = UDim2.new(0, textX, 0, 24)
+			val.BackgroundTransparency = 1; val.Font = Enum.Font.GothamBold; val.TextSize = DS.text.md
+			val.TextColor3 = valueRole and C[valueRole] or C.text
+			val.Text = tostring(value or "\226\128\148"); val.TextXAlignment = Enum.TextXAlignment.Left
+			val.TextTruncate = Enum.TextTruncate.AtEnd
+			themed(val, "TextColor3", valueRole or "text")
+
+			if copyValue then
+				local btn = Instance.new("TextButton", cell)
+				btn.Size = UDim2.fromOffset(32, 32)
+				btn.AnchorPoint = Vector2.new(1, 0); btn.Position = UDim2.new(1, 0, 0, 0)
+				btn.BackgroundColor3 = C.surface; btn.BorderSizePixel = 0
+				btn.Text = ""; btn.AutoButtonColor = false; btn.ZIndex = 3
+				Instance.new("UICorner", btn).CornerRadius = DS.corner.sm
+				themed(btn, "BackgroundColor3", "surface")
+				local bst = Instance.new("UIStroke", btn)
+				bst.Color = C.border; bst.Thickness = 1
+				themed(bst, "Color", "border")
+				if COPY_ICON ~= "" then
+					local cpIco = Instance.new("ImageLabel", btn)
+					cpIco.Size = UDim2.fromOffset(18, 18)
+					cpIco.AnchorPoint = Vector2.new(0.5, 0.5)
+					cpIco.Position = UDim2.new(0.5, 0, 0.5, 0)
+					cpIco.BackgroundTransparency = 1
+					cpIco.Image = COPY_ICON
+					cpIco.ImageColor3 = C.subtext
+					cpIco.ScaleType = Enum.ScaleType.Fit
+					themed(cpIco, "ImageColor3", "subtext")
+					btn.MouseEnter:Connect(function() cpIco.ImageColor3 = C.text end)
+					btn.MouseLeave:Connect(function() cpIco.ImageColor3 = C.subtext end)
+					btn.MouseButton1Click:Connect(function()
+						local ok = clipboard(tostring(copyValue))
+						cpIco.ImageColor3 = ok and C.good or C.bad
+						if _G.NXToast then
+							_G.NXToast(iconKey or "copy", "Copiado: " .. label)
+						end
+						task.delay(1.2, function()
+							if cpIco and cpIco.Parent then cpIco.ImageColor3 = C.subtext end
+						end)
+					end)
+				else
+					btn.Text = "Copy"; btn.Font = Enum.Font.GothamMedium; btn.TextSize = DS.text.xs
+					btn.TextColor3 = C.subtext; btn.Size = UDim2.fromOffset(42, 32)
+					themed(btn, "TextColor3", "subtext")
+					btn.MouseButton1Click:Connect(function()
+						local ok = clipboard(tostring(copyValue))
+						btn.TextColor3 = ok and C.good or C.bad
+						btn.Text = ok and "OK" or "Err"
+						if _G.NXToast then
+							_G.NXToast(iconKey or "copy", "Copiado: " .. label)
+						end
+						task.delay(1.2, function()
+							if btn and btn.Parent then btn.Text = "Copy"; btn.TextColor3 = C.subtext end
+						end)
+					end)
+				end
+			end
+			if ANIM.enabled and not skipEntrance then
+				local delay = cellStagger * 0.04
+				cellStagger = cellStagger + 1
+				cell.BackgroundTransparency = 1
+				local cStroke = cell:FindFirstChildOfClass("UIStroke")
+				if cStroke then cStroke.Transparency = 1 end
+				for _, ch in ipairs(cell:GetChildren()) do
+					if ch:IsA("TextLabel") then ch.TextTransparency = 1 end
+					if ch:IsA("ImageLabel") then ch.ImageTransparency = 1 end
+				end
+				task.delay(delay, function()
+					if not cell.Parent then return end
+					local info = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+					motionTween(cell, info, { BackgroundTransparency = 0 })
+					if cStroke then TweenService:Create(cStroke, info, { Transparency = 0.6 }):Play() end
+					for _, ch in ipairs(cell:GetChildren()) do
+						if ch:IsA("TextLabel") then TweenService:Create(ch, info, { TextTransparency = 0 }):Play() end
+						if ch:IsA("ImageLabel") then TweenService:Create(ch, info, { ImageTransparency = 0 }):Play() end
+					end
+				end)
+			end
+
+			return cell
+		end
+
+		makeInfoCell(NXI.username    or "", "Username",        data.Username,                    1, data.Username, nil, "username")
+		makeInfoCell(NXI.displayname or "", "Display Name",    data.DisplayName,                 2, data.DisplayName, nil, "displayname")
+		makeInfoCell(NXI.userid      or "", "UserId",          tostring(data.UserId),            3, data.UserId, nil, "userid")
+		makeInfoCell(NXI.suscripcion or "", "Suscripción",     data.Subscription or "\226\128\148", 4)
+		makeInfoCell(NXI.ban         or "", "Baneado",         data.Banned or "No",              5, nil,
+			(data.Banned == "Sí") and "bad" or "good")
+		makeInfoCell(NXI.creacion    or "", "Creación",        data.Created or "\226\128\148",   6)
+		makeInfoCell(NXI.edad        or "", "Edad de cuenta",  data.AccountAge or "\226\128\148", 7)
+		makeInfoCell(NXI.link        or "", "Enlace al perfil", data.ProfileUrl,                 8, data.ProfileUrl, nil, "link")
+	end
 
 	-- Description card
 	addDescription(profileScroll, data.Description).LayoutOrder = 2
@@ -6951,6 +7474,7 @@ local function render(data, skipEntrance)
 
 	-- ---------- HISTORIAL DE NOMBRES (reincorporado en v3.1.0) ----------
 	local historyFrame = DS.makeCard(profileScroll, {order = 15, title = "Historial de nombres"})
+	animateCardIn(historyFrame)
 	historyFrame.Name = "NameHistory"
 
 	local loadingHist = Instance.new("TextLabel", historyFrame)
@@ -7092,6 +7616,7 @@ local function render(data, skipEntrance)
 
 	-- ---------- PESTAÑA ESTADÍSTICAS ----------
 	local statsCard = DS.makeCard(statsScroll, {order = 0, title = "Estadísticas"})
+	animateCardIn(statsCard)
 	DS.makeDataRow(statsCard, "Amigos", tostring(data.Friends or "—"), {order = 1})
 	addFriendsDropdown(statsScroll, data, 5)
 	DS.makeDataRow(statsCard, "Seguidores", tostring(data.Followers or "—"), {order = 2})
@@ -7190,10 +7715,9 @@ local function render(data, skipEntrance)
 		withNames("Preparando TXT (historial de nombres)...", function()
 			local ok = pcall(function() clipboard(table.concat(buildTxtLines(), "\n")) end)
 			if ok then
-				statusLabel.Text = "✓ Copiado a portapapeles (TXT)"
 				flashBtn(txtBtn, "Copiado ✓")
+				if _G.NXToast then _G.NXToast("copy", "TXT copiado al portapapeles") end
 			else
-				statusLabel.Text = "Portapapeles no disponible."
 				flashBtn(txtBtn, "Error")
 			end
 		end)
@@ -7204,30 +7728,29 @@ local function render(data, skipEntrance)
 		withNames("Preparando JSON (historial de nombres)...", function()
 			local ok = pcall(function() clipboard(HttpService:JSONEncode(buildExportData())) end)
 			if ok then
-				statusLabel.Text = "✓ Copiado a portapapeles (JSON)"
 				flashBtn(jsonBtn, "Copiado ✓")
+				if _G.NXToast then _G.NXToast("copy", "JSON copiado al portapapeles") end
 			else
-				statusLabel.Text = "Portapapeles no disponible."
 				flashBtn(jsonBtn, "Error")
 			end
 		end)
 	end)
 
 	-- ---------- PESTAÑA ITEMS (avatar + precio + grupos + badges + RAP) ----------
-	local priceCard = addNoteCard(itemsScroll, "Precio del avatar", "Calculando...", C.good)
+	local priceCard = addNoteCard(itemsScroll, "Precio del avatar", "Calculando...", "good")
 	priceCard.LayoutOrder = 1
 
-	local itemsCard = addNoteCard(itemsScroll, "Items equipados", "Cargando...", C.accent)
+	local itemsCard = addNoteCard(itemsScroll, "Items equipados", "Cargando...", "accent")
 	itemsCard.LayoutOrder = 2
 
-	local groupsCard = addNoteCard(itemsScroll, "Grupos", "Cargando...", C.accent)
+	local groupsCard = addNoteCard(itemsScroll, "Grupos", "Cargando...", "accent")
 	groupsCard.LayoutOrder = 3
 
-	local badgesCard = addNoteCard(itemsScroll, "Badges recientes", "Cargando...", C.accent)
+	local badgesCard = addNoteCard(itemsScroll, "Badges recientes", "Cargando...", "accent")
 	badgesCard.LayoutOrder = 4
 
 	local rapCard = addNoteCard(itemsScroll, "RAP (valor limiteds)",
-		"Consultando Rolimon's (web externa)...", C.warn)
+		"Consultando Rolimon's (web externa)...", "warn")
 	rapCard.LayoutOrder = 5
 
 	local function bodyOf(card)
@@ -7416,10 +7939,10 @@ local function render(data, skipEntrance)
 	do
 		local st = data._state or "verified"
 		local ETIQ = {
-			verified   = { "Datos verificados",     C.good, "Todas las respuestas pasaron la validación." },
-			partial    = { "Datos parciales",       C.warn, "Algunas consultas no respondieron. Lo que falta aparece como \"No disponible\"." },
-			incomplete = { "Datos incompletos",     C.warn, "Faltan campos clave del perfil." },
-			error      = { "Datos no verificables", C.bad,  "Parte de la respuesta no pasó la validación y no se muestra." },
+			verified   = { "Datos verificados",     "good", "Todas las respuestas pasaron la validación." },
+			partial    = { "Datos parciales",       "warn", "Algunas consultas no respondieron. Lo que falta aparece como \"No disponible\"." },
+			incomplete = { "Datos incompletos",     "warn", "Faltan campos clave del perfil." },
+			error      = { "Datos no verificables", "bad",  "Parte de la respuesta no pasó la validación y no se muestra." },
 		}
 		local e = ETIQ[st] or ETIQ.verified
 		-- En modo normal esta tarjeta solo aparece si hay algo que advertir: con
@@ -7461,7 +7984,7 @@ local function render(data, skipEntrance)
 			"Faltan datos que son pilares del modelo:\n• "
 				.. table.concat(faltantes, "\n• ")
 				.. "\n\nSin ellos el resultado no sería fiable, así que no se publica.",
-			C.bad).LayoutOrder = 1
+			"bad").LayoutOrder = 1
 		return
 	end
 
@@ -7471,6 +7994,7 @@ local function render(data, skipEntrance)
 	local inflScore,  inflLvl,  inflColor                = computeInfluence(data, nil)
 
 	local advCard = DS.makeCard(analysisScroll, {order = 3, title = "Puntuaciones"})
+	animateCardIn(advCard)
 
 	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
 	addScoreBar(advCard, "Actividad", actScore, actLvl, actColor, 2)
@@ -7513,6 +8037,7 @@ local function render(data, skipEntrance)
 		do
 			local trustBody = "Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• ")
 			local tCard = DS.makeCard(analysisScroll, {order = 4})
+				animateCardIn(tCard)
 
 			-- Título con color dinámico (trustColor) — se busca el primer TextLabel si el card no tiene title
 			local tTitle = Instance.new("TextLabel", tCard)
@@ -7576,6 +8101,7 @@ local function render(data, skipEntrance)
 				.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt."
 
 			local aCard = DS.makeCard(analysisScroll, {order = 5})
+				animateCardIn(aCard)
 
 			-- Título con color dinámico (altColor)
 			local aTitle = Instance.new("TextLabel", aCard)
@@ -7619,7 +8145,7 @@ local function render(data, skipEntrance)
 	local mutualCard = addNoteCard(analysisScroll,
 		"Amigos en común",
 		(data.UserId == player.UserId) and "Estás viendo tu propia cuenta." or "Calculando...",
-		C.accent)
+		"accent")
 	mutualCard.LayoutOrder = 6
 
 	if data.UserId ~= player.UserId then
@@ -7650,14 +8176,6 @@ local function render(data, skipEntrance)
 		end)
 	end
 
-	-- Aparición escalonada de tarjetas (stagger). Solo en entrada fresca, no
-	-- al repintar por cambio de tema (skipEntrance = true).
-	if not skipEntrance then
-		staggerCards(profileScroll)
-		staggerCards(statsScroll)
-		staggerCards(itemsScroll)
-		staggerCards(analysisScroll)
-	end
 end
 
 -- Hook del tema en vivo: al cambiar color, repaint() pinta el chrome y
@@ -8058,6 +8576,54 @@ do
 	end)
 end
 
+do
+	local creditCard = Instance.new("Frame", settingsScroll)
+	creditCard.LayoutOrder = 99
+	creditCard.Size = UDim2.new(1, 0, 0, 0)
+	creditCard.AutomaticSize = Enum.AutomaticSize.Y
+	creditCard.BackgroundColor3 = C.surface
+	creditCard.BackgroundTransparency = 0.3
+	creditCard.BorderSizePixel = 0
+	Instance.new("UICorner", creditCard).CornerRadius = UDim.new(0, 8)
+	themed(creditCard, "BackgroundColor3", "surface")
+	local cst = Instance.new("UIStroke", creditCard)
+	cst.Color = C.border; cst.Thickness = 1; cst.Transparency = 0.7
+	themed(cst, "Color", "border")
+	local cp = Instance.new("UIPadding", creditCard)
+	cp.PaddingTop = UDim.new(0, 10); cp.PaddingBottom = UDim.new(0, 10)
+	cp.PaddingLeft = UDim.new(0, 12); cp.PaddingRight = UDim.new(0, 12)
+	local cLay = Instance.new("UIListLayout", creditCard)
+	cLay.Padding = UDim.new(0, 4); cLay.SortOrder = Enum.SortOrder.LayoutOrder
+	cLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	local cTitle = Instance.new("TextLabel", creditCard)
+	cTitle.LayoutOrder = 1; cTitle.Size = UDim2.new(1, 0, 0, 16)
+	cTitle.BackgroundTransparency = 1
+	cTitle.Font = Enum.Font.GothamBold; cTitle.TextSize = 12
+	cTitle.TextColor3 = C.accent; cTitle.Text = "Roblox Profile Analyzer"
+	cTitle.TextXAlignment = Enum.TextXAlignment.Center
+	themed(cTitle, "TextColor3", "accent")
+
+	local cVer = Instance.new("TextLabel", creditCard)
+	cVer.LayoutOrder = 2; cVer.Size = UDim2.new(1, 0, 0, 14)
+	cVer.BackgroundTransparency = 1
+	cVer.Font = Enum.Font.Gotham; cVer.TextSize = 11
+	cVer.TextColor3 = C.subtext; cVer.Text = "v3.9.3 · © 2024-2026 dreennx"
+	cVer.TextXAlignment = Enum.TextXAlignment.Center
+	themed(cVer, "TextColor3", "subtext")
+
+	local cDesc = Instance.new("TextLabel", creditCard)
+	cDesc.LayoutOrder = 3; cDesc.Size = UDim2.new(1, 0, 0, 0)
+	cDesc.AutomaticSize = Enum.AutomaticSize.Y
+	cDesc.BackgroundTransparency = 1
+	cDesc.Font = Enum.Font.Gotham; cDesc.TextSize = 10
+	cDesc.TextColor3 = C.textDisabled
+	cDesc.TextWrapped = true
+	cDesc.Text = "Software privado. Queda prohibida su copia, distribucion o modificacion sin autorizacion del autor."
+	cDesc.TextXAlignment = Enum.TextXAlignment.Center
+	themed(cDesc, "TextColor3", "textDisabled")
+end
+
 -- ====================== NX CONTROL CENTER (Panel Admin) ======================
 -- Pestaña exclusiva para administradores (permissions.admin == true).
 -- Se construye y añade al tab bar dinámicamente desde NXCore.onReady().
@@ -8173,7 +8739,7 @@ local function buildAdminPanel()
 		local st = Instance.new("UIStroke", card)
 		st.Color = color or C.accent; st.Transparency = 0.45; st.Thickness = 1
 		themed(card, "BackgroundColor3", "card")
-		local colorRole = color and nil or "accent"
+		local colorRole = if color then nil else "accent"
 		if colorRole then themed(st, "Color", colorRole) end
 		local numLbl = Instance.new("TextLabel", card)
 		numLbl.Size                  = UDim2.new(1, 0, 0, 34)
@@ -9282,57 +9848,41 @@ NXCore.onReady(function()
 	end
 end)
 
--- ====================== ARRASTRE SUAVE (sin conexión global permanente) ======================
--- Todo en do...end para no gastar registros de raíz: las conexiones y el estado
--- del arrastre son locales de bloque.
+-- ====================== ARRASTRE DIRECTO ======================
+-- El panel sigue al mouse 1:1 sin lerp (sin RenderStepped).
+-- Todas las conexiones se desconectan al soltar.
 do
-	local RunService = _G.NXServices.RunService
-	local dragInputConn, dragEndedConn, dragRenderConn
+	local dragInputConn, dragEndedConn
 	local function stopDrag()
 		if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
 		if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
-		if dragRenderConn then dragRenderConn:Disconnect(); dragRenderConn = nil end
 	end
 
 	track(header.InputBegan:Connect(function(input)
 		local t = input.UserInputType
 		if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
 		local startMouse = input.Position
-		local startPos = main.Position
 		stopDrag()
-		-- La ventana PERSIGUE un objetivo (targetPos) con un lerp por frame,
-		-- independiente de los FPS → arrastre suave. El lerp nunca se pasa del
-		-- destino, así que NO hay overshoot ni rebote. Al soltar sigue asentándose
-		-- hasta llegar (<0.5px) y la conexión por frame se desconecta sola.
-		local targetPos = startPos
-		local dragging = true
+		-- Convertir Scale a Offset (una sola vez al iniciar el arrastre)
+		local vp = workspace.CurrentCamera.ViewportSize
+		local p = main.Position
+		local ox = p.X.Scale * vp.X + p.X.Offset
+		local oy = p.Y.Scale * vp.Y + p.Y.Offset
+		main.Position = UDim2.fromOffset(ox, oy)
+
+		-- Movimiento directo: el panel sigue al mouse 1:1
 		dragInputConn = UserInputService.InputChanged:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseMovement
 				or i.UserInputType == Enum.UserInputType.Touch then
 				local d = i.Position - startMouse
-				targetPos = UDim2.new(
-					startPos.X.Scale, startPos.X.Offset + d.X,
-					startPos.Y.Scale, startPos.Y.Offset + d.Y
-				)
+				main.Position = UDim2.fromOffset(ox + d.X, oy + d.Y)
 			end
 		end)
-		dragRenderConn = RunService.RenderStepped:Connect(function(dt)
-			local a = 1 - math.exp(-18 * dt)   -- respuesta ~18/s: fluido pero al día
-			main.Position = main.Position:Lerp(targetPos, a)
-			if not dragging then
-				local p = main.Position
-				if math.abs(p.X.Offset - targetPos.X.Offset) < 0.5
-					and math.abs(p.Y.Offset - targetPos.Y.Offset) < 0.5 then
-					main.Position = targetPos
-					if dragRenderConn then dragRenderConn:Disconnect(); dragRenderConn = nil end
-				end
-			end
-		end)
+
+		-- Al soltar: desconectar todo
 		dragEndedConn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-				if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
-				if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
+				stopDrag()
 			end
 		end)
 	end))
@@ -9537,10 +10087,10 @@ do
     local function typeColor(t) return C[typeRole(t)] or C.accent end
     local function typeEmoji(t)
         t = tostring(t or "info"):lower()
-        if t == "warn" or t == "warning" then return "" end
-        if t == "error" or t == "bad" or t == "danger" then return "" end
-        if t == "success" or t == "ok" or t == "good" then return "" end
-        return ""
+        if t == "warn" or t == "warning" then return "!" end
+        if t == "error" or t == "bad" or t == "danger" then return "X" end
+        if t == "success" or t == "ok" or t == "good" then return "+" end
+        return "i"
     end
 
     -- ---- normaliza la imagen opcional (acepta número, "123" o "rbxassetid://123") ----
@@ -10015,7 +10565,10 @@ do
     -- Segundos de bloqueo declarados en un mensaje (lock / lockSeconds / lockMinutes), o 0.
     local function lockSecondsOf(m)
         local s = tonumber(m.lock) or tonumber(m.lockSeconds)
-        if not s and tonumber(m.lockMinutes) then s = tonumber(m.lockMinutes) * 60 end
+        if not s then
+            local mins = tonumber(m.lockMinutes)
+            if mins then s = mins * 60 end
+        end
         return tonumber(s) or 0
     end
 
@@ -10029,7 +10582,7 @@ do
         local tg = m.targets
         if type(tg) == "table" and #tg > 0 then
             local me, ok = player.UserId, false
-            for _, u in ipairs(tg) do if tonumber(u) == me then ok = true break end end
+            for _, u in ipairs(tg) do if tonumber(u) == me then ok = true; break end end
             if not ok then return false end
         end
         local id = m.id and tostring(m.id) or nil
@@ -11373,7 +11926,7 @@ Animations.luxe = {
         if NXHeadTags._playerRemoving then NXHeadTags._playerRemoving:Disconnect() end
         NXHeadTags._playerAdded, NXHeadTags._playerRemoving = nil, nil
 
-        if renderConn then renderConn:Disconnect() renderConn = nil end
+        if renderConn then renderConn:Disconnect(); renderConn = nil end
 
         for player in pairs(connections) do
             unhookPlayer(player)
@@ -12633,6 +13186,7 @@ end)()
 	-- final del init en task.defer → ver "DOCKING" más abajo.
 	ventana.Position = UDim2.new(0.5, 338, 0.5, -ALTO/2)
 	ventana.BorderSizePixel = 0
+	ventana.Active = true
 	ventana.ClipsDescendants = true
 	ventana.Parent = gui
 	pthemed(ventana, "BackgroundColor3", "bg")
@@ -12707,16 +13261,18 @@ end)()
 	local minimizado = false
 	local NORMAL_SIZE = UDim2.new(0, ANCHO, 0, ALTO)
 	local posGuardada = ventana.Position
+	local _ventanaTween = nil
 	local function aplicarVentana(animar)
-		local size, pos
-		size = NORMAL_SIZE
-		pos = posGuardada
+		local size = NORMAL_SIZE
 		if minimizado then
 			size = UDim2.new(size.X.Scale, size.X.Offset, 0, 38)
 		end
 		local dur = animar == false and 0 or 0.3
 		local info = TweenInfo.new(dur, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-		TweenService:Create(ventana, info, { Size = size, Position = pos }):Play()
+		if _ventanaTween then pcall(function() _ventanaTween:Cancel() end) end
+		-- Solo animar Size — la posición la controlan el arrastre y dockNextToAnalyzer
+		_ventanaTween = TweenService:Create(ventana, info, { Size = size })
+		_ventanaTween:Play()
 	end
 
 	-- (1) Minimizar: barra horizontal dibujada.
@@ -12741,18 +13297,26 @@ end)()
 		task.delay(0.2, function() gui:Destroy() end)
 	end)
 	do
-		local xLine1 = Instance.new("Frame", cerrarBtn)
-		xLine1.AnchorPoint = Vector2.new(0.5, 0.5)
-		xLine1.Position = UDim2.new(0.5, 0, 0.5, 0)
-		xLine1.Size = UDim2.fromOffset(12, 1.6)
-		xLine1.Rotation = 45
-		xLine1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		xLine1.BorderSizePixel = 0
-		xLine1.ZIndex = cerrarBtn.ZIndex + 1
-		Instance.new("UICorner", xLine1).CornerRadius = UDim.new(1, 0)
-		local xLine2 = xLine1:Clone()
-		xLine2.Rotation = -45
-		xLine2.Parent = cerrarBtn
+		local closeIco = Instance.new("ImageLabel", cerrarBtn)
+		closeIco.Size = UDim2.fromOffset(20, 20)
+		closeIco.AnchorPoint = Vector2.new(0.5, 0.5)
+		closeIco.Position = UDim2.new(0.5, 0, 0.5, 0)
+		closeIco.BackgroundTransparency = 1
+		closeIco.Image = (_G.NXIcons and _G.NXIcons.close) or ""
+		closeIco.ImageColor3 = Color3.fromRGB(255, 255, 255)
+		closeIco.ScaleType = Enum.ScaleType.Fit
+		closeIco.ZIndex = cerrarBtn.ZIndex + 1
+	end
+	cerrarBtn.BackgroundTransparency = 1
+	cerrarBtn:FindFirstChildOfClass("UIStroke"):Destroy()
+	do
+		local cIco = cerrarBtn:FindFirstChildOfClass("ImageLabel")
+		cerrarBtn.MouseEnter:Connect(function()
+			TweenService:Create(cIco, TweenInfo.new(0.12), { ImageColor3 = Color3.fromRGB(255, 80, 80) }):Play()
+		end)
+		cerrarBtn.MouseLeave:Connect(function()
+			TweenService:Create(cIco, TweenInfo.new(0.16), { ImageColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+		end)
 	end
 
 	-- ====================== BARRA DE BÚSQUEDA (estilo barra de direcciones) ======================
@@ -13059,30 +13623,60 @@ end)()
 			(not globalActivo) and (not hayVisiblesLocal) and (hayJugadores or hayFiltro)
 	end
 
-	-- Entrada breve para resultados: primero se asienta la tarjeta y después se
-	-- revela su información. Es deliberadamente sobria (Quad/Quint), sin pop,
-	-- rebote ni elasticidad.
+	local _revelarIdx = 0
 	local function revelarTarjeta(tarjeta, bordeTarjeta, elementos)
 		if not store.animations then return end
+		_revelarIdx = _revelarIdx + 1
+
 		tarjeta.BackgroundTransparency = 1
 		bordeTarjeta.Transparency = 1
 		for _, elemento in ipairs(elementos) do elemento.TextTransparency = 1 end
+
+		local imgs = {}
+		for _, ch in ipairs(tarjeta:GetDescendants()) do
+			if ch:IsA("ImageLabel") or ch:IsA("ImageButton") then
+				imgs[#imgs + 1] = { inst = ch, orig = ch.ImageTransparency }
+				ch.ImageTransparency = 1
+			end
+		end
+
+		local scale = Instance.new("UIScale", tarjeta)
+		scale.Scale = 0.90
+
 		task.defer(function()
-			if not tarjeta.Parent then return end
-			TweenService:Create(tarjeta, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			task.wait()
+			if not tarjeta.Parent then
+				if scale then scale:Destroy() end
+				return
+			end
+
+			TweenService:Create(scale, TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Scale = 1,
+			}):Play()
+			TweenService:Create(tarjeta, TweenInfo.new(0.40, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 				BackgroundTransparency = 0,
 			}):Play()
-			TweenService:Create(bordeTarjeta, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			TweenService:Create(bordeTarjeta, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Transparency = 0.6,
 			}):Play()
-			task.delay(0.06, function()
+			task.delay(0.07, function()
 				for _, elemento in ipairs(elementos) do
 					if elemento.Parent then
-						TweenService:Create(elemento, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						TweenService:Create(elemento, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 							TextTransparency = 0,
 						}):Play()
 					end
 				end
+				for _, im in ipairs(imgs) do
+					if im.inst.Parent then
+						TweenService:Create(im.inst, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							ImageTransparency = im.orig,
+						}):Play()
+					end
+				end
+			end)
+			task.delay(0.55, function()
+				if scale and scale.Parent then scale:Destroy() end
 			end)
 		end)
 	end
@@ -13531,67 +14125,47 @@ end)()
 	ltrack(Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end))
 	ltrack(Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end))
 
-	-- ====================== ARRASTRE (mouse + táctil) con squish ======================
-	local arrastrando, inicioInput, inicioPos = false, nil, nil
-	local dragScale = Instance.new("UIScale", ventana)
-	dragScale.Name = "DragScale"; dragScale.Scale = 1
-	local function esInputArrastre(input)
-		return input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-	end
-	local function esMovimientoArrastre(input)
-		return input.UserInputType == Enum.UserInputType.MouseMovement
-			or input.UserInputType == Enum.UserInputType.Touch
-	end
+	-- ====================== ARRASTRE DIRECTO ======================
+	-- El panel sigue al mouse 1:1 sin lerp (sin RenderStepped).
+	-- Todas las conexiones se desconectan al soltar.
+	do
+		local dragInputConn, dragEndedConn
+		local function stopVentanaDrag()
+			if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
+			if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
+		end
 
-	-- Arrastre SUAVE sin efecto de escala: el gesto fija un objetivo (objetivoPos)
-	-- y un lerp por frame acerca la ventana a él, independiente de los FPS. El lerp
-	-- nunca se pasa del destino → arrastre fluido, sin overshoot ni rebote. Al
-	-- soltar sigue asentándose hasta llegar y la conexión por frame se desconecta
-	-- sola. dragScale queda fijo en 1 (nunca cambia de tamaño).
-	dragScale.Scale = 1
-	local RunService = _S.RunService or game:GetService("RunService")
-	local objetivoPos = ventana.Position
-	local arrastreRender
+		ltrack(encabezado.InputBegan:Connect(function(input)
+			local t = input.UserInputType
+			if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
+			local startMouse = input.Position
+			stopVentanaDrag()
+			if _ventanaTween then pcall(function() _ventanaTween:Cancel() end); _ventanaTween = nil end
+			-- Convertir Scale a Offset
+			local vp = workspace.CurrentCamera.ViewportSize
+			local p = ventana.Position
+			local ox = p.X.Scale * vp.X + p.X.Offset
+			local oy = p.Y.Scale * vp.Y + p.Y.Offset
+			ventana.Position = UDim2.fromOffset(ox, oy)
 
-	ltrack(encabezado.InputBegan:Connect(function(input)
-		if esInputArrastre(input) then
-			arrastrando = true
-			inicioInput = input.Position
-			inicioPos = ventana.Position
-			objetivoPos = ventana.Position
-			if arrastreRender then arrastreRender:Disconnect(); arrastreRender = nil end
-			arrastreRender = RunService.RenderStepped:Connect(function(dt)
-				local a = 1 - math.exp(-18 * dt)
-				ventana.Position = ventana.Position:Lerp(objetivoPos, a)
-				posGuardada = ventana.Position
-				if not arrastrando then
-					local p = ventana.Position
-					if math.abs(p.X.Offset - objetivoPos.X.Offset) < 0.5
-						and math.abs(p.Y.Offset - objetivoPos.Y.Offset) < 0.5 then
-						ventana.Position = objetivoPos
-						posGuardada = objetivoPos
-						arrastreRender:Disconnect(); arrastreRender = nil
-					end
+			-- Movimiento directo: el panel sigue al mouse 1:1
+			dragInputConn = UserInputService.InputChanged:Connect(function(i)
+				if i.UserInputType == Enum.UserInputType.MouseMovement
+					or i.UserInputType == Enum.UserInputType.Touch then
+					local d = i.Position - startMouse
+					ventana.Position = UDim2.fromOffset(ox + d.X, oy + d.Y)
 				end
 			end)
-			input.Changed:Connect(function()
+
+			-- Al soltar: guardar posición y desconectar
+			dragEndedConn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
-					arrastrando = false
+					posGuardada = ventana.Position
+					stopVentanaDrag()
 				end
 			end)
-		end
-	end))
-
-	ltrack(UserInputService.InputChanged:Connect(function(input)
-		if arrastrando and esMovimientoArrastre(input) then
-			local delta = input.Position - inicioInput
-			objetivoPos = UDim2.new(
-				inicioPos.X.Scale, inicioPos.X.Offset + delta.X,
-				inicioPos.Y.Scale, inicioPos.Y.Offset + delta.Y
-			)
-		end
-	end))
+		end))
+	end
 
 	-- ====================== INICIALIZACIÓN ======================
 	for _, plr in ipairs(Players:GetPlayers()) do
@@ -13613,10 +14187,14 @@ end)()
 		local agui = playerGui:FindFirstChild("UtilityPanel")
 		local awin = agui and agui:FindFirstChild("main")
 		if not awin then return false end
-		local size = awin.AbsoluteSize
-		if size.X <= 0 or size.Y <= 0 then return false end   -- aún no calculado
-		local pos = awin.AbsolutePosition
-		ventana.Position = UDim2.fromOffset(pos.X + size.X + DOCK_GAP, pos.Y)
+		local aSize = awin.Size
+		if aSize.X.Offset <= 0 and aSize.X.Scale <= 0 then return false end
+		local vp = workspace.CurrentCamera.ViewportSize
+		local ap = awin.Position
+		local ax = ap.X.Scale * vp.X + ap.X.Offset
+		local ay = ap.Y.Scale * vp.Y + ap.Y.Offset
+		local aw = aSize.X.Scale * vp.X + aSize.X.Offset
+		ventana.Position = UDim2.fromOffset(ax + aw + DOCK_GAP, ay)
 		posGuardada = ventana.Position
 		return true
 	end
