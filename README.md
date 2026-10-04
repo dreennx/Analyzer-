@@ -1,4 +1,4 @@
-<h1 align="center">NX Analyzer</h1>
+
 <h1 align="center">NX Analyzer</h1>
 
 <p align="center">
