@@ -133,6 +133,7 @@ local THEMES = {
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,178,50), bad=Color3.fromRGB(237,66,69),
 		text=Color3.fromRGB(224,225,228), subtext=Color3.fromRGB(139,141,148),
 		modalBg=Color3.fromRGB(30,31,34), modalStep=Color3.fromRGB(26,27,30),
+		_glow = true,
 	},
 	azul = {
 		bg=Color3.fromRGB(18,24,42), card=Color3.fromRGB(28,36,62), input=Color3.fromRGB(24,30,54),
@@ -155,14 +156,15 @@ local THEMES = {
 		modalBg=Color3.fromRGB(18,28,20), modalStep=Color3.fromRGB(14,22,16),
 	},
 	tor = {
-		bg=Color3.fromRGB(24,18,34), card=Color3.fromRGB(35,26,48), input=Color3.fromRGB(30,22,42),
-		surface=Color3.fromRGB(35,26,48), surfaceHover=Color3.fromRGB(44,34,58), elevated=Color3.fromRGB(50,38,66),
-		link=Color3.fromRGB(24,18,34), neutral=Color3.fromRGB(46,34,62), border=Color3.fromRGB(65,50,88),
-		divider=Color3.fromRGB(55,42,74),textDisabled=Color3.fromRGB(90,78,110),
-		accent=Color3.fromRGB(160,100,210), onAccent=Color3.fromRGB(255,255,255),
-		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(225,95,95),
-		text=Color3.fromRGB(235,230,242), subtext=Color3.fromRGB(150,135,168),
-		modalBg=Color3.fromRGB(28,21,40), modalStep=Color3.fromRGB(22,16,32),
+		bg=Color3.fromRGB(10,3,16), card=Color3.fromRGB(28,11,47), input=Color3.fromRGB(20,7,34),
+		surface=Color3.fromRGB(28,11,47), surfaceHover=Color3.fromRGB(40,16,68), elevated=Color3.fromRGB(50,20,82),
+		link=Color3.fromRGB(10,3,16), neutral=Color3.fromRGB(35,14,55), border=Color3.fromRGB(65,30,100),
+		divider=Color3.fromRGB(50,22,78),textDisabled=Color3.fromRGB(90,65,115),
+		accent=Color3.fromRGB(124,58,237), onAccent=Color3.fromRGB(255,255,255),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
+		text=Color3.fromRGB(232,226,245), subtext=Color3.fromRGB(150,135,168),
+		modalBg=Color3.fromRGB(14,4,22), modalStep=Color3.fromRGB(8,2,14),
+		_glow = true,
 	},
 	rojo = {
 		bg=Color3.fromRGB(24,14,16), card=Color3.fromRGB(38,22,25), input=Color3.fromRGB(32,18,21),
@@ -203,6 +205,18 @@ local THEMES = {
 		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(230,180,90), bad=Color3.fromRGB(235,95,95),
 		text=Color3.fromRGB(245,228,238), subtext=Color3.fromRGB(170,135,155),
 		modalBg=Color3.fromRGB(30,18,26), modalStep=Color3.fromRGB(24,14,20),
+		_glow = true,
+	},
+	arctic = {
+		bg=Color3.fromRGB(3,9,20), card=Color3.fromRGB(7,22,42), input=Color3.fromRGB(5,18,35),
+		surface=Color3.fromRGB(11,37,80), surfaceHover=Color3.fromRGB(16,48,100), elevated=Color3.fromRGB(10,30,65),
+		link=Color3.fromRGB(3,9,20), neutral=Color3.fromRGB(8,25,55), border=Color3.fromRGB(10,76,163),
+		divider=Color3.fromRGB(8,55,120),textDisabled=Color3.fromRGB(60,85,120),
+		accent=Color3.fromRGB(85,201,240), onAccent=Color3.fromRGB(2,6,14),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,190,60), bad=Color3.fromRGB(237,80,80),
+		text=Color3.fromRGB(210,225,240), subtext=Color3.fromRGB(120,145,175),
+		modalBg=Color3.fromRGB(2,6,16), modalStep=Color3.fromRGB(1,4,12),
+		_glow = true,
 	},
 	naranja = {
 		bg=Color3.fromRGB(26,18,10), card=Color3.fromRGB(40,28,16), input=Color3.fromRGB(34,24,14),
@@ -241,6 +255,7 @@ local C = {}
 local function applyTheme(name)
 	local t = THEMES[name] or THEMES.negro
 	for k, v in pairs(t) do C[k] = v end
+	C._glow = t._glow or false
 end
 -- El tema "kali" se retiró junto con el estilo terminal. Las instalaciones que
 -- lo tuvieran guardado caen a "tor" para no arrancar sin un tema válido.
@@ -281,6 +296,18 @@ local function repaint()
 		end
 	end
 	for i = #roleMap, n + 1, -1 do roleMap[i] = nil end
+	for i = 1, n do
+		local e = roleMap[i]
+		if e.role == "accent" and e.inst:IsA("UIStroke") then
+			if C._glow then
+				e.inst.Transparency = 0.35; e.inst.Thickness = 1.4
+			end
+		elseif e.role == "border" and e.inst:IsA("UIStroke") then
+			if not C._glow then
+				e.inst.Transparency = 0.6; e.inst.Thickness = 1
+			end
+		end
+	end
 	for _, fn in ipairs(repaintExtra) do pcall(fn) end
 end
 
@@ -307,6 +334,8 @@ _G.NXTheme = {
 	onRepaint = onRepaint,         -- onRepaint(fn) → fn se llama en cada cambio de tema
 	themed = themed,               -- themed(inst, prop, role) por si quiere usarlo
 	getTheme = function() return store.theme end,
+	isGlow = function() return THEMES[store.theme] and THEMES[store.theme]._glow or false end,
+	glowBgMap = { arctic="arctic_bg", tor="tor_bg", negro="negro_bg", rosa="rosa_bg" },
 }
 
 -- ====================== DESIGN SYSTEM (tokens + component builders) ======================
@@ -331,9 +360,31 @@ do
 		card.ClipsDescendants = true
 		Instance.new("UICorner", card).CornerRadius = DS.corner.md
 		themed(card, "BackgroundColor3", "surface")
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			card.BackgroundTransparency = 0.3
+		end
 		local st = Instance.new("UIStroke", card)
-		st.Color = C.border; st.Transparency = 0.6; st.Thickness = 1
-		themed(st, "Color", "border")
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			st.Color = C.accent; st.Transparency = 0.45; st.Thickness = 1.2
+			themed(st, "Color", "accent")
+			local cg = Instance.new("UIGradient", st)
+			local a = C.accent
+			local dk = _G.NXDS.darken
+			local lt = _G.NXDS.lighten
+			cg.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
+				ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
+				ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
+			})
+			cg.Rotation = math.random(0, 360)
+			card:SetAttribute("_nxGlowGrad", true)
+		else
+			st.Color = C.border; st.Transparency = 0.6; st.Thickness = 1
+			themed(st, "Color", "border")
+		end
 		local p = Instance.new("UIPadding", card)
 		p.PaddingTop = UDim.new(0, DS.pad.card); p.PaddingBottom = UDim.new(0, DS.pad.card)
 		p.PaddingLeft = UDim.new(0, DS.pad.card); p.PaddingRight = UDim.new(0, DS.pad.card)
@@ -367,6 +418,16 @@ do
 		row.Size = UDim2.new(1, 0, 0, 26)
 		row.BackgroundTransparency = 1
 		row.ClipsDescendants = true
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			local sep = Instance.new("Frame", row)
+			sep.Size = UDim2.new(1, 0, 0, 1)
+			sep.Position = UDim2.new(0, 0, 1, -1)
+			sep.BackgroundColor3 = C.accent
+			sep.BackgroundTransparency = 0.85
+			sep.BorderSizePixel = 0
+			sep.ZIndex = 2
+			themed(sep, "BackgroundColor3", "accent")
+		end
 
 		local lbl = Instance.new("TextLabel", row)
 		lbl.Size = UDim2.new(0, 0, 1, 0); lbl.AutomaticSize = Enum.AutomaticSize.X
@@ -445,6 +506,12 @@ do
 			themed(btn, "BackgroundColor3", "accent"); themed(btn, "TextColor3", "onAccent")
 		elseif style == "secondary" then
 			themed(btn, "BackgroundColor3", "surface"); themed(btn, "TextColor3", "text")
+			if THEMES[store.theme] and THEMES[store.theme]._glow then
+				local bst = Instance.new("UIStroke", btn)
+				bst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+				bst.Color = C.accent; bst.Transparency = 0.55; bst.Thickness = 1
+				themed(bst, "Color", "accent")
+			end
 		else
 			themed(btn, "TextColor3", "subtext")
 		end
@@ -549,8 +616,8 @@ do
 		fill.ClipsDescendants = true
 		Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 3)
 		local target = math.max(clamped, score > 0 and 0.04 or 0)
-		motionTween(fill, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-			{ Size = UDim2.new(target, 0, 1, 0) })
+		TweenService:Create(fill, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+			{ Size = UDim2.new(target, 0, 1, 0) }):Play()
 
 		-- Valor proporcional (28% del ancho) con truncado por seguridad
 		local val = Instance.new("TextLabel", row)
@@ -633,6 +700,40 @@ end
 
 -- ====================== HTTP ROBUSTO ======================
 local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
+
+do
+	local PROXY_URL = ""
+	local PROXY_KEY = ""
+	local USE_PROXY = PROXY_URL ~= ""
+
+	local PROXY_DOMAINS = {
+		"users.roblox.com",
+		"friends.roblox.com",
+		"groups.roblox.com",
+		"badges.roblox.com",
+		"games.roblox.com",
+		"presence.roblox.com",
+		"avatar.roblox.com",
+		"catalog.roblox.com",
+		"thumbnails.roblox.com",
+		"apis.roblox.com",
+		"economy.roblox.com",
+		"inventory.roblox.com",
+	}
+
+	local function shouldProxy(url)
+		if not USE_PROXY then return false end
+		for _, domain in ipairs(PROXY_DOMAINS) do
+			if string.find(url, domain, 1, true) then return true end
+		end
+		return false
+	end
+
+	_G._NX_shouldProxy = shouldProxy
+	_G._NX_PROXY_URL = function() return PROXY_URL end
+	_G._NX_PROXY_KEY = function() return PROXY_KEY end
+end
+
 local _clipImpl = setclipboard or (syn and syn.write_clipboard) or toclipboard
 local function clipboard(text)
 	-- Re-resolver clipboard si no se encontró al inicio (Potassium lo inyecta tarde)
@@ -651,14 +752,40 @@ end
 -- fallo (no como "respuesta válida sin datos").
 local function rawGet(url)
 	local body, statusCode
-	if httpRequest then
-		-- Reintento con backoff ante throttle (429) o fallos transitorios del
-		-- servidor (502/503/504). La recolección en paralelo dispara ~12 llamadas
-		-- a los endpoints de Roblox a la vez, así que el 429 es real. Hasta 3
-		-- intentos con esperas crecientes (0.4s, 0.8s); cualquier otro status
-		-- (200, 404, 403…) sale al primer intento sin penalización.
+
+	local viaProxy = _G._NX_shouldProxy and _G._NX_shouldProxy(url)
+	if viaProxy and httpRequest then
+		local proxyUrl = _G._NX_PROXY_URL()
+		local proxyKey = _G._NX_PROXY_KEY()
 		for attempt = 1, 3 do
-			local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
+			local ok, res = pcall(httpRequest, {
+				Url = proxyUrl,
+				Method = "POST",
+				Headers = {
+					["Content-Type"] = "application/json",
+					["X-NX-Key"] = proxyKey,
+				},
+				Body = HttpService:JSONEncode({
+					method = "GET",
+					url = url,
+				}),
+			})
+			if ok and res then
+				body = res.Body
+				statusCode = res.StatusCode
+			end
+			local sc = tonumber(statusCode)
+			if not (sc == 429 or sc == 502 or sc == 503 or sc == 504) then break end
+			if attempt < 3 then task.wait(0.5 * attempt) end
+		end
+		if body and body ~= "" then
+			return body, statusCode
+		end
+	end
+
+	if httpRequest then
+		for attempt = 1, 3 do
+			local ok, res = pcall(httpRequest, {Url = url, Method = "GET"})
 			if ok and res then
 				body = res.Body
 				statusCode = res.StatusCode
@@ -670,8 +797,6 @@ local function rawGet(url)
 	end
 	if body == nil or body == "" then
 		local ok, res = pcall(function() return game:HttpGet(url) end)
-		-- HttpGet lanza error si el status no es 2xx: si llegó aquí con cuerpo,
-		-- la petición fue correcta (el status previo, si lo había, ya no aplica).
 		if ok and type(res) == "string" and res ~= "" then body, statusCode = res, 200 end
 	end
 	if body == nil or body == "" then return nil, statusCode or "connection_failure" end
@@ -687,11 +812,35 @@ end
 
 local function apiPost(url, payload)
 	if not httpRequest then return nil, "no_http_request" end
+
+	local viaProxy = _G._NX_shouldProxy and _G._NX_shouldProxy(url)
+	local targetUrl, targetHeaders, targetBody
+
+	if viaProxy then
+		local proxyUrl = _G._NX_PROXY_URL()
+		local proxyKey = _G._NX_PROXY_KEY()
+		targetUrl = proxyUrl
+		targetHeaders = {
+			["Content-Type"] = "application/json",
+			["X-NX-Key"] = proxyKey,
+		}
+		targetBody = HttpService:JSONEncode({
+			method = "POST",
+			url = url,
+			headers = { ["Content-Type"] = "application/json" },
+			body = payload,
+		})
+	else
+		targetUrl = url
+		targetHeaders = { ["Content-Type"] = "application/json" }
+		targetBody = HttpService:JSONEncode(payload)
+	end
+
 	local ok, res = pcall(httpRequest, {
-		Url = url,
+		Url = targetUrl,
 		Method = "POST",
-		Headers = { ["Content-Type"] = "application/json" },
-		Body = HttpService:JSONEncode(payload),
+		Headers = targetHeaders,
+		Body = targetBody,
 	})
 	if ok and res and res.Body then
 		local ok2, decoded = pcall(function() return HttpService:JSONDecode(res.Body) end)
@@ -707,18 +856,43 @@ end
 local cachedCsrf = nil
 local function postAuth(url, payload)
 	if not httpRequest then return nil, "no_http_request", nil end
+
+	local viaProxy = _G._NX_shouldProxy and _G._NX_shouldProxy(url)
+
 	local function doReq(token)
 		local headers = { ["Content-Type"] = "application/json" }
 		if token then headers["X-CSRF-TOKEN"] = token end
-		local ok, res = pcall(httpRequest, {
-			Url = url, Method = "POST", Headers = headers,
-			Body = HttpService:JSONEncode(payload or {}),
-		})
-		if not ok or not res then return nil end
-		return res
+
+		if viaProxy then
+			local proxyUrl = _G._NX_PROXY_URL()
+			local proxyKey = _G._NX_PROXY_KEY()
+			local ok, res = pcall(httpRequest, {
+				Url = proxyUrl,
+				Method = "POST",
+				Headers = {
+					["Content-Type"] = "application/json",
+					["X-NX-Key"] = proxyKey,
+				},
+				Body = HttpService:JSONEncode({
+					method = "POST",
+					url = url,
+					headers = headers,
+					body = payload or {},
+				}),
+			})
+			if not ok or not res then return nil end
+			return res
+		else
+			local ok, res = pcall(httpRequest, {
+				Url = url, Method = "POST", Headers = headers,
+				Body = HttpService:JSONEncode(payload or {}),
+			})
+			if not ok or not res then return nil end
+			return res
+		end
 	end
+
 	local res = doReq(cachedCsrf)
-	-- 403 => token inválido/ausente: lo tomamos de la cabecera y reintentamos
 	if res and tonumber(res.StatusCode) == 403 then
 		local h = res.Headers or {}
 		local token
@@ -1900,17 +2074,36 @@ end
 -- propia cuenta se lee MembershipType, pero la API no distingue limpiamente
 -- Premium de Plus, por eso se reporta junto como "Premium / Plus".
 local function getSubscription(userId)
-	if userId ~= player.UserId then
-		return "Solo visible en cuenta propia"
+	if userId == player.UserId then
+		local mt = player.MembershipType
+		if mt == Enum.MembershipType.None then
+			return "Ninguna"
+		elseif mt == Enum.MembershipType.Premium then
+			return "Premium / Plus"
+		else
+			return tostring(mt.Name)
+		end
 	end
-	local mt = player.MembershipType
-	if mt == Enum.MembershipType.None then
-		return "Ninguna (cuenta gratis)"
-	elseif mt == Enum.MembershipType.Premium then
-		return "Premium / Plus"
-	else
-		return tostring(mt.Name)
+	local targetPlayer
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.UserId == userId then
+			targetPlayer = p
+			break
+		end
 	end
+	if targetPlayer then
+		local ok, mt = pcall(function() return targetPlayer.MembershipType end)
+		if ok and mt then
+			if mt == Enum.MembershipType.None then
+				return "Ninguna"
+			elseif mt == Enum.MembershipType.Premium then
+				return "Premium / Plus"
+			else
+				return tostring(mt.Name)
+			end
+		end
+	end
+	return "No verificable (fuera del servidor)"
 end
 
 -- ====================== ESTADO / PRESENCIA ======================
@@ -2015,23 +2208,51 @@ end
 -- motivo = "movida" | "sin_respuesta" | "sin_datos"  -> la UI dice la verdad
 -- en vez de echarle la culpa al executor.
 local function getRAP(userId)
-	local data, status = apiGet("https://www.rolimons.com/playerapi/player/" .. userId)
-	-- FIX (2026-07-26): Rolimon's RETIRÓ este endpoint. Hoy responde
-	--   404 {"success":false,"message":"This endpoint has moved, use the new url"}
-	-- y su reemplazo (api.rolimons.com) está detrás de Cloudflare y exige un rol
-	-- de API que se pide en su Discord. O sea: el RAP NO es obtenible desde aquí.
-	-- No se inventa un número: se informa por qué falta.
-	if type(data) == "table" and data.success == false then
-		local msg = tostring(data.message or "")
-		if msg:find("moved") or msg:find("new url") or tonumber(status) == 404 then
-			return nil, "movida"
+	local data, status = apiGet("https://api.rolimons.com/players/v2/player/" .. userId)
+	if type(data) == "table" then
+		if data.success == false then
+			local msg = tostring(data.message or "")
+			if msg:find("moved") or msg:find("new url") or tonumber(status) == 404 then
+				return nil, "movida"
+			end
+			return nil, "sin_datos"
 		end
-		return nil, "sin_datos"
+		local valor = data.value or data.rap
+		if data.player_data then
+			if type(data.player_data) == "table" then
+				valor = data.player_data.rap or data.player_data.value or data.player_data[1] or valor
+			end
+		end
+		if valor ~= nil then
+			return { rap = valor, premium = data.premium or (data.player_data and type(data.player_data) == "table" and data.player_data.premium) }
+		end
+	end
+	local data2 = apiGet("https://www.rolimons.com/playerapi/player/" .. userId)
+	if type(data2) == "table" and data2.success ~= false then
+		local valor = data2.value or data2.rap
+		if valor ~= nil then
+			return { rap = valor, premium = data2.premium }
+		end
+	end
+	local data3 = apiGet("https://www.rolimons.com/api/playerassets/" .. userId)
+	if type(data3) == "table" and data3.success ~= false then
+		local items = data3.playerAssets or data3.items
+		if type(items) == "table" then
+			local totalRap = 0
+			for _, item in pairs(items) do
+				if type(item) == "table" then
+					totalRap = totalRap + (item.rap or item[3] or 0)
+				elseif type(item) == "number" then
+					totalRap = totalRap + item
+				end
+			end
+			if totalRap > 0 then
+				return { rap = totalRap, premium = nil }
+			end
+		end
 	end
 	if not data then return nil, "sin_respuesta" end
-	local valor = data.value or data.rap
-	if valor == nil then return nil, "sin_datos" end
-	return { rap = valor, premium = data.premium }
+	return nil, "sin_datos"
 end
 
 -- ====================== SCORE DE CONFIANZA (heurística 0-100) ======================
@@ -2404,6 +2625,108 @@ local function setCached(userId, data)
 	profileCache[userId] = data
 end
 
+do
+	local FLAG_NAMES = {
+		AD="Andorra",AE="Emiratos Árabes",AF="Afganistán",AG="Antigua y Barbuda",
+		AI="Anguila",AL="Albania",AM="Armenia",AO="Angola",AR="Argentina",
+		AS="Samoa Americana",AT="Austria",AU="Australia",AW="Aruba",AZ="Azerbaiyán",
+		BA="Bosnia",BB="Barbados",BD="Bangladés",BE="Bélgica",BF="Burkina Faso",
+		BG="Bulgaria",BH="Baréin",BI="Burundi",BJ="Benín",BM="Bermudas",
+		BN="Brunéi",BO="Bolivia",BR="Brasil",BS="Bahamas",BT="Bután",
+		BW="Botsuana",BY="Bielorrusia",BZ="Belice",CA="Canadá",CD="R.D. Congo",
+		CF="Rep. Centroafricana",CG="Congo",CH="Suiza",CI="Costa de Marfil",
+		CL="Chile",CM="Camerún",CN="China",CO="Colombia",CR="Costa Rica",
+		CU="Cuba",CV="Cabo Verde",CY="Chipre",CZ="Chequia",DE="Alemania",
+		DJ="Yibuti",DK="Dinamarca",DM="Dominica",DO="Rep. Dominicana",
+		DZ="Argelia",EC="Ecuador",EE="Estonia",EG="Egipto",ER="Eritrea",
+		ES="España",ET="Etiopía",FI="Finlandia",FJ="Fiyi",FK="Malvinas",
+		FM="Micronesia",FR="Francia",GA="Gabón",GB="Reino Unido",GD="Granada",
+		GE="Georgia",GH="Ghana",GM="Gambia",GN="Guinea",GQ="Guinea Ecuatorial",
+		GR="Grecia",GT="Guatemala",GU="Guam",GW="Guinea-Bisáu",GY="Guyana",
+		HK="Hong Kong",HN="Honduras",HR="Croacia",HT="Haití",HU="Hungría",
+		ID="Indonesia",IE="Irlanda",IL="Israel",IN="India",IQ="Irak",
+		IR="Irán",IS="Islandia",IT="Italia",JM="Jamaica",JO="Jordania",
+		JP="Japón",KE="Kenia",KG="Kirguistán",KH="Camboya",KI="Kiribati",
+		KM="Comoras",KN="San Cristóbal",KP="Corea del Norte",KR="Corea del Sur",
+		KW="Kuwait",KY="Islas Caimán",KZ="Kazajistán",LA="Laos",LB="Líbano",
+		LC="Santa Lucía",LI="Liechtenstein",LK="Sri Lanka",LR="Liberia",
+		LS="Lesoto",LT="Lituania",LU="Luxemburgo",LV="Letonia",LY="Libia",
+		MA="Marruecos",MC="Mónaco",MD="Moldavia",ME="Montenegro",MG="Madagascar",
+		MH="Islas Marshall",MK="Macedonia del Norte",ML="Malí",MM="Myanmar",
+		MN="Mongolia",MO="Macao",MR="Mauritania",MT="Malta",MU="Mauricio",
+		MV="Maldivas",MW="Malaui",MX="México",MY="Malasia",MZ="Mozambique",
+		NA="Namibia",NE="Níger",NG="Nigeria",NI="Nicaragua",NL="Países Bajos",
+		NO="Noruega",NP="Nepal",NR="Nauru",NZ="Nueva Zelanda",OM="Omán",
+		PA="Panamá",PE="Perú",PF="Polinesia Francesa",PG="Papúa Nueva Guinea",
+		PH="Filipinas",PK="Pakistán",PL="Polonia",PR="Puerto Rico",PS="Palestina",
+		PT="Portugal",PW="Palaos",PY="Paraguay",QA="Catar",RO="Rumanía",
+		RS="Serbia",RU="Rusia",RW="Ruanda",SA="Arabia Saudita",SB="Islas Salomón",
+		SC="Seychelles",SD="Sudán",SE="Suecia",SG="Singapur",SI="Eslovenia",
+		SK="Eslovaquia",SL="Sierra Leona",SM="San Marino",SN="Senegal",
+		SO="Somalia",SR="Surinam",SS="Sudán del Sur",ST="Santo Tomé",SV="El Salvador",
+		SY="Siria",SZ="Esuatini",TD="Chad",TG="Togo",TH="Tailandia",
+		TJ="Tayikistán",TL="Timor Oriental",TM="Turkmenistán",TN="Túnez",
+		TO="Tonga",TR="Turquía",TT="Trinidad y Tobago",TV="Tuvalu",TW="Taiwán",
+		TZ="Tanzania",UA="Ucrania",UG="Uganda",US="Estados Unidos",UY="Uruguay",
+		UZ="Uzbekistán",VA="Vaticano",VC="San Vicente",VE="Venezuela",
+		VN="Vietnam",VU="Vanuatu",WS="Samoa",YE="Yemen",ZA="Sudáfrica",
+		ZM="Zambia",ZW="Zimbabue",
+	}
+
+	local function decodeFlag(text)
+		if not text or #text < 8 then return nil, nil end
+		text = text:match("^%s*(.-)%s*$") or text
+		local b1, b2, b3, b4, b5, b6, b7, b8
+		for i = 1, #text - 7 do
+			b1 = string.byte(text, i)
+			b2 = string.byte(text, i+1)
+			b3 = string.byte(text, i+2)
+			b4 = string.byte(text, i+3)
+			b5 = string.byte(text, i+4)
+			b6 = string.byte(text, i+5)
+			b7 = string.byte(text, i+6)
+			b8 = string.byte(text, i+7)
+			if b1 == 0xF0 and b2 == 0x9F and b3 == 0x87 and b4 >= 0xA6 and b4 <= 0xBF
+			   and b5 == 0xF0 and b6 == 0x9F and b7 == 0x87 and b8 >= 0xA6 and b8 <= 0xBF then
+				local c1 = string.char(65 + (b4 - 0xA6))
+				local c2 = string.char(65 + (b8 - 0xA6))
+				local code = c1 .. c2
+				return code, FLAG_NAMES[code]
+			end
+		end
+		return nil, nil
+	end
+
+	local function getPlayerCountry(playerOrCharacter)
+		local character
+		if typeof(playerOrCharacter) == "Instance" then
+			if playerOrCharacter:IsA("Player") then
+				character = playerOrCharacter.Character
+			else
+				character = playerOrCharacter
+			end
+		end
+		if not character then return nil, nil, nil end
+		local flagText
+		local ok = pcall(function()
+			for _, desc in ipairs(character:GetDescendants()) do
+				if desc:IsA("TextLabel") and desc.Text and desc.Text ~= "" then
+					local txt = desc.Text
+					if string.find(txt, "\xF0\x9F\x87", 1, true) then
+						flagText = txt
+						break
+					end
+				end
+			end
+		end)
+		if not ok or not flagText then return nil, nil, nil end
+		local code, name = decodeFlag(flagText)
+		return code, name, flagText
+	end
+
+	_G._NX_getPlayerCountry = getPlayerCountry
+end
+
 local function gatherData(userId)
 	-- Abre el registro de integridad de ESTE análisis (NX Shields).
 	Shield.begin(userId)
@@ -2453,7 +2776,24 @@ local function gatherData(userId)
 	task_fetch("Followers",    function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/followers/count", "count") end)
 	task_fetch("Following",    function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/followings/count", "count") end)
 	task_fetch("Groups",       function() return countPaged("https://groups.roblox.com/v1/users/" .. userId .. "/groups/roles") end)
-	task_fetch("Badges",       function() return countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges") end)
+	task_fetch("Badges", function()
+		local result = countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges")
+		if result == nil then
+			task.wait(1)
+			result = countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges")
+		end
+		if result == nil then
+			local data = apiGet("https://badges.roblox.com/v1/users/" .. userId .. "/badges?limit=10")
+			if data and data.data then
+				local n = #data.data
+				if data.nextPageCursor and data.nextPageCursor ~= "" then
+					return n .. "+"
+				end
+				return n
+			end
+		end
+		return result
+	end)
 	-- FIX (2026-07-26): games.roblox.com/v2 bajó su tope de página a 50. Con el
 	-- limit=100 por defecto de countPaged, /games devolvía
 	--   400 {"message":"Allowed values: 10, 25, 50","field":"limit"}
@@ -2525,6 +2865,19 @@ local function gatherData(userId)
 
 	local estado = Shield.finish()
 
+	local countryCode, countryName, countryEmoji
+	do
+		local targetPlayer = Players:FindFirstChild(vName)
+			or Players:GetPlayerByUserId(userId)
+		if targetPlayer and _G._NX_getPlayerCountry then
+			countryCode, countryName, countryEmoji = _G._NX_getPlayerCountry(targetPlayer)
+			if not countryCode and targetPlayer.Character then
+				task.wait(0.5)
+				countryCode, countryName, countryEmoji = _G._NX_getPlayerCountry(targetPlayer)
+			end
+		end
+	end
+
 	return {
 		-- Perfil moderno (user-profile-api). nil = no se pudo comprobar.
 		IsDeleted      = paDeleted,
@@ -2549,6 +2902,9 @@ local function gatherData(userId)
 		PresencePlace  = presPlaceId,
 		PresenceGame   = presGameId,
 		PresenceType   = presType,
+		CountryCode    = countryCode,
+		CountryName    = countryName,
+		CountryEmoji   = countryEmoji,
 		AvatarUrl      = vAvatar or "rbxassetid://0",
 		Friends        = vFriends,
 		Followers      = vFollowers,
@@ -2892,18 +3248,74 @@ main.Name = "main"
 main.Size = UDim2.new(0, 660, 0, 520)
 main.Position = UDim2.new(0.5, -330, 0.5, -260)
 main.BackgroundColor3 = C.bg
-main.BackgroundTransparency = 0.02
+main.BackgroundTransparency = (THEMES[store.theme] and THEMES[store.theme]._glow) and 0.95 or 0.02
 main.BorderSizePixel = 0
 main.Active = true
 main.ClipsDescendants = true
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+do
+	local bgImg = Instance.new("ImageLabel")
+	bgImg.Name = "ArcticBg"
+	bgImg.Size = UDim2.fromScale(1, 1)
+	bgImg.Position = UDim2.fromScale(0, 0)
+	bgImg.BackgroundTransparency = 1
+	bgImg.ImageTransparency = 0
+	bgImg.ScaleType = Enum.ScaleType.Crop
+	bgImg.ZIndex = 0
+	bgImg.Parent = main
+	Instance.new("UICorner", bgImg).CornerRadius = UDim.new(0, 12)
+	local glowBgMap = { arctic="arctic_bg", tor="tor_bg", negro="negro_bg", rosa="rosa_bg" }
+
+	local function getIconKey()
+		return glowBgMap[store.theme] or "arctic_bg"
+	end
+
+	local function applyBg()
+		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
+		bgImg.Visible = isGlow and true or false
+		main.BackgroundTransparency = isGlow and 0.95 or 0.02
+		if isGlow then
+			local iconKey = getIconKey()
+			if _G.NXIcons and _G.NXIcons[iconKey] and _G.NXIcons[iconKey] ~= "" then
+				bgImg.Image = _G.NXIcons[iconKey]
+			end
+		end
+	end
+
+	if THEMES[store.theme] and THEMES[store.theme]._glow then
+		bgImg.Visible = true
+	else
+		bgImg.Visible = false
+	end
+	task.spawn(function()
+		local iconKey = getIconKey()
+		while not (_G.NXIcons and _G.NXIcons[iconKey] and _G.NXIcons[iconKey] ~= "") do task.wait(0.3) end
+		if bgImg and bgImg.Parent then
+			bgImg.Image = _G.NXIcons[iconKey]
+		end
+	end)
+	table.insert(repaintExtra, applyBg)
+end
 themed(main, "BackgroundColor3", "bg")
 local stroke = Instance.new("UIStroke", main)
-stroke.Color = C.border
-stroke.Transparency = 0.5
-stroke.Thickness = 1
-themed(stroke, "Color", "border")
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+do
+	local function applyStroke()
+		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
+		if isGlow then
+			stroke.Color = C.accent
+			stroke.Transparency = 0.15
+			stroke.Thickness = 1.8
+		else
+			stroke.Color = C.border
+			stroke.Transparency = 0.5
+			stroke.Thickness = 1
+		end
+	end
+	applyStroke()
+	table.insert(repaintExtra, applyStroke)
+end
 
 local windowShadow = Instance.new("ImageLabel")
 windowShadow.Name = "WindowShadow"
@@ -2932,15 +3344,28 @@ header.BackgroundTransparency = 0
 header.BorderSizePixel = 0
 header.ClipsDescendants = true
 themed(header, "BackgroundColor3", "bg")
+if THEMES[store.theme] and THEMES[store.theme]._glow then
+	header.BackgroundTransparency = 1
+end
+table.insert(repaintExtra, function()
+	header.BackgroundTransparency = (THEMES[store.theme] and THEMES[store.theme]._glow) and 1 or 0
+end)
 Instance.new("UICorner", header).CornerRadius = UDim.new(0, 10)
 do
 	local btmFill = Instance.new("Frame", header)
+	btmFill.Name = "HeaderBtmFill"
 	btmFill.Size = UDim2.new(1, 0, 0, 12)
 	btmFill.Position = UDim2.new(0, 0, 1, -12)
 	btmFill.BackgroundColor3 = C.bg
 	btmFill.BorderSizePixel = 0
 	btmFill.ZIndex = header.ZIndex
 	themed(btmFill, "BackgroundColor3", "bg")
+	if THEMES[store.theme] and THEMES[store.theme]._glow then
+		btmFill.BackgroundTransparency = 1
+	end
+	table.insert(repaintExtra, function()
+		btmFill.BackgroundTransparency = (THEMES[store.theme] and THEMES[store.theme]._glow) and 1 or 0
+	end)
 end
 
 
@@ -2955,6 +3380,7 @@ title.TextSize = 15
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextTruncate = Enum.TextTruncate.AtEnd
 themed(title, "TextColor3", "text")
+
 
 do
 	local function wlighten(c, k) return Color3.new(math.min(c.R+k,1), math.min(c.G+k,1), math.min(c.B+k,1)) end
@@ -2973,6 +3399,64 @@ do
 	lay.VerticalAlignment = Enum.VerticalAlignment.Center
 	lay.Padding = UDim.new(0, 6)
 	lay.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local shieldBtn = Instance.new("TextButton", ctrls)
+	shieldBtn.LayoutOrder = 0
+	shieldBtn.Size = UDim2.fromOffset(24, 24)
+	shieldBtn.AutoButtonColor = false
+	shieldBtn.Text = ""
+	shieldBtn.BorderSizePixel = 0
+	shieldBtn.BackgroundColor3 = C.neutral
+	shieldBtn.ZIndex = 5
+	Instance.new("UICorner", shieldBtn).CornerRadius = UDim.new(0, 6)
+	themed(shieldBtn, "BackgroundColor3", "neutral")
+	local shieldSt = Instance.new("UIStroke", shieldBtn)
+	shieldSt.Thickness = 1; shieldSt.Transparency = 0.35
+	themed(shieldSt, "Color", "border")
+	local shieldIco = Instance.new("ImageLabel", shieldBtn)
+	shieldIco.Size = UDim2.fromOffset(20, 20)
+	shieldIco.ResampleMode = Enum.ResamplerMode.Default
+	shieldIco.AnchorPoint = Vector2.new(0.5, 0.5)
+	shieldIco.Position = UDim2.new(0.5, 0, 0.5, 0)
+	shieldIco.BackgroundTransparency = 1
+	shieldIco.ScaleType = Enum.ScaleType.Fit
+	shieldIco.ZIndex = 6
+	shieldIco.Image = ""
+	shieldIco.ImageColor3 = C.good
+	themed(shieldIco, "ImageColor3", "good")
+	local shieldsOn = (Shield.flags.api and Shield.flags.data)
+	local function refreshShieldBtn()
+		shieldsOn = (Shield.flags.api and Shield.flags.data)
+		local color = shieldsOn and C.good or C.bad
+		if shieldIco and shieldIco.Parent then
+			shieldIco.ImageColor3 = color
+		end
+	end
+	Shield.onChange(refreshShieldBtn)
+	onRepaint(refreshShieldBtn)
+	task.spawn(function()
+		while not (_G.NXIcons and _G.NXIcons.shield and _G.NXIcons.shield ~= "") do
+			task.wait(0.3)
+		end
+		if shieldIco and shieldIco.Parent then
+			shieldIco.Image = _G.NXIcons.shield
+		end
+	end)
+	track(shieldBtn.MouseEnter:Connect(function()
+		motionTween(shieldBtn, TweenInfo.new(0.12), { BackgroundColor3 = wlighten(C.neutral, 0.12) })
+	end))
+	track(shieldBtn.MouseLeave:Connect(function()
+		motionTween(shieldBtn, TweenInfo.new(0.16), { BackgroundColor3 = C.neutral })
+	end))
+	track(shieldBtn.MouseButton1Click:Connect(function()
+		local newState = not shieldsOn
+		Shield.setFlag("api", newState, function() end)
+		Shield.setFlag("data", newState, function() end)
+		refreshShieldBtn()
+		if _G.NXToast then
+			_G.NXToast("shield", newState and "Shields activados" or "Shields desactivados")
+		end
+	end))
 
 	local minBtn = Instance.new("TextButton", ctrls)
 	minBtn.LayoutOrder = 1
@@ -3031,6 +3515,14 @@ do
 		motionTween(closeIco, TweenInfo.new(0.16), { ImageColor3 = C.text })
 	end))
 	track(closeBtn.MouseButton1Click:Connect(function() NXWin.animatedClose() end))
+	task.spawn(function()
+		while not (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "") do
+			task.wait(0.3)
+		end
+		if closeIco and closeIco.Parent then
+			closeIco.Image = _G.NXIcons.close
+		end
+	end)
 end
 
 -- ====================== CIRCULITOS DECORATIVOS (10px, más discretos) ======================
@@ -3106,121 +3598,266 @@ end
 NXWin.playOpenAnim()
 
 
--- ====================== BÚSQUEDA (responsive: input stretches, status below) ======================
+-- ====================== BÚSQUEDA EXPANDABLE ======================
 local searchFrame = Instance.new("Frame", main)
-searchFrame.Size = UDim2.new(1, -24, 0, 36)
-searchFrame.Position = UDim2.new(0, 12, 0, 48)
+searchFrame.Size = UDim2.new(1, -24, 0, 38)
+searchFrame.Position = UDim2.new(0, 12, 0, 46)
 searchFrame.BackgroundTransparency = 1
+searchFrame.ClipsDescendants = true
 
-local searchBox = Instance.new("TextBox", searchFrame)
-searchBox.Size = UDim2.new(1, -122, 0, 32)
-searchBox.PlaceholderText = "Buscar en el servidor o en todo Roblox"
-searchBox.PlaceholderColor3 = C.textDisabled
-searchBox.Text = ""
-searchBox.Font = Enum.Font.Gotham
-searchBox.TextSize = 13
-searchBox.BackgroundColor3 = C.input
-searchBox.TextColor3 = C.text
-searchBox.ClearTextOnFocus = false
-searchBox.BorderSizePixel = 0
-searchBox.TextXAlignment = Enum.TextXAlignment.Left
-Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 8)
-local sbPad = Instance.new("UIPadding", searchBox)
-sbPad.PaddingLeft = UDim.new(0, 44)
-sbPad.PaddingRight = UDim.new(0, 8)
-themed(searchBox, "BackgroundColor3", "input")
-themed(searchBox, "TextColor3", "text")
-themed(searchBox, "PlaceholderColor3", "textDisabled")
-local sbStroke = Instance.new("UIStroke", searchBox)
-sbStroke.Thickness = 1; sbStroke.Transparency = 0.7; sbStroke.Color = C.border
-sbStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-themed(sbStroke, "Color", "border")
-
+local searchBox
 local searchIcon
 do
-	local sbTw, sbBoxTw
-	searchBox.MouseEnter:Connect(function()
-		if not ANIM.enabled then return end
-		if sbTw then pcall(function() sbTw:Cancel() end) end
-		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			Transparency = 0.35, Color = C.accent
-		})
-		sbTw:Play()
-	end)
-	searchBox.MouseLeave:Connect(function()
-		if searchBox:IsFocused() then return end
-		if sbTw then pcall(function() sbTw:Cancel() end) end
-		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			Transparency = 0.7, Color = C.border
-		})
-		sbTw:Play()
-	end)
-	searchBox.Focused:Connect(function()
-		if not ANIM.enabled then return end
-		if sbTw then pcall(function() sbTw:Cancel() end) end
-		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			Transparency = 0.1, Color = C.accent, Thickness = 1.5
-		})
-		sbTw:Play()
-		if sbBoxTw then pcall(function() sbBoxTw:Cancel() end) end
-		sbBoxTw = TweenService:Create(searchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			BackgroundColor3 = Color3.new(
-				math.min(C.input.R + 0.03, 1),
-				math.min(C.input.G + 0.03, 1),
-				math.min(C.input.B + 0.03, 1))
-		})
-		sbBoxTw:Play()
-		if searchIcon then
-			motionTween(searchIcon, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0 })
-		end
-	end)
-	searchBox.FocusLost:Connect(function()
-		if sbTw then pcall(function() sbTw:Cancel() end) end
-		sbTw = TweenService:Create(sbStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			Transparency = 0.7, Color = C.border, Thickness = 1
-		})
-		sbTw:Play()
-		if sbBoxTw then pcall(function() sbBoxTw:Cancel() end) end
-		sbBoxTw = TweenService:Create(searchBox, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			BackgroundColor3 = C.input
-		})
-		sbBoxTw:Play()
-		if searchIcon then
-			motionTween(searchIcon, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { ImageTransparency = 0.18 })
-		end
-	end)
-	onRepaint(function()
-		if searchBox:IsFocused() then
-			sbStroke.Color = C.accent
-			sbStroke.Transparency = 0.1
-			sbStroke.Thickness = 1.5
-		end
-	end)
-end
+	local SEARCH_COLLAPSED_W = 36
+	local SEARCH_EXPANDED_W_SCALE = 1
+	local SEARCH_EXPANDED_W_OFFSET = -126
 
--- Lupa generada: una imagen real, sin piezas dibujadas por Frames.
-searchIcon = Instance.new("ImageLabel", searchFrame)
-searchIcon.Name = "SearchIcon"
-searchIcon.Size = UDim2.fromOffset(18, 18)
-searchIcon.Position = UDim2.fromOffset(8, 7)
-searchIcon.BackgroundTransparency = 1
-searchIcon.BorderSizePixel = 0
-searchIcon.Active = false
-searchIcon.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
-searchIcon.ImageColor3 = C.subtext
-searchIcon.ImageTransparency = 0.18
-searchIcon.ScaleType = Enum.ScaleType.Fit
-searchIcon.ZIndex = 2
-themed(searchIcon, "ImageColor3", "subtext")
-local searchDivider = Instance.new("Frame", searchFrame)
-searchDivider.Name = "SearchIconDivider"
-searchDivider.Size = UDim2.fromOffset(1, 16)
-searchDivider.Position = UDim2.fromOffset(34, 8)
-searchDivider.BackgroundColor3 = C.divider
-searchDivider.BackgroundTransparency = 0.3
-searchDivider.BorderSizePixel = 0
-searchDivider.ZIndex = 2
-themed(searchDivider, "BackgroundColor3", "divider")
+	local searchContainer = Instance.new("Frame", searchFrame)
+	searchContainer.Name = "SearchContainer"
+	searchContainer.Size = UDim2.fromOffset(SEARCH_COLLAPSED_W, 34)
+	searchContainer.Position = UDim2.new(0, 2, 0, 2)
+	searchContainer.BackgroundColor3 = C.input
+	searchContainer.BorderSizePixel = 0
+	searchContainer.ClipsDescendants = true
+	Instance.new("UICorner", searchContainer).CornerRadius = UDim.new(0, 10)
+	themed(searchContainer, "BackgroundColor3", "input")
+
+	local scStroke = Instance.new("UIStroke", searchContainer)
+	scStroke.Thickness = 1
+	scStroke.Transparency = 0.7
+	scStroke.Color = C.border
+	scStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	themed(scStroke, "Color", "border")
+
+	local lupaBtn = Instance.new("ImageButton", searchContainer)
+	lupaBtn.Name = "LupaBtn"
+	lupaBtn.Size = UDim2.fromOffset(18, 18)
+	lupaBtn.Position = UDim2.new(0, 10, 0.5, -9)
+	lupaBtn.BackgroundTransparency = 1
+	lupaBtn.ImageColor3 = C.subtext
+	lupaBtn.AutoButtonColor = false
+	lupaBtn.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
+	lupaBtn.ScaleType = Enum.ScaleType.Fit
+	themed(lupaBtn, "ImageColor3", "subtext")
+	task.spawn(function()
+		local tries = 0
+		while not (_G.NXSearchIcon and _G.NXSearchIcon ~= "") do
+			tries = tries + 1
+			if tries > 50 then return end
+			task.wait(0.2)
+		end
+		if lupaBtn and lupaBtn.Parent then lupaBtn.Image = _G.NXSearchIcon end
+	end)
+
+	searchIcon = lupaBtn
+
+	searchBox = Instance.new("TextBox", searchContainer)
+	searchBox.Name = "SearchBox"
+	searchBox.Size = UDim2.new(1, -76, 1, 0)
+	searchBox.Position = UDim2.new(0, 38, 0, 0)
+	searchBox.PlaceholderText = "Buscar en el servidor o en todo Roblox"
+	searchBox.PlaceholderColor3 = C.textDisabled
+	searchBox.Text = ""
+	searchBox.Font = Enum.Font.Gotham
+	searchBox.TextSize = 13
+	searchBox.BackgroundTransparency = 1
+	searchBox.TextColor3 = C.text
+	searchBox.ClearTextOnFocus = false
+	searchBox.BorderSizePixel = 0
+	searchBox.TextXAlignment = Enum.TextXAlignment.Left
+	searchBox.TextTransparency = 1
+	searchBox.ClipsDescendants = true
+	searchBox.Active = false
+	searchBox.Interactable = false
+	themed(searchBox, "TextColor3", "text")
+	themed(searchBox, "PlaceholderColor3", "textDisabled")
+	local sbPad = Instance.new("UIPadding", searchBox)
+	sbPad.PaddingRight = UDim.new(0, 8)
+
+	local closeBtn = Instance.new("ImageButton", searchContainer)
+	closeBtn.Name = "SearchCloseBtn"
+	closeBtn.Size = UDim2.fromOffset(24, 24)
+	closeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+	closeBtn.Position = UDim2.new(1, -22, 0.5, 0)
+	closeBtn.BackgroundTransparency = 1
+	closeBtn.AutoButtonColor = false
+	closeBtn.ImageTransparency = 1
+	closeBtn.Visible = false
+	closeBtn.ZIndex = searchContainer.ZIndex + 2
+	closeBtn.ScaleType = Enum.ScaleType.Fit
+	if _G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "" then
+		closeBtn.Image = _G.NXIcons.close
+	else
+		closeBtn.Image = "rbxassetid://6031094678"
+	end
+	closeBtn.ImageColor3 = C.subtext
+	themed(closeBtn, "ImageColor3", "subtext")
+
+	track(closeBtn.MouseEnter:Connect(function()
+		if not ANIM.enabled then return end
+		TweenService:Create(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {
+			ImageColor3 = C.text
+		}):Play()
+	end))
+	track(closeBtn.MouseLeave:Connect(function()
+		if not ANIM.enabled then return end
+		TweenService:Create(closeBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			ImageColor3 = C.subtext
+		}):Play()
+	end))
+
+	local expanded = false
+	local expandTw, collapseTw, textTw
+
+	local function expandSearch()
+		if expanded then return end
+		expanded = true
+		if collapseTw then pcall(function() collapseTw:Cancel() end) end
+		local info = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		expandTw = TweenService:Create(searchContainer, info, {
+			Size = UDim2.new(SEARCH_EXPANDED_W_SCALE, SEARCH_EXPANDED_W_OFFSET, 0, 34)
+		})
+		expandTw:Play()
+		searchBox.Active = true
+		searchBox.Interactable = true
+		textTw = TweenService:Create(searchBox, info, { TextTransparency = 0 })
+		textTw:Play()
+		TweenService:Create(scStroke, info, { Transparency = 0.1, Color = C.accent, Thickness = 1.5 }):Play()
+		TweenService:Create(lupaBtn, info, { ImageColor3 = C.accent }):Play()
+		closeBtn.Visible = true
+		TweenService:Create(closeBtn, info, { ImageTransparency = 0 }):Play()
+		task.delay(0.32, function()
+			if expanded and searchBox and searchBox.Parent then
+				searchBox:CaptureFocus()
+			end
+		end)
+	end
+
+	local function collapseSearch(force)
+		if not expanded then return end
+		if not force and searchBox.Text ~= "" then return end
+		if force then searchBox.Text = "" end
+		expanded = false
+		searchBox.Active = false
+		searchBox.Interactable = false
+		if expandTw then pcall(function() expandTw:Cancel() end) end
+		local info = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		collapseTw = TweenService:Create(searchContainer, info, {
+			Size = UDim2.fromOffset(SEARCH_COLLAPSED_W, 34)
+		})
+		collapseTw:Play()
+		textTw = TweenService:Create(searchBox, info, { TextTransparency = 1 })
+		textTw:Play()
+		TweenService:Create(scStroke, info, { Transparency = 0.7, Color = C.border, Thickness = 1 }):Play()
+		TweenService:Create(lupaBtn, info, { ImageColor3 = C.subtext }):Play()
+		TweenService:Create(closeBtn, info, { ImageTransparency = 1 }):Play()
+		task.delay(0.25, function()
+			if not expanded then closeBtn.Visible = false end
+		end)
+	end
+
+	track(closeBtn.MouseButton1Click:Connect(function()
+		searchBox:ReleaseFocus()
+		collapseSearch(true)
+	end))
+
+	track(lupaBtn.MouseButton1Click:Connect(function()
+		if not expanded then
+			expandSearch()
+		else
+			searchBox:CaptureFocus()
+		end
+	end))
+
+	track(searchContainer.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			if not expanded then
+				expandSearch()
+			end
+		end
+	end))
+
+	track(searchBox.FocusLost:Connect(function(enterPressed)
+		if not enterPressed then
+			task.delay(0.2, function()
+				if searchBox.Text == "" then
+					collapseSearch()
+				end
+			end)
+		end
+	end))
+
+	track(UserInputService.InputBegan:Connect(function(input, gpe)
+		if gpe then return end
+		if input.KeyCode == Enum.KeyCode.Escape and expanded then
+			searchBox:ReleaseFocus()
+			collapseSearch(true)
+		end
+	end))
+
+	track(searchContainer.MouseEnter:Connect(function()
+		if expanded or not ANIM.enabled then return end
+		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
+		TweenService:Create(scStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			Transparency = isGlow and 0.15 or 0.4, Color = C.accent
+		}):Play()
+		TweenService:Create(lupaBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+			ImageColor3 = C.accent
+		}):Play()
+	end))
+	track(searchContainer.MouseLeave:Connect(function()
+		if expanded or not ANIM.enabled then return end
+		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
+		TweenService:Create(scStroke, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+			Transparency = isGlow and 0.35 or 0.7, Color = isGlow and C.accent or C.border
+		}):Play()
+		if not isGlow then
+			TweenService:Create(lupaBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+				ImageColor3 = C.subtext
+			}):Play()
+		end
+	end))
+
+	local searchGrad = Instance.new("UIGradient", searchContainer)
+	searchGrad.Rotation = 90
+
+	local function applySearchGlass()
+		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
+		searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+		if isGlow then
+			searchGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(1, C.input),
+			})
+			searchGrad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.92),
+				NumberSequenceKeypoint.new(0.5, 0.96),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			if expanded then
+				scStroke.Transparency = 0.1
+				scStroke.Color = C.accent
+				scStroke.Thickness = 1.5
+			else
+				scStroke.Color = C.accent
+				scStroke.Transparency = 0.35
+				scStroke.Thickness = 1.5
+				lupaBtn.ImageColor3 = C.accent
+			end
+		else
+			searchGrad.Transparency = NumberSequence.new(1)
+			if not expanded then
+				scStroke.Transparency = 0.7
+				scStroke.Color = C.border
+				scStroke.Thickness = 1
+				lupaBtn.ImageColor3 = C.subtext
+			end
+		end
+	end
+	applySearchGlass()
+	table.insert(repaintExtra, applySearchGlass)
+end
 
 local analyze
 local function hideAllSuggestions() end
@@ -3228,9 +3865,9 @@ local function showSuggestions(_) end
 local function ensureSuggestionItem(_) return nil end
 
 local analyzeBtn = Instance.new("TextButton", searchFrame)
-analyzeBtn.Size = UDim2.new(0, 110, 0, 32)
+analyzeBtn.Size = UDim2.new(0, 110, 0, 34)
 analyzeBtn.AnchorPoint = Vector2.new(1, 0)
-analyzeBtn.Position = UDim2.new(1, 0, 0, 0)
+analyzeBtn.Position = UDim2.new(1, 0, 0, 2)
 analyzeBtn.BackgroundColor3 = C.accent
 analyzeBtn.Text = "Analizar"
 analyzeBtn.Font = Enum.Font.GothamBold
@@ -3390,32 +4027,20 @@ end))
 track(main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() syncTabIndicator(false) end))
 
 local function showPage(page)
-	transitionOverlay.BackgroundTransparency = 0
-	transitionOverlay.Visible = true
-
 	for _, p in pairs(pages) do
 		if p ~= page then
 			p.Visible = false
-			p.Position = UDim2.new(0, 0, 0, 0)
 		end
 	end
 
 	page.Visible = true
 	page.Position = UDim2.new(0, 0, 0, 0)
 
-	task.defer(function()
-		if ANIM.enabled then
-			motionTween(transitionOverlay,
-				TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-				{ BackgroundTransparency = 1 },
-				function()
-					transitionOverlay.Visible = false
-				end)
-		else
-			transitionOverlay.BackgroundTransparency = 1
-			transitionOverlay.Visible = false
-		end
-	end)
+	if ANIM.enabled then
+		page.Position = UDim2.new(0, 0, 0, 8)
+		motionTween(page, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+			{ Position = UDim2.new(0, 0, 0, 0) })
+	end
 
 	activeTab = tabByPage[page]
 	paintTabs(true)
@@ -3473,6 +4098,8 @@ local function makeScroll(parent)
 	sf.CanvasSize = UDim2.new(0, 0, 0, 0)
 	sf.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	sf.ClipsDescendants = true
+	sf.ScrollingDirection = Enum.ScrollingDirection.Y
+	sf.ElasticBehavior = Enum.ElasticBehavior.Always
 	themed(sf, "ScrollBarImageColor3", "accent")
 	local layout = Instance.new("UIListLayout", sf)
 	layout.Padding = UDim.new(0, 10)
@@ -4762,6 +5389,32 @@ local function addFriendsDropdown(parent, data, order)
 	header.BorderSizePixel = 0
 	Instance.new("UICorner", header).CornerRadius = UDim.new(0, 4)
 	themed(header, "BackgroundColor3", "card")
+	if THEMES[store.theme] and THEMES[store.theme]._glow then
+		header.BackgroundTransparency = 0.3
+	end
+	do
+		local hst = Instance.new("UIStroke", header)
+		hst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			hst.Color = C.accent; hst.Transparency = 0.5; hst.Thickness = 1
+			themed(hst, "Color", "accent")
+			local hg = Instance.new("UIGradient", hst)
+			local a = C.accent
+			local dk = _G.NXDS.darken
+			local lt = _G.NXDS.lighten
+			hg.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
+				ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
+				ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
+			})
+			hg.Rotation = math.random(0, 360)
+		else
+			hst.Color = C.border; hst.Thickness = 1; hst.Transparency = 0.6
+			themed(hst, "Color", "border")
+		end
+	end
 
 	local hName = Instance.new("TextLabel", header)
 	hName.Size = UDim2.new(0.5, -10, 1, 0); hName.Position = UDim2.new(0, 10, 0, 0)
@@ -4821,6 +5474,9 @@ local function addFriendsDropdown(parent, data, order)
 		cardBtn.LayoutOrder = shown + 1
 		Instance.new("UICorner", cardBtn).CornerRadius = DS.corner.sm
 		themed(cardBtn, "BackgroundColor3", "surface")
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			cardBtn.BackgroundTransparency = 0.3
+		end
 
 		local av = Instance.new("ImageLabel", cardBtn)
 		av.Size = UDim2.new(0, 34, 0, 34); av.Position = UDim2.new(0, 5, 0.5, -17)
@@ -6559,9 +7215,30 @@ do
 		card.ClipsDescendants = true
 		Instance.new("UICorner", card).CornerRadius = UDim.new(0, 8)
 		themed(card, "BackgroundColor3", "card")
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			card.BackgroundTransparency = 0.3
+		end
 		local cStroke = Instance.new("UIStroke", card)
-		cStroke.Color = C.border; cStroke.Thickness = 1; cStroke.Transparency = 0.6
-		themed(cStroke, "Color", "border")
+		cStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			cStroke.Color = C.accent; cStroke.Transparency = 0.45; cStroke.Thickness = 1.2
+			themed(cStroke, "Color", "accent")
+			local cg = Instance.new("UIGradient", cStroke)
+			local a = C.accent
+			local dk = _G.NXDS.darken
+			local lt = _G.NXDS.lighten
+			cg.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
+				ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
+				ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
+				ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
+			})
+			cg.Rotation = math.random(0, 360)
+		else
+			cStroke.Color = C.border; cStroke.Thickness = 1; cStroke.Transparency = 0.6
+			themed(cStroke, "Color", "border")
+		end
 		local cPad = Instance.new("UIPadding", card)
 		cPad.PaddingTop = UDim.new(0, 8); cPad.PaddingBottom = UDim.new(0, 8)
 		cPad.PaddingLeft = UDim.new(0, 10); cPad.PaddingRight = UDim.new(0, 10)
@@ -6785,7 +7462,7 @@ end
 -- ====================== ICONOS DE IDENTIDAD ======================
 -- Descarga y cachea los iconos del grid de Identidad como assets locales del
 -- executor (mismo patrón que _G.NXSearchIcon). Todo en do..end: NO gasta locals
--- de raíz. Síncrono: los iconos están listos antes del primer render().
+-- de raíz. Asíncrono (task.spawn): los iconos cargan en paralelo.
 do
 	_G.NXIcons = {}
 	local loadIcon = getsynasset or getcustomasset
@@ -6802,28 +7479,56 @@ do
 		{ "link",        "Icon Copy Link.png" },
 		{ "copy",        "icon Copy.png" },
 		{ "close",       "Icono X de cerrar panel.png" },
+		{ "shield",      "Icono Shield.png" },
+		{ "discord",     "Icono Discord Top Bar ( el abre discord por el puerto).png" },
+		{ "logo_nx",     "LOGO NX 1.png" },
+		{ "arctic_bg",   "Arctic Titanium.png" },
+		{ "tor_bg",      "Tor Color Fondo.png" },
+		{ "negro_bg",    "Fondo Black And White..png" },
+		{ "rosa_bg",     "Fondo Rosa.png" },
 	}
 	for _, def in ipairs(defs) do
 		local key, file = def[1], def[2]
 		_G.NXIcons[key] = ""
-		pcall(function()
-			if not loadIcon then return end
-			local localPath = "NX_icon_" .. key .. ".png"
-			if hasFS and isfile(localPath) then
+		task.spawn(function()
+			pcall(function()
+				if not loadIcon then return end
+				local localPath = "NX_icon_" .. key .. ".png"
+				if hasFS and isfile(localPath) then
+					local ok, asset = pcall(loadIcon, localPath)
+					if ok and type(asset) == "string" and asset ~= "" then
+						_G.NXIcons[key] = asset; return
+					end
+					pcall(delfile, localPath)
+				end
+				local url = file:find("^https?://") and file or (BASE .. file:gsub(" ", "%%20"))
+				local body
+				for attempt = 1, 5 do
+					local ok2, res = pcall(rawGet, url)
+					if ok2 and res and res ~= "" then body = res; break end
+					if not ok2 and attempt < 5 then task.wait(1 * attempt) end
+					if ok2 and (not res or res == "") and attempt < 5 then task.wait(0.8 * attempt) end
+				end
+				if not body or body == "" then
+					warn("[NXIcons] No se pudo descargar: " .. key .. " -> " .. url)
+					return
+				end
+				if hasFS then
+					local wOk, wErr = pcall(writefile, localPath, body)
+					if not wOk then
+						warn("[NXIcons] writefile falló para " .. key .. ": " .. tostring(wErr))
+					end
+				end
 				local ok, asset = pcall(loadIcon, localPath)
 				if ok and type(asset) == "string" and asset ~= "" then
-					_G.NXIcons[key] = asset; return
+					_G.NXIcons[key] = asset
+				else
+					warn("[NXIcons] loadIcon falló para " .. key)
 				end
-			end
-			local body = rawGet(BASE .. file:gsub(" ", "%%20"))
-			if not body or body == "" then return end
-			if hasFS then pcall(writefile, localPath, body) end
-			local ok, asset = pcall(loadIcon, localPath)
-			if ok and type(asset) == "string" and asset ~= "" then
-				_G.NXIcons[key] = asset
-			end
+			end)
 		end)
 	end
+	task.wait(0.5)
 end
 
 -- ====================== TOAST NOTIFICATION ======================
@@ -6983,59 +7688,42 @@ local function render(data, skipEntrance)
 
 	if not data then return end
 
-	-- Animación de entrada: la pestaña visible entra deslizándose suave al cargar
-	-- un perfil nuevo (chill). No se reproduce al re-pintar por cambio de tema.
-	if ANIM.enabled and not skipEntrance then
-		for _, pg in ipairs({ profilePage, statsPage, itemsPage, analysisPage }) do
-			if pg.Visible then
-				pg.Position = UDim2.new(0, 0, 0, 14)
-				motionTween(pg, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-					{ Position = UDim2.new(0, 0, 0, 0) })
-			end
-		end
-	end
-
-	local staggerIndex = 0
-	local function animateCardIn(card)
+	local function animateCardIn(card, delay_)
 		if not ANIM.enabled or skipEntrance then return end
-		local d = staggerIndex * 0.12
-		staggerIndex = staggerIndex + 1
-
-		local scaleEffect = Instance.new("UIScale", card)
-		scaleEffect.Scale = 0.92
+		delay_ = delay_ or 0
 
 		card.BackgroundTransparency = 1
-
 		local st = card:FindFirstChildOfClass("UIStroke")
+		local stOrig = st and st.Transparency or 0.45
 		if st then st.Transparency = 1 end
-		for _, ch in ipairs(card:GetChildren()) do
-			if ch:IsA("TextLabel") then ch.TextTransparency = 1 end
-			if ch:IsA("ImageLabel") then ch.ImageTransparency = 1 end
-			if ch:IsA("TextButton") then ch.TextTransparency = 1; ch.BackgroundTransparency = 1 end
+		for _, d in ipairs(card:GetDescendants()) do
+			if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+				d.TextTransparency = 1
+			elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
+				d.ImageTransparency = 1
+			end
 		end
 
-		task.delay(d, function()
+		task.delay(delay_, function()
 			if not card.Parent then return end
-			local growInfo = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-			local fadeInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			local fadeInfo = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
-			TweenService:Create(scaleEffect, growInfo, { Scale = 1 }):Play()
-			motionTween(card, fadeInfo, { BackgroundTransparency = 0 })
-			if st then TweenService:Create(st, fadeInfo, { Transparency = 0.6 }):Play() end
+			local glassT = (THEMES[store.theme] and THEMES[store.theme]._glow) and 0.3 or 0
+			motionTween(card, fadeInfo, { BackgroundTransparency = glassT })
 
-			task.delay(0.12, function()
+			if st and st.Parent then
+				TweenService:Create(st, fadeInfo, { Transparency = stOrig }):Play()
+			end
+
+			task.delay(0.05, function()
 				if not card.Parent then return end
-				for _, ch in ipairs(card:GetChildren()) do
-					if ch:IsA("TextLabel") then TweenService:Create(ch, fadeInfo, { TextTransparency = 0 }):Play() end
-					if ch:IsA("ImageLabel") then TweenService:Create(ch, fadeInfo, { ImageTransparency = 0 }):Play() end
-					if ch:IsA("TextButton") then
-						TweenService:Create(ch, fadeInfo, { TextTransparency = 0, BackgroundTransparency = 0 }):Play()
+				for _, d in ipairs(card:GetDescendants()) do
+					if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+						TweenService:Create(d, fadeInfo, { TextTransparency = 0 }):Play()
+					elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
+						TweenService:Create(d, fadeInfo, { ImageTransparency = 0 }):Play()
 					end
 				end
-			end)
-
-			task.delay(0.6, function()
-				if scaleEffect and scaleEffect.Parent then scaleEffect:Destroy() end
 			end)
 		end)
 	end
@@ -7045,7 +7733,7 @@ local function render(data, skipEntrance)
 
 	-- Hero card: avatar + display name + username + status + NX tag in one card
 	local heroCard = DS.makeCard(profileScroll, {order = 0})
-	animateCardIn(heroCard)
+	animateCardIn(heroCard, 0.0)
 	local heroInner = Instance.new("Frame", heroCard)
 	heroInner.LayoutOrder = 10
 	heroInner.Size = UDim2.new(1, 0, 0, 110)
@@ -7134,9 +7822,9 @@ local function render(data, skipEntrance)
 	actLay.SortOrder = Enum.SortOrder.LayoutOrder
 	actLay.VerticalAlignment = Enum.VerticalAlignment.Center
 
-	actRow.ClipsDescendants = true
+	actRow.ClipsDescendants = false
 	-- 1 botón: ancho completo
-	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(1, 0, 0, 28)})
+	local viewCharBtn = DS.makeButton(actRow, "Ver avatar", "secondary", {order = 1, size = UDim2.new(1, -2, 0, 28)})
 	viewCharBtn.MouseButton1Click:Connect(function()
 		showCharacterModal(data.UserId, data.Username)
 	end)
@@ -7285,7 +7973,7 @@ local function render(data, skipEntrance)
 
 	-- Identity card (grid layout)
 	local idCard = DS.makeCard(profileScroll, {order = 1})
-	animateCardIn(idCard)
+	animateCardIn(idCard, 0.12)
 
 	-- Custom header: circular icon + title/subtitle
 	do
@@ -7347,9 +8035,30 @@ local function render(data, skipEntrance)
 			cell.ClipsDescendants = true
 			Instance.new("UICorner", cell).CornerRadius = DS.corner.md
 			themed(cell, "BackgroundColor3", "card")
+			if THEMES[store.theme] and THEMES[store.theme]._glow then
+				cell.BackgroundTransparency = 0.3
+			end
 			local cst = Instance.new("UIStroke", cell)
-			cst.Color = C.border; cst.Thickness = 1; cst.Transparency = 0.6
-			themed(cst, "Color", "border")
+			cst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			if THEMES[store.theme] and THEMES[store.theme]._glow then
+				cst.Color = C.accent; cst.Transparency = 0.5; cst.Thickness = 1
+				themed(cst, "Color", "accent")
+				local cg = Instance.new("UIGradient", cst)
+				local a = C.accent
+				local dk = _G.NXDS.darken
+				local lt = _G.NXDS.lighten
+				cg.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
+					ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
+					ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
+					ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
+					ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
+				})
+				cg.Rotation = math.random(0, 360)
+			else
+				cst.Color = C.border; cst.Thickness = 1; cst.Transparency = 0.6
+				themed(cst, "Color", "border")
+			end
 			local cp = Instance.new("UIPadding", cell)
 			cp.PaddingLeft = UDim.new(0, DS.pad.card); cp.PaddingRight = UDim.new(0, DS.pad.card)
 			cp.PaddingTop = UDim.new(0, DS.pad.card); cp.PaddingBottom = UDim.new(0, DS.pad.card)
@@ -7433,7 +8142,7 @@ local function render(data, skipEntrance)
 				end
 			end
 			if ANIM.enabled and not skipEntrance then
-				local delay = cellStagger * 0.04
+				local delay = cellStagger * 0.05
 				cellStagger = cellStagger + 1
 				cell.BackgroundTransparency = 1
 				local cStroke = cell:FindFirstChildOfClass("UIStroke")
@@ -7444,7 +8153,7 @@ local function render(data, skipEntrance)
 				end
 				task.delay(delay, function()
 					if not cell.Parent then return end
-					local info = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+					local info = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 					motionTween(cell, info, { BackgroundTransparency = 0 })
 					if cStroke then TweenService:Create(cStroke, info, { Transparency = 0.6 }):Play() end
 					for _, ch in ipairs(cell:GetChildren()) do
@@ -7463,9 +8172,12 @@ local function render(data, skipEntrance)
 		makeInfoCell(NXI.suscripcion or "", "Suscripción",     data.Subscription or "\226\128\148", 4)
 		makeInfoCell(NXI.ban         or "", "Baneado",         data.Banned or "No",              5, nil,
 			(data.Banned == "Sí") and "bad" or "good")
-		makeInfoCell(NXI.creacion    or "", "Creación",        data.Created or "\226\128\148",   6)
-		makeInfoCell(NXI.edad        or "", "Edad de cuenta",  data.AccountAge or "\226\128\148", 7)
-		makeInfoCell(NXI.link        or "", "Enlace al perfil", data.ProfileUrl,                 8, data.ProfileUrl, nil, "link")
+		if data.CountryEmoji and data.CountryName then
+			makeInfoCell("", "País", data.CountryEmoji .. "  " .. data.CountryName, 6, nil, nil, nil)
+		end
+		makeInfoCell(NXI.creacion    or "", "Creación",        data.Created or "\226\128\148",   7)
+		makeInfoCell(NXI.edad        or "", "Edad de cuenta",  data.AccountAge or "\226\128\148", 8)
+		makeInfoCell(NXI.link        or "", "Enlace al perfil", data.ProfileUrl,                 9, data.ProfileUrl, nil, "link")
 	end
 
 	-- Description card
@@ -7474,7 +8186,7 @@ local function render(data, skipEntrance)
 
 	-- ---------- HISTORIAL DE NOMBRES (reincorporado en v3.1.0) ----------
 	local historyFrame = DS.makeCard(profileScroll, {order = 15, title = "Historial de nombres"})
-	animateCardIn(historyFrame)
+	animateCardIn(historyFrame, 0.24)
 	historyFrame.Name = "NameHistory"
 
 	local loadingHist = Instance.new("TextLabel", historyFrame)
@@ -7616,7 +8328,7 @@ local function render(data, skipEntrance)
 
 	-- ---------- PESTAÑA ESTADÍSTICAS ----------
 	local statsCard = DS.makeCard(statsScroll, {order = 0, title = "Estadísticas"})
-	animateCardIn(statsCard)
+	animateCardIn(statsCard, 0.0)
 	DS.makeDataRow(statsCard, "Amigos", tostring(data.Friends or "—"), {order = 1})
 	addFriendsDropdown(statsScroll, data, 5)
 	DS.makeDataRow(statsCard, "Seguidores", tostring(data.Followers or "—"), {order = 2})
@@ -7642,6 +8354,7 @@ local function render(data, skipEntrance)
 	local order = {
 		{"Username","Username"},{"Display Name","DisplayName"},{"UserId","UserId"},{"Link","ProfileUrl"},
 		{"Suscripción","Subscription"},{"Estado","Presence"},{"Verificado","Verified"},{"Baneado","Banned"},
+		{"País","CountryName"},
 		{"Creación","Created"},{"Edad de cuenta","AccountAge"},{"Descripción","Description"},
 		{"Amigos","Friends"},{"Seguidores","Followers"},{"Siguiendo","Following"},
 		{"Grupos","Groups"},{"Badges","Badges"},{"Favoritos","Favorites"},
@@ -7922,11 +8635,11 @@ local function render(data, skipEntrance)
 			-- lo cual desde 2026-07 es falso: la API de Rolimon's se retiró.
 			local m = data._rapMotivo
 			if m == "movida" then
-				b.Text = "No disponible · Rolimon's retiró su API pública."
+				b.Text = "No disponible · API de Rolimon's migrada."
 			elseif m == "sin_respuesta" then
-				b.Text = "No disponible · la fuente externa no respondió."
+				b.Text = "No disponible · Rolimon's no respondió."
 			else
-				b.Text = "No disponible · sin limiteds o sin valor publicado."
+				b.Text = "No disponible · sin limiteds o datos insuficientes."
 			end
 			return
 		end
@@ -7994,7 +8707,7 @@ local function render(data, skipEntrance)
 	local inflScore,  inflLvl,  inflColor                = computeInfluence(data, nil)
 
 	local advCard = DS.makeCard(analysisScroll, {order = 3, title = "Puntuaciones"})
-	animateCardIn(advCard)
+	animateCardIn(advCard, 0.0)
 
 	addScoreBar(advCard, "Confianza", trustScore, trustLvl, trustColor, 1)
 	addScoreBar(advCard, "Actividad", actScore, actLvl, actColor, 2)
@@ -8037,7 +8750,7 @@ local function render(data, skipEntrance)
 		do
 			local trustBody = "Puntaje heurístico, no oficial. Desglose:\n• " .. table.concat(trustReasons, "\n• ")
 			local tCard = DS.makeCard(analysisScroll, {order = 4})
-				animateCardIn(tCard)
+				animateCardIn(tCard, 0.12)
 
 			-- Título con color dinámico (trustColor) — se busca el primer TextLabel si el card no tiene title
 			local tTitle = Instance.new("TextLabel", tCard)
@@ -8101,7 +8814,7 @@ local function render(data, skipEntrance)
 				.. "\n\nHeurística sobre datos públicos: no prueba que la cuenta sea un alt."
 
 			local aCard = DS.makeCard(analysisScroll, {order = 5})
-				animateCardIn(aCard)
+				animateCardIn(aCard, 0.24)
 
 			-- Título con color dinámico (altColor)
 			local aTitle = Instance.new("TextLabel", aCard)
@@ -8246,11 +8959,13 @@ do
 	end
 	onRepaint(paintThemeButtons)
 
-	local themeOrder = { "negro", "azul", "verde", "tor", "rojo", "morado", "cyan", "rosa", "naranja", "tokyo", "claro" }
-	for i, tn in ipairs(themeOrder) do
+	local themeOrderNormal = { "azul", "verde", "rojo", "morado", "cyan", "naranja", "tokyo", "claro" }
+	local themeOrderBeta   = { "arctic", "tor", "negro", "rosa" }
+
+	local function makeThemeBtn(parent, tn, order)
 		local own = THEMES[tn]
-		local tb = Instance.new("TextButton", thBtnRow)
-		tb.LayoutOrder = i
+		local tb = Instance.new("TextButton", parent)
+		tb.LayoutOrder = order
 		tb.BackgroundColor3 = own.bg
 		tb.AutoButtonColor = false
 		tb.Text = titleCase(tn); tb.Font = Enum.Font.GothamMedium; tb.TextSize = DS.text.sm; tb.BorderSizePixel = 0
@@ -8279,6 +8994,49 @@ do
 			paintThemeButtons(true)
 		end)
 	end
+
+	for i, tn in ipairs(themeOrderNormal) do
+		makeThemeBtn(thBtnRow, tn, i)
+	end
+
+	-- ── Temas Betas ──
+	local betaLabel = Instance.new("TextLabel", themeCard)
+	betaLabel.LayoutOrder = 7
+	betaLabel.Size = UDim2.new(1, 0, 0, 20)
+	betaLabel.BackgroundTransparency = 1
+	betaLabel.Font = Enum.Font.GothamBold
+	betaLabel.TextSize = DS.text.sm
+	betaLabel.TextColor3 = C.accent
+	betaLabel.Text = "✦ Temas Betas"
+	betaLabel.TextXAlignment = Enum.TextXAlignment.Left
+	themed(betaLabel, "TextColor3", "accent")
+
+	local betaSubLabel = Instance.new("TextLabel", themeCard)
+	betaSubLabel.LayoutOrder = 8
+	betaSubLabel.Size = UDim2.new(1, 0, 0, 14)
+	betaSubLabel.BackgroundTransparency = 1
+	betaSubLabel.Font = Enum.Font.Gotham
+	betaSubLabel.TextSize = DS.text.xs
+	betaSubLabel.TextColor3 = C.subtext
+	betaSubLabel.Text = "Temas con glow y fondo personalizado"
+	betaSubLabel.TextXAlignment = Enum.TextXAlignment.Left
+	themed(betaSubLabel, "TextColor3", "subtext")
+
+	local betaBtnRow = Instance.new("Frame", themeCard)
+	betaBtnRow.LayoutOrder = 9
+	betaBtnRow.Size = UDim2.new(1, 0, 0, 0)
+	betaBtnRow.AutomaticSize = Enum.AutomaticSize.Y
+	betaBtnRow.BackgroundTransparency = 1
+	local betaGrid = Instance.new("UIGridLayout", betaBtnRow)
+	betaGrid.CellSize = UDim2.new(0, 82, 0, 38)
+	betaGrid.CellPadding = UDim2.new(0, 6, 0, 6)
+	betaGrid.SortOrder = Enum.SortOrder.LayoutOrder
+	betaGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
+
+	for i, tn in ipairs(themeOrderBeta) do
+		makeThemeBtn(betaBtnRow, tn, i)
+	end
+
 	paintThemeButtons(false)
 
 	-- NX Head Tags toggle
@@ -9128,7 +9886,7 @@ do
 		packet.BackgroundTransparency = 0.05
 		packet.Visible = true
 		local dur = math.clamp((b - a).Magnitude / 220, 0.35, 0.7)
-		motionTween(packet, TweenInfo.new(dur, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+		motionTween(packet, TweenInfo.new(dur, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
 			{ Position = UDim2.fromOffset(b.X, b.Y) }, function()
 				if not alive or miGen ~= gen or finishing then return end
 				lightNode(seg + 1)
@@ -9182,8 +9940,8 @@ do
 			setStatus("Completed", C.good)
 			task.wait(0.45)
 			if miGen ~= gen then done(); return end
-			motionTween(stage, TweenInfo.new(0.3), { GroupTransparency = 1 })
-			motionTween(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }, function()
+			motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
+			motionTween(overlay, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }, function()
 				destroyNow()
 				done()
 			end)
@@ -9206,8 +9964,8 @@ do
 		overlay.Name = "ScanOverlay"
 		overlay.Position = UDim2.new(0, 0, 0, 0)
 		overlay.Size = UDim2.new(1, 0, 1, 0)
-		overlay.BackgroundColor3 = C.bg
-		overlay.BackgroundTransparency = 0.03
+		overlay.BackgroundColor3 = C.card
+		overlay.BackgroundTransparency = 0.92
 		overlay.BorderSizePixel = 0
 		overlay.ClipsDescendants = true
 		overlay.Active = true
@@ -9218,9 +9976,10 @@ do
 		stage.Size = UDim2.new(1, 0, 1, 0)
 		stage.BackgroundTransparency = 1
 		stage.BorderSizePixel = 0
-		stage.GroupTransparency = 0
+		stage.GroupTransparency = 1
 		stage.ZIndex = 51
 		stage.Parent = overlay
+		motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 0 })
 
 		-- Estado global (una sola línea, arriba).
 		local pill = Instance.new("Frame", stage)
@@ -9294,14 +10053,14 @@ do
 		for i, n in ipairs(nodes) do
 			task.delay(0.12 * (i - 1), function()
 				if miGen ~= gen or not alive then return end
-				motionTween(n.scale, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Scale = 1 })
+				motionTween(n.scale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
 			end)
 		end
 		for i, ln in ipairs(lines) do
 			task.delay(0.12 * i, function()
 				if miGen ~= gen or not alive then return end
 				ln.grown = true
-				motionTween(ln.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				motionTween(ln.frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
 					{ Size = UDim2.fromOffset(ln.len, GROSOR) })
 			end)
 		end
@@ -9346,6 +10105,12 @@ analyze = function(input)
 	local mySearchGen = searchGen
 	hideAllSuggestions()
 	statusLabel.Text = "Buscando..."
+	clearScroll(profileScroll)
+	clearScroll(statsScroll)
+	clearScroll(itemsScroll)
+	clearScroll(analysisScroll)
+	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
+	if _G.NXIntel and _G.NXIntel.reset then pcall(_G.NXIntel.reset) end
 	NXWin.startScan()
 
 	task.spawn(function()
@@ -9848,11 +10613,10 @@ NXCore.onReady(function()
 	end
 end)
 
--- ====================== ARRASTRE DIRECTO ======================
--- El panel sigue al mouse 1:1 sin lerp (sin RenderStepped).
--- Todas las conexiones se desconectan al soltar.
+-- ====================== ARRASTRE ======================
 do
 	local dragInputConn, dragEndedConn
+
 	local function stopDrag()
 		if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
 		if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
@@ -9863,23 +10627,20 @@ do
 		if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
 		local startMouse = input.Position
 		stopDrag()
-		-- Convertir Scale a Offset (una sola vez al iniciar el arrastre)
 		local vp = workspace.CurrentCamera.ViewportSize
 		local p = main.Position
 		local ox = p.X.Scale * vp.X + p.X.Offset
 		local oy = p.Y.Scale * vp.Y + p.Y.Offset
 		main.Position = UDim2.fromOffset(ox, oy)
 
-		-- Movimiento directo: el panel sigue al mouse 1:1
 		dragInputConn = UserInputService.InputChanged:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseMovement
 				or i.UserInputType == Enum.UserInputType.Touch then
 				local d = i.Position - startMouse
-				main.Position = UDim2.fromOffset(ox + d.X, oy + d.Y)
+				main.Position = UDim2.fromOffset(math.round(ox + d.X), math.round(oy + d.Y))
 			end
 		end)
 
-		-- Al soltar: desconectar todo
 		dragEndedConn = input.Changed:Connect(function()
 			if input.UserInputState == Enum.UserInputState.End then
 				stopDrag()
@@ -9989,6 +10750,9 @@ end))
 -- ====================== AVISOS ======================
 if not httpRequest then
 	statusLabel.Text = "Aviso: " .. EXECUTOR_NAME .. " no expone 'request'; se usará game:HttpGet."
+end
+if _G._NX_shouldProxy and _G._NX_shouldProxy("https://users.roblox.com") then
+	statusLabel.Text = statusLabel.Text .. " · 🛡️ Proxy"
 end
 
 -- ====================== NX BROADCAST · AVISOS REMOTOS ======================
@@ -10810,7 +11574,7 @@ do
         CIRCLE_SIZE       = 46,    -- diámetro (px) del círculo lejano.
         CIRCLE_BG_TRANSPARENCY = 0.04,  -- fondo del círculo (más bajo = más oscuro/sólido, tipo tag).
         CIRCLE_LOGO       = "NX",  -- texto del logo dentro del círculo (si no hay imagen).
-        CIRCLE_LOGO_IMAGE = "",    -- rbxassetid de tu logo NX (opcional). "" = usa el texto "NX".
+        CIRCLE_LOGO_IMAGE = "",    -- se actualiza async cuando el icon loader termine
         GLOW_ALL          = false, -- (apagado) sin respiración: el tag se queda con su borde fijo
 
         -- TP AL TOCAR EL TAG: click normal sobre la pill/círculo de un jugador y
@@ -10835,7 +11599,19 @@ do
 
         DEFAULT_ANIMATION = "gradient", -- used when a tag has no animation and its role has no preset.
         SHOW_USERNAME     = false,      -- nombre debajo del rol. false = SIN nombre (más limpio/pro).
+
+        CIRCLE_GLOW_BREATHE   = true,
+        CIRCLE_LOGO_SPIN      = false,
+        CIRCLE_LOGO_PULSE     = true,
+        CIRCLE_ENTRANCE_SCALE = true,
     }
+
+    task.spawn(function()
+        while not (_G.NXIcons and _G.NXIcons.logo_nx and _G.NXIcons.logo_nx ~= "") do
+            task.wait(0.3)
+        end
+        CONFIG.CIRCLE_LOGO_IMAGE = _G.NXIcons.logo_nx
+    end)
 
     --==========================================================================
     -- NAMED COLORS  (color field accepts: a name below, "#RRGGBB", or {r,g,b})
@@ -11491,6 +12267,7 @@ Animations.luxe = {
         circle.BackgroundColor3     = CONFIG.PILL_BG
         circle.BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY
         circle.Visible              = false
+        circle.ClipsDescendants     = true
         circle.Parent               = billboard
 
         local circleCorner = Instance.new("UICorner")
@@ -11506,30 +12283,50 @@ Animations.luxe = {
         -- Logo NX dentro del círculo (nunca queda vacío). Si defines CIRCLE_LOGO_IMAGE
         -- usa esa imagen; si no, dibuja el monograma "NX" con el color del rol.
         local circleIcon
+        circleIcon = Instance.new("ImageLabel")
+        circleIcon.Name = "CircleLogo"
+        circleIcon.BackgroundTransparency = 1
+        circleIcon.Size                   = UDim2.fromScale(1, 1)
+        circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
+        circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
+        circleIcon.ScaleType              = Enum.ScaleType.Fit
+        circleIcon.ResampleMode           = Enum.ResamplerMode.Default
+        circleIcon.ImageColor3            = Color3.fromRGB(255, 255, 255)
+        circleIcon.ImageTransparency      = 0
+        circleIcon.ZIndex                 = 3
+        circleIcon.Parent                 = circle
+        local circleFallback = Instance.new("TextLabel")
+        circleFallback.Name = "CircleFallback"
+        circleFallback.BackgroundTransparency = 1
+        circleFallback.Size                   = UDim2.fromScale(0.82, 0.82)
+        circleFallback.Position               = UDim2.fromScale(0.5, 0.5)
+        circleFallback.AnchorPoint            = Vector2.new(0.5, 0.5)
+        circleFallback.Font                   = Enum.Font.GothamBlack
+        circleFallback.TextScaled             = true
+        circleFallback.TextColor3             = tag.color
+        circleFallback.Text                   = CONFIG.CIRCLE_LOGO
+        circleFallback.ZIndex                 = 2
+        local ciStroke = Instance.new("UIStroke")
+        ciStroke.Thickness = 1.5; ciStroke.Color = Color3.fromRGB(0, 0, 0); ciStroke.Transparency = 0.3
+        ciStroke.Parent = circleFallback
+        circleFallback.Parent = circle
         if CONFIG.CIRCLE_LOGO_IMAGE and CONFIG.CIRCLE_LOGO_IMAGE ~= "" then
-            circleIcon = Instance.new("ImageLabel")
-            circleIcon.BackgroundTransparency = 1
-            circleIcon.Image                  = CONFIG.CIRCLE_LOGO_IMAGE
-            circleIcon.Size                   = UDim2.fromScale(0.70, 0.70)
-            circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
-            circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
-            circleIcon.ScaleType              = Enum.ScaleType.Fit
-            circleIcon.ImageColor3            = tag.color
-            circleIcon.Parent                 = circle
+            circleIcon.Image = CONFIG.CIRCLE_LOGO_IMAGE
+            circleFallback.Visible = false
         else
-            circleIcon = Instance.new("TextLabel")
-            circleIcon.BackgroundTransparency = 1
-            circleIcon.Size                   = UDim2.fromScale(0.82, 0.82)
-            circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
-            circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
-            circleIcon.Font                   = Enum.Font.GothamBlack
-            circleIcon.TextScaled             = true
-            circleIcon.TextColor3             = tag.color
-            circleIcon.Text                   = CONFIG.CIRCLE_LOGO
-            local ciStroke = Instance.new("UIStroke")
-            ciStroke.Thickness = 1.5; ciStroke.Color = Color3.fromRGB(0, 0, 0); ciStroke.Transparency = 0.3
-            ciStroke.Parent = circleIcon
-            circleIcon.Parent = circle
+            circleIcon.Visible = false
+            task.spawn(function()
+                while not (CONFIG.CIRCLE_LOGO_IMAGE and CONFIG.CIRCLE_LOGO_IMAGE ~= "") do
+                    task.wait(0.3)
+                end
+                if circleIcon and circleIcon.Parent then
+                    circleIcon.Image = CONFIG.CIRCLE_LOGO_IMAGE
+                    circleIcon.Visible = true
+                    if circleFallback and circleFallback.Parent then
+                        circleFallback.Visible = false
+                    end
+                end
+            end)
         end
 
         -- Escalas (UIScale) para la animación de transición pill <-> círculo.
@@ -11735,10 +12532,10 @@ Animations.luxe = {
     --   SHRINK = sale encogiéndose limpio hasta 0.
     --   FADE   = acompaña con transparencia para que no sea un corte seco.
     --   SPIN   = giro corto de "asentamiento" del logo del círculo.
-    local LOD_POP    = TweenInfo.new(0.42, Enum.EasingStyle.Quint,  Enum.EasingDirection.Out)
-    local LOD_SHRINK = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-    local LOD_FADE   = TweenInfo.new(0.26, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
-    local LOD_SPIN   = TweenInfo.new(0.5,  Enum.EasingStyle.Quint,  Enum.EasingDirection.Out)
+    local LOD_POP    = TweenInfo.new(0.50, Enum.EasingStyle.Back,   Enum.EasingDirection.Out)
+    local LOD_SHRINK = TweenInfo.new(0.28, Enum.EasingStyle.Quint,  Enum.EasingDirection.In)
+    local LOD_FADE   = TweenInfo.new(0.35, Enum.EasingStyle.Sine,   Enum.EasingDirection.Out)
+    local LOD_SPIN   = TweenInfo.new(0.55, Enum.EasingStyle.Back,   Enum.EasingDirection.Out)
 
     local function setLOD(ctx, far)
         ctx.transitioning = true
@@ -11747,7 +12544,7 @@ Animations.luxe = {
                 ctx.circle.Visible = true
                 ctx.circleScale.Scale = 1
                 ctx.circle.BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY
-                if ctx.circleGlow then ctx.circleGlow.Transparency = 0.25 end
+                if ctx.circleGlow then ctx.circleGlow.Transparency = 0.20 end
                 if ctx.circleIcon then ctx.circleIcon.Rotation = 0 end
                 ctx.pillScale.Scale = 0
                 if ctx.container then ctx.container.Visible = false end
@@ -11763,42 +12560,49 @@ Animations.luxe = {
             return
         end
         if far then
-            ctx.circle.Visible              = true
-            ctx.circleScale.Scale           = 0.0
-            ctx.circle.BackgroundTransparency = 1
-            if ctx.circleGlow then ctx.circleGlow.Transparency = 1 end
-            if ctx.circleIcon then ctx.circleIcon.Rotation = -90 end
-
-            TweenService:Create(ctx.circleScale, LOD_POP, { Scale = 1 }):Play()
-            TweenService:Create(ctx.circle, LOD_FADE,
-                { BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY }):Play()
-            if ctx.circleGlow then
-                TweenService:Create(ctx.circleGlow, LOD_FADE, { Transparency = 0.25 }):Play()
-            end
-            if ctx.circleIcon then
-                TweenService:Create(ctx.circleIcon, LOD_SPIN, { Rotation = 0 }):Play()
-            end
-
-            local t = TweenService:Create(ctx.pillScale, LOD_SHRINK, { Scale = 0.0 })
-            t:Play()
-            t.Completed:Once(function()
-                if ctx.isFar and ctx.container then ctx.container.Visible = false end
-                ctx.transitioning = false
+            local shrink = TweenService:Create(ctx.pillScale, LOD_SHRINK, { Scale = 0.0 })
+            shrink:Play()
+            shrink.Completed:Once(function()
+                if ctx.container then ctx.container.Visible = false end
+                ctx.circle.Visible = true
+                ctx.circleScale.Scale = 0.0
+                ctx.circle.BackgroundTransparency = 1
+                if ctx.circleGlow then ctx.circleGlow.Transparency = 1 end
+                if ctx.circleIcon then
+                    ctx.circleIcon.Rotation = -45
+                    if ctx.circleIcon:IsA("ImageLabel") then
+                        ctx.circleIcon.ImageTransparency = 1
+                    end
+                end
+                TweenService:Create(ctx.circleScale, LOD_POP, { Scale = 1 }):Play()
+                TweenService:Create(ctx.circle, LOD_FADE,
+                    { BackgroundTransparency = CONFIG.CIRCLE_BG_TRANSPARENCY }):Play()
+                if ctx.circleGlow then
+                    TweenService:Create(ctx.circleGlow, LOD_FADE, { Transparency = 0.20 }):Play()
+                end
+                if ctx.circleIcon then
+                    TweenService:Create(ctx.circleIcon, LOD_SPIN, { Rotation = 0 }):Play()
+                    if ctx.circleIcon:IsA("ImageLabel") then
+                        TweenService:Create(ctx.circleIcon,
+                            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                            { ImageTransparency = 0 }):Play()
+                    end
+                end
+                task.delay(0.55, function() ctx.transitioning = false end)
             end)
         else
-            ctx.container.Visible = true
-            ctx.pillScale.Scale   = 0.0
-            TweenService:Create(ctx.pillScale, LOD_POP, { Scale = 1 }):Play()
-
-            TweenService:Create(ctx.circle, LOD_FADE, { BackgroundTransparency = 1 }):Play()
+            local shrink = TweenService:Create(ctx.circleScale, LOD_SHRINK, { Scale = 0.0 })
             if ctx.circleGlow then
                 TweenService:Create(ctx.circleGlow, LOD_FADE, { Transparency = 1 }):Play()
             end
-            local t = TweenService:Create(ctx.circleScale, LOD_SHRINK, { Scale = 0.0 })
-            t:Play()
-            t.Completed:Once(function()
-                if not ctx.isFar and ctx.circle then ctx.circle.Visible = false end
-                ctx.transitioning = false
+            TweenService:Create(ctx.circle, LOD_FADE, { BackgroundTransparency = 1 }):Play()
+            shrink:Play()
+            shrink.Completed:Once(function()
+                if ctx.circle then ctx.circle.Visible = false end
+                ctx.container.Visible = true
+                ctx.pillScale.Scale = 0.0
+                TweenService:Create(ctx.pillScale, LOD_POP, { Scale = 1 }):Play()
+                task.delay(0.55, function() ctx.transitioning = false end)
             end)
         end
     end
@@ -11864,6 +12668,19 @@ Animations.luxe = {
                         end
                     end
 
+                    if ctx.isFar and not ctx.transitioning and NXHeadTags._anim then
+                        local t = ctx.elapsed
+                        if CONFIG.CIRCLE_GLOW_BREATHE and ctx.circleGlow then
+                            local breath = 0.5 + 0.5 * math.sin(t * 1.8)
+                            ctx.circleGlow.Transparency = lerp(0.12, 0.45, breath)
+                            ctx.circleGlow.Thickness    = lerp(2.8, 4.8, breath)
+                        end
+                        if CONFIG.CIRCLE_LOGO_PULSE and ctx.circleScale then
+                            local pulse = 0.5 + 0.5 * math.sin(t * 2.2)
+                            ctx.circleScale.Scale = lerp(0.95, 1.05, pulse)
+                        end
+                    end
+
                     -- Animación premium por-rol (solo cuando se ve la pill, no el círculo).
                     if (not ctx.isFar) and ctx.anim and ctx.anim.update and NXHeadTags._anim then
                         pcall(ctx.anim.update, ctx, ctx.elapsed)
@@ -11880,13 +12697,13 @@ Animations.luxe = {
         task.spawn(function()
             while NXHeadTags._running do
                 if not TagDatabase._loaded then
-                    if TagDatabase:Load(false) then
-                        TagManager:refreshAll()
-                    end
+                    TagDatabase:Load(false)
+                    TagManager:refreshAll()
                     task.wait(CONFIG.RETRY_INTERVAL)
                 elseif CONFIG.REFRESH_INTERVAL > 0 then
                     task.wait(CONFIG.REFRESH_INTERVAL)
-                    if NXHeadTags._running and TagDatabase:Load(true) then
+                    if NXHeadTags._running then
+                        TagDatabase:Load(true)
                         TagManager:refreshAll()
                     end
                 else
@@ -11909,6 +12726,12 @@ Animations.luxe = {
                 TagManager:refreshAll()
             end
         end)
+
+        if _G.NXV2 and _G.NXV2.onReady then
+            _G.NXV2.onReady(function()
+                TagManager:refreshAll()
+            end)
+        end
 
         for _, player in ipairs(Players:GetPlayers()) do
             hookPlayer(player)
@@ -12016,17 +12839,18 @@ end
 	local Lighting   = game:GetService("Lighting")
 
 	-- ▼▼▼ AJUSTA AQUÍ (true/false para encender/apagar cada efecto) ▼▼▼
+	local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
 	local PRISM = {
-		neonBorder   = false,
-		titleShimmer = false,
-		headerLine   = false,
+		neonBorder   = isGlow or false,
+		titleShimmer = isGlow or false,
+		headerLine   = isGlow or false,
 		glassBlur    = false,
-		popOpen      = false,
-		ripple       = false,
+		popOpen      = isGlow or false,
+		ripple       = isGlow or false,
 		blurSize     = 0,
-		spinSpeed    = 0,
-		strokeAlpha  = 0.5,
-		strokeWidth  = 1,
+		spinSpeed    = isGlow and 30 or 0,
+		strokeAlpha  = isGlow and 0.15 or 0.5,
+		strokeWidth  = isGlow and 1.8 or 1,
 	}
 	-- ▲▲▲ ───────────────────────────────────────────────────────── ▲▲▲
 
@@ -12038,9 +12862,11 @@ end
 	local function neonSeq()
 		local a = C.accent
 		return ColorSequence.new({
-			ColorSequenceKeypoint.new(0.0, darken(a, 0.12)),
-			ColorSequenceKeypoint.new(0.5, lighten(a, 0.55)),
-			ColorSequenceKeypoint.new(1.0, darken(a, 0.12)),
+			ColorSequenceKeypoint.new(0.00, darken(a, 0.60)),
+			ColorSequenceKeypoint.new(0.15, darken(a, 0.40)),
+			ColorSequenceKeypoint.new(0.30, lighten(a, 0.70)),
+			ColorSequenceKeypoint.new(0.45, darken(a, 0.40)),
+			ColorSequenceKeypoint.new(1.00, darken(a, 0.60)),
 		})
 	end
 	local function titleSeq()
@@ -12187,6 +13013,13 @@ end
 			shim = (shim + dt * 0.25) % 2
 			titleGrad.Offset = Vector2.new(shim - 1, 0)
 		end
+		if isGlow then
+			for _, desc in ipairs(main:GetDescendants()) do
+				if desc:IsA("UIGradient") and desc.Parent and desc.Parent:IsA("UIStroke") then
+					desc.Rotation = (desc.Rotation + dt * 20) % 360
+				end
+			end
+		end
 	end))
 
 	-- 8) Mantener neón/shimmer sincronizados con el TEMA EN VIVO.
@@ -12261,7 +13094,7 @@ end)()
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
 	-- Iconos vectoriales (dibujados con Frames). Sin emojis.
 	local DISCORD_INVITE  = "https://discord.gg/JgsW2M6322"   -- (se copia al click + intenta abrir)
-	local DISCORD_LOGO_ID = ""   -- pega aquí TU logo Discord (rbxassetid). "" = usa el icono 
+	local DISCORD_LOGO_ID = (_G.NXIcons and _G.NXIcons.discord) or ""
 	local pingLabel, fpsLabel, playersLabel
 	pcall(function()
 		local hud = Instance.new("Frame")
@@ -12272,11 +13105,11 @@ end)()
 		hud.AutomaticSize = Enum.AutomaticSize.X
 		hud.BackgroundColor3 = C.bg                          -- fondo SINCRONIZADO con el tema (cambia al cambiar la UI)
 		themed(hud, "BackgroundColor3", "bg")
-		hud.BackgroundTransparency = 0.1
+		hud.BackgroundTransparency = isGlow and 0.3 or 0.1
 		hud.BorderSizePixel = 0
 		hud.Parent = gui
 		local hc = Instance.new("UICorner", hud); hc.CornerRadius = UDim.new(0, 10)
-		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.6; hs.Color = C.accent; hs.Transparency = 0.1  -- borde vívido (igual de intenso que el panel)
+		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.6; hs.Color = C.accent; hs.Transparency = 0.1
 		themed(hs, "Color", "accent")
 
 		local lay = Instance.new("UIListLayout", hud)
@@ -12313,7 +13146,7 @@ end)()
 			if drawFn then
 				ic.Text = ""
 				ic.AutomaticSize = Enum.AutomaticSize.None
-				ic.Size = UDim2.fromOffset(16, 16)
+				ic.Size = UDim2.fromOffset(20, 20)
 				pcall(drawFn, ic)
 			else
 				ic.Text = emoji
@@ -12379,15 +13212,32 @@ end)()
 				Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 			end
 		end
-		playersLabel = cell("", "—/—", C.text)
+		playersLabel = cell("", "—/—", C.text, function(parent)
+			local img = Instance.new("ImageLabel", parent)
+			img.Size = UDim2.fromScale(1, 1)
+			img.AnchorPoint = Vector2.new(0.5, 0.5)
+			img.Position = UDim2.fromScale(0.5, 0.5)
+			img.BackgroundTransparency = 1
+			img.ScaleType = Enum.ScaleType.Fit
+			img.ResampleMode = Enum.ResamplerMode.Default
+			img.Image = (_G.NXIcons and _G.NXIcons.username) or ""
+			img.ImageColor3 = C.accent
+			themed(img, "ImageColor3", "accent")
+			task.spawn(function()
+				while not (_G.NXIcons and _G.NXIcons.username and _G.NXIcons.username ~= "") do
+					task.wait(0.3)
+				end
+				if img and img.Parent then img.Image = _G.NXIcons.username end
+			end)
+		end)
 		divider()
 		pingLabel    = cell("~", "— ms", C.text)
 		divider()
-		fpsLabel     = cell(nil, "— fps", C.good, drawBars)
+		fpsLabel     = cell(nil, "— FPS", Color3.fromRGB(255, 255, 255), drawBars)
 		onRepaint(function()
 			if playersLabel and playersLabel.Parent then playersLabel.TextColor3 = C.text end
 			if pingLabel and pingLabel.Parent then pingLabel.TextColor3 = C.text end
-			if fpsLabel and fpsLabel.Parent then fpsLabel.TextColor3 = C.good end
+			-- fpsLabel color is managed dynamically by RenderStepped
 		end)
 
 		-- helper: botón de icono redondo (oscuro), con imagen (rbxassetid), dibujo
@@ -12464,6 +13314,30 @@ end)()
 		end
 		divider()
 		local discBtn = iconButton(nil, DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242), drawBubble)  -- blurple Discord
+		task.spawn(function()
+			while not (_G.NXIcons and _G.NXIcons.discord and _G.NXIcons.discord ~= "") do
+				task.wait(0.3)
+			end
+			if discBtn and discBtn.Parent then
+				local existing = discBtn:FindFirstChildOfClass("ImageLabel")
+				if not existing then
+					local img = Instance.new("ImageLabel", discBtn)
+					img.BackgroundTransparency = 1
+					img.AnchorPoint = Vector2.new(0.5, 0.5)
+					img.Position = UDim2.fromScale(0.5, 0.5)
+					img.Size = UDim2.fromScale(0.62, 0.62)
+					img.ScaleType = Enum.ScaleType.Fit
+					img.ResampleMode = Enum.ResamplerMode.Default
+					img.Image = _G.NXIcons.discord
+					img.ZIndex = discBtn.ZIndex + 1
+					for _, ch in ipairs(discBtn:GetChildren()) do
+						if ch:IsA("Frame") then ch:Destroy() end
+					end
+				else
+					existing.Image = _G.NXIcons.discord
+				end
+			end
+		end)
 		attachTip(discBtn, "Discord NX")
 
 		-- NX badge (logo al final de la barra, como en la referencia)
@@ -12498,7 +13372,10 @@ end)()
 		track(RunService.RenderStepped:Connect(function(dt)
 			frames += 1; acc += dt
 			if acc >= 0.5 then
-				if fpsLabel then fpsLabel.Text = math.floor(frames / acc + 0.5) .. " fps" end
+				if fpsLabel then
+					local fps = math.floor(frames / acc + 0.5)
+					fpsLabel.Text = fps .. " FPS"
+				end
 				frames, acc = 0, 0
 			end
 		end))
@@ -12515,50 +13392,6 @@ end)()
 				task.wait(1)
 			end
 		end)
-	end)
-
-	-- ── 3) Círculo del tag => NX BLANCO, fondo NEGRO, borde = COLOR DEL ROL
-	-- (limpio y legible; sin respiración por GLOW_ALL=false).
-	local function restyleCircle(circle)
-		if not circle or circle:GetAttribute("PrismStyled") then return end
-		circle:SetAttribute("PrismStyled", true)
-		local st = circle:FindFirstChildOfClass("UIStroke")
-		local roleColor = (st and st.Color) or Color3.fromRGB(255, 255, 255)
-		circle.BackgroundColor3 = Color3.fromRGB(10, 10, 12)   -- fondo NEGRO
-		circle.BackgroundTransparency = 0
-		if st then
-			st.Color = roleColor       -- borde = COLOR DEL ROL
-			st.Thickness = 3
-			st.Transparency = 0
-		end
-		for _, ch in ipairs(circle:GetChildren()) do
-			if ch:IsA("TextLabel") then
-				ch.TextColor3 = Color3.fromRGB(255, 255, 255)  -- NX BLANCO
-				ch.Size = UDim2.fromScale(0.62, 0.62)          -- NX más pequeño
-				local ts = ch:FindFirstChildOfClass("UIStroke")
-				if ts then ts.Transparency = 1 end             -- sin contorno (limpio)
-			elseif ch:IsA("ImageLabel") then
-				ch.ImageColor3 = Color3.fromRGB(255, 255, 255)
-				ch.Size = UDim2.fromScale(0.55, 0.55)
-			end
-		end
-	end
-	task.spawn(function()
-		local pg = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
-		local folder = pg:FindFirstChild("NXHeadTags")
-		local t0 = os.clock()
-		while not folder and (os.clock() - t0) < 20 do
-			task.wait(0.5); folder = pg:FindFirstChild("NXHeadTags")
-		end
-		if not folder then return end
-		for _, bb in ipairs(folder:GetChildren()) do
-			local c = bb:FindFirstChild("Circle"); if c then restyleCircle(c) end
-		end
-		track(folder.ChildAdded:Connect(function(bb)
-			task.defer(function()
-				local c = bb:FindFirstChild("Circle"); if c then restyleCircle(c) end
-			end)
-		end))
 	end)
 
 	-- ── 4) TP AL TOCAR EL TAG (robusto, por proyección a pantalla) ───────
@@ -13191,18 +14024,67 @@ end)()
 	ventana.Parent = gui
 	pthemed(ventana, "BackgroundColor3", "bg")
 	Instance.new("UICorner", ventana).CornerRadius = UDim.new(0, 12)
+	do
+		local lbg
+
+		local function applyGlow()
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+
+			if isGlow then
+				ventana.BackgroundTransparency = 0.18
+				if not lbg then
+					lbg = Instance.new("ImageLabel")
+					lbg.Name = "ArcticBgLista"
+					lbg.Size = UDim2.fromScale(1, 1)
+					lbg.BackgroundTransparency = 1
+					lbg.ImageTransparency = 0.15
+					lbg.ScaleType = Enum.ScaleType.Crop
+					lbg.ZIndex = 0
+					lbg.Parent = ventana
+					Instance.new("UICorner", lbg).CornerRadius = UDim.new(0, 12)
+					task.spawn(function()
+						local iconKey = (_G.NXTheme and _G.NXTheme.glowBgMap and _G.NXTheme.glowBgMap[store.theme]) or "arctic_bg"
+						while not (_G.NXIcons and _G.NXIcons[iconKey] and _G.NXIcons[iconKey] ~= "") do task.wait(0.3) end
+						if lbg and lbg.Parent then
+							lbg.Image = _G.NXIcons[iconKey]
+						end
+					end)
+				end
+				lbg.Visible = true
+				local iconKey = (_G.NXTheme and _G.NXTheme.glowBgMap and _G.NXTheme.glowBgMap[store.theme]) or "arctic_bg"
+				if _G.NXIcons and _G.NXIcons[iconKey] and _G.NXIcons[iconKey] ~= "" then
+					lbg.Image = _G.NXIcons[iconKey]
+				end
+			else
+				ventana.BackgroundTransparency = 0
+				if lbg then
+					lbg.Visible = false
+				end
+			end
+		end
+
+		applyGlow()
+		onPrepaint(applyGlow)
+	end
 
 	local borde = Instance.new("UIStroke", ventana)
-	borde.Thickness = 1.2
-	borde.Transparency = 0.4
+	borde.Thickness = 1
+	borde.Transparency = 0.3
 	pthemed(borde, "Color", "border")
+	onPrepaint(function()
+		local nxt = _G.NXTheme
+		local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+		borde.Transparency = isGlow and 0.15 or 0.3
+		borde.Thickness = isGlow and 1.2 or 1
+	end)
 
 	-- ====================== ENCABEZADO ======================
 	local encabezado = Instance.new("Frame", ventana)
 	encabezado.Name = "Encabezado"
 	encabezado.Size = UDim2.new(1, 0, 0, 38)
 	encabezado.BorderSizePixel = 0
-	pthemed(encabezado, "BackgroundColor3", "header")
+	encabezado.BackgroundTransparency = 1
 	Instance.new("UICorner", encabezado).CornerRadius = UDim.new(0, 12)
 
 	local titulo = Instance.new("TextLabel", encabezado)
@@ -13319,57 +14201,258 @@ end)()
 		end)
 	end
 
-	-- ====================== BARRA DE BÚSQUEDA (estilo barra de direcciones) ======================
-	local cajaBusqueda = Instance.new("TextBox", ventana)
-	cajaBusqueda.Size = UDim2.new(1, -16, 0, 32)
-	cajaBusqueda.Position = UDim2.new(0, 8, 0, 46)
-	cajaBusqueda.PlaceholderText = "Buscar en el servidor o en todo Roblox"
-	cajaBusqueda.Font = Enum.Font.Gotham
-	cajaBusqueda.TextSize = 13
-	cajaBusqueda.BorderSizePixel = 0
-	cajaBusqueda.ClearTextOnFocus = false
-	cajaBusqueda.Text = ""
-	cajaBusqueda.TextXAlignment = Enum.TextXAlignment.Left
-	pthemed(cajaBusqueda, "BackgroundColor3", "input")
-	pthemed(cajaBusqueda, "TextColor3", "text")
-	pthemed(cajaBusqueda, "PlaceholderColor3", "subtext")
-	Instance.new("UICorner", cajaBusqueda).CornerRadius = UDim.new(0, 14)
+	-- ====================== BÚSQUEDA EXPANDABLE ======================
+	local cajaBusqueda
+	do
+		local SEARCH_COLLAPSED_W = 36
+		local SEARCH_EXPANDED_W_SCALE = 1
+		local SEARCH_EXPANDED_W_OFFSET = -20
 
-	local padBusqueda = Instance.new("UIPadding", cajaBusqueda)
-	padBusqueda.PaddingLeft = UDim.new(0, 30)
-	padBusqueda.PaddingRight = UDim.new(0, 8)
+		local searchContainer = Instance.new("Frame", ventana)
+		searchContainer.Name = "SearchContainer"
+		searchContainer.Size = UDim2.fromOffset(SEARCH_COLLAPSED_W, 34)
+		searchContainer.Position = UDim2.new(0, 8, 0, 44)
+		searchContainer.BackgroundColor3 = col("input")
+		searchContainer.BorderSizePixel = 0
+		searchContainer.ClipsDescendants = true
+		Instance.new("UICorner", searchContainer).CornerRadius = UDim.new(0, 10)
+		pthemed(searchContainer, "BackgroundColor3", "input")
 
-	local cajaStroke = Instance.new("UIStroke", cajaBusqueda)
-	cajaStroke.Thickness = 1
-	cajaStroke.Transparency = 0.7
-	cajaStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	pthemed(cajaStroke, "Color", "border")
+		local cajaStroke = Instance.new("UIStroke", searchContainer)
+		cajaStroke.Thickness = 1
+		cajaStroke.Transparency = 0.7
+		cajaStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		pthemed(cajaStroke, "Color", "border")
 
-	-- Lupa generada: asset raster independiente, no formas dibujadas por código.
-	local searchIcon = Instance.new("ImageLabel", cajaBusqueda)
-	searchIcon.Name = "SearchIcon"
-	searchIcon.Size = UDim2.fromOffset(14, 14)
-	searchIcon.Position = UDim2.fromOffset(-22, 9)
-	searchIcon.BackgroundTransparency = 1
-	searchIcon.BorderSizePixel = 0
-	searchIcon.Active = false
-	searchIcon.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
-	searchIcon.ImageColor3 = col("subtext")
-	searchIcon.ImageTransparency = 0.18
-	searchIcon.ScaleType = Enum.ScaleType.Fit
-	searchIcon.ZIndex = 2
-	pthemed(searchIcon, "ImageColor3", "subtext")
-	local function setSearchFocusState(focused)
-		local strokeColor = focused and col("accent") or col("border")
-		TweenService:Create(cajaStroke, TweenInfo.new(focused and 0.16 or 0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Color = strokeColor, Transparency = focused and 0.15 or 0.7, Thickness = focused and 1.4 or 1,
-		}):Play()
-		TweenService:Create(searchIcon, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			ImageTransparency = focused and 0 or 0.18,
-		}):Play()
+		local lupaBtn = Instance.new("ImageButton", searchContainer)
+		lupaBtn.Name = "LupaBtn"
+		lupaBtn.Size = UDim2.fromOffset(18, 18)
+		lupaBtn.Position = UDim2.new(0, 10, 0.5, -9)
+		lupaBtn.BackgroundTransparency = 1
+		lupaBtn.ImageColor3 = col("subtext")
+		lupaBtn.AutoButtonColor = false
+		lupaBtn.Image = (_G.NXSearchIcon ~= "") and _G.NXSearchIcon or "rbxassetid://6031154871"
+		lupaBtn.ScaleType = Enum.ScaleType.Fit
+		pthemed(lupaBtn, "ImageColor3", "subtext")
+		task.spawn(function()
+			local tries = 0
+			while not (_G.NXSearchIcon and _G.NXSearchIcon ~= "") do
+				tries = tries + 1
+				if tries > 50 then return end
+				task.wait(0.2)
+			end
+			if lupaBtn and lupaBtn.Parent then lupaBtn.Image = _G.NXSearchIcon end
+		end)
+
+		cajaBusqueda = Instance.new("TextBox", searchContainer)
+		cajaBusqueda.Name = "CajaBusqueda"
+		cajaBusqueda.Size = UDim2.new(1, -76, 1, 0)
+		cajaBusqueda.Position = UDim2.new(0, 38, 0, 0)
+		cajaBusqueda.PlaceholderText = "Buscar en el servidor o en todo Roblox"
+		cajaBusqueda.Font = Enum.Font.Gotham
+		cajaBusqueda.TextSize = 13
+		cajaBusqueda.BackgroundTransparency = 1
+		cajaBusqueda.BorderSizePixel = 0
+		cajaBusqueda.ClearTextOnFocus = false
+		cajaBusqueda.Text = ""
+		cajaBusqueda.TextXAlignment = Enum.TextXAlignment.Left
+		cajaBusqueda.TextTransparency = 1
+		cajaBusqueda.ClipsDescendants = true
+		cajaBusqueda.Active = false
+		cajaBusqueda.Interactable = false
+		pthemed(cajaBusqueda, "TextColor3", "text")
+		pthemed(cajaBusqueda, "PlaceholderColor3", "subtext")
+		local padBusqueda = Instance.new("UIPadding", cajaBusqueda)
+		padBusqueda.PaddingRight = UDim.new(0, 8)
+
+		local closeBtn = Instance.new("ImageButton", searchContainer)
+		closeBtn.Name = "SearchCloseBtn"
+		closeBtn.Size = UDim2.fromOffset(24, 24)
+		closeBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+		closeBtn.Position = UDim2.new(1, -22, 0.5, 0)
+		closeBtn.BackgroundTransparency = 1
+		closeBtn.AutoButtonColor = false
+		closeBtn.ImageTransparency = 1
+		closeBtn.Visible = false
+		closeBtn.ZIndex = searchContainer.ZIndex + 2
+		closeBtn.ScaleType = Enum.ScaleType.Fit
+		if _G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "" then
+			closeBtn.Image = _G.NXIcons.close
+		else
+			closeBtn.Image = "rbxassetid://6031094678"
+		end
+		closeBtn.ImageColor3 = col("subtext")
+		pthemed(closeBtn, "ImageColor3", "subtext")
+
+		ltrack(closeBtn.MouseEnter:Connect(function()
+			TweenService:Create(closeBtn, TweenInfo.new(0.15, Enum.EasingStyle.Quint), {
+				ImageColor3 = col("text")
+			}):Play()
+		end))
+		ltrack(closeBtn.MouseLeave:Connect(function()
+			TweenService:Create(closeBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+				ImageColor3 = col("subtext")
+			}):Play()
+		end))
+
+		local expanded = false
+		local expandTw, collapseTw, textTw
+
+		local function expandSearch()
+			if expanded then return end
+			expanded = true
+			if collapseTw then pcall(function() collapseTw:Cancel() end) end
+			local info = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			expandTw = TweenService:Create(searchContainer, info, {
+				Size = UDim2.new(SEARCH_EXPANDED_W_SCALE, SEARCH_EXPANDED_W_OFFSET, 0, 34)
+			})
+			expandTw:Play()
+			cajaBusqueda.Active = true
+			cajaBusqueda.Interactable = true
+			textTw = TweenService:Create(cajaBusqueda, info, { TextTransparency = 0 })
+			textTw:Play()
+			TweenService:Create(cajaStroke, info, { Transparency = 0.1, Color = col("accent"), Thickness = 1.5 }):Play()
+			TweenService:Create(lupaBtn, info, { ImageColor3 = col("accent") }):Play()
+			closeBtn.Visible = true
+			TweenService:Create(closeBtn, info, { ImageTransparency = 0 }):Play()
+			task.delay(0.32, function()
+				if expanded and cajaBusqueda and cajaBusqueda.Parent then
+					cajaBusqueda:CaptureFocus()
+				end
+			end)
+		end
+
+		local function collapseSearch(force)
+			if not expanded then return end
+			if not force and cajaBusqueda.Text ~= "" then return end
+			if force then cajaBusqueda.Text = "" end
+			expanded = false
+			cajaBusqueda.Active = false
+			cajaBusqueda.Interactable = false
+			if expandTw then pcall(function() expandTw:Cancel() end) end
+			local info = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			collapseTw = TweenService:Create(searchContainer, info, {
+				Size = UDim2.fromOffset(SEARCH_COLLAPSED_W, 34)
+			})
+			collapseTw:Play()
+			textTw = TweenService:Create(cajaBusqueda, info, { TextTransparency = 1 })
+			textTw:Play()
+			TweenService:Create(cajaStroke, info, { Transparency = 0.7, Color = col("border"), Thickness = 1 }):Play()
+			TweenService:Create(lupaBtn, info, { ImageColor3 = col("subtext") }):Play()
+			TweenService:Create(closeBtn, info, { ImageTransparency = 1 }):Play()
+			task.delay(0.25, function()
+				if not expanded then closeBtn.Visible = false end
+			end)
+		end
+
+		ltrack(closeBtn.MouseButton1Click:Connect(function()
+			cajaBusqueda:ReleaseFocus()
+			collapseSearch(true)
+		end))
+
+		ltrack(lupaBtn.MouseButton1Click:Connect(function()
+			if not expanded then
+				expandSearch()
+			else
+				cajaBusqueda:CaptureFocus()
+			end
+		end))
+
+		ltrack(searchContainer.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1
+				or input.UserInputType == Enum.UserInputType.Touch then
+				if not expanded then
+					expandSearch()
+				end
+			end
+		end))
+
+		ltrack(cajaBusqueda.FocusLost:Connect(function(enterPressed)
+			if not enterPressed then
+				task.delay(0.2, function()
+					if cajaBusqueda.Text == "" then
+						collapseSearch()
+					end
+				end)
+			end
+		end))
+
+		ltrack(UserInputService.InputBegan:Connect(function(input, gpe)
+			if gpe then return end
+			if input.KeyCode == Enum.KeyCode.Escape and expanded then
+				cajaBusqueda:ReleaseFocus()
+				collapseSearch(true)
+			end
+		end))
+
+		ltrack(searchContainer.MouseEnter:Connect(function()
+			if expanded then return end
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			TweenService:Create(cajaStroke, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+				Transparency = isGlow and 0.15 or 0.4, Color = col("accent")
+			}):Play()
+			TweenService:Create(lupaBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {
+				ImageColor3 = col("accent")
+			}):Play()
+		end))
+		ltrack(searchContainer.MouseLeave:Connect(function()
+			if expanded then return end
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			TweenService:Create(cajaStroke, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+				Transparency = isGlow and 0.35 or 0.7, Color = isGlow and col("accent") or col("border")
+			}):Play()
+			if not isGlow then
+				TweenService:Create(lupaBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
+					ImageColor3 = col("subtext")
+				}):Play()
+			end
+		end))
+
+		local searchGrad = Instance.new("UIGradient", searchContainer)
+		searchGrad.Rotation = 90
+
+		do
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+		end
+		onPrepaint(function()
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+			if isGlow then
+				searchGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+					ColorSequenceKeypoint.new(1, col("input")),
+				})
+				searchGrad.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.92),
+					NumberSequenceKeypoint.new(0.5, 0.96),
+					NumberSequenceKeypoint.new(1, 1),
+				})
+				if expanded then
+					cajaStroke.Transparency = 0.1
+					cajaStroke.Color = col("accent")
+					cajaStroke.Thickness = 1.5
+				else
+					cajaStroke.Color = col("accent")
+					cajaStroke.Transparency = 0.35
+					cajaStroke.Thickness = 1.5
+					lupaBtn.ImageColor3 = col("accent")
+				end
+			else
+				searchGrad.Transparency = NumberSequence.new(1)
+				if not expanded then
+					cajaStroke.Transparency = 0.7
+					cajaStroke.Color = col("border")
+					cajaStroke.Thickness = 1
+					lupaBtn.ImageColor3 = col("subtext")
+				end
+			end
+		end)
 	end
-	cajaBusqueda.Focused:Connect(function() setSearchFocusState(true) end)
-	cajaBusqueda.FocusLost:Connect(function() setSearchFocusState(false) end)
 
 	local function onSearchBlur() end
 
@@ -13397,7 +14480,7 @@ end)()
 	local scroll = Instance.new("ScrollingFrame", ventana)
 	scroll.Size = UDim2.new(1, -8, 1, -90)
 	scroll.Position = UDim2.new(0, 4, 0, 86)
-	scroll.BackgroundTransparency = 0.5
+	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 5
 	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -13653,8 +14736,10 @@ end)()
 			TweenService:Create(scale, TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 				Scale = 1,
 			}):Play()
+			local nxt = _G.NXTheme
+			local glassT = (nxt and nxt.isGlow and nxt.isGlow()) and 0.35 or 0
 			TweenService:Create(tarjeta, TweenInfo.new(0.40, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0,
+				BackgroundTransparency = glassT,
 			}):Play()
 			TweenService:Create(bordeTarjeta, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Transparency = 0.6,
@@ -13694,6 +14779,41 @@ end)()
 		tarjeta.ClipsDescendants = true
 		pthemed(tarjeta, "BackgroundColor3", "card")
 		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
+		do
+			local function applyCardGlass()
+				local nxt = _G.NXTheme
+				local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+				tarjeta.BackgroundTransparency = isGlow and 0.35 or 0
+			end
+			applyCardGlass()
+			local stop = onPrepaint(applyCardGlass)
+			tarjeta.Destroying:Connect(stop)
+		end
+		do
+			local grad = Instance.new("UIGradient", tarjeta)
+			grad.Rotation = 135
+			local function applyGrad()
+				local nxt = _G.NXTheme
+				local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+				if isGlow then
+					grad.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 200, 255)),
+						ColorSequenceKeypoint.new(0.5, col("card")),
+						ColorSequenceKeypoint.new(1, col("card")),
+					})
+					grad.Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0.85),
+						NumberSequenceKeypoint.new(0.4, 0.95),
+						NumberSequenceKeypoint.new(1, 1),
+					})
+				else
+					grad.Transparency = NumberSequence.new(1)
+				end
+			end
+			applyGrad()
+			local stop = onPrepaint(applyGrad)
+			tarjeta.Destroying:Connect(stop)
+		end
 		local tStroke = Instance.new("UIStroke", tarjeta)
 		tStroke.Thickness = 1; tStroke.Transparency = 0.6
 		pthemed(tStroke, "Color", "border")
@@ -14125,11 +15245,10 @@ end)()
 	ltrack(Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end))
 	ltrack(Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end))
 
-	-- ====================== ARRASTRE DIRECTO ======================
-	-- El panel sigue al mouse 1:1 sin lerp (sin RenderStepped).
-	-- Todas las conexiones se desconectan al soltar.
+	-- ====================== ARRASTRE ======================
 	do
 		local dragInputConn, dragEndedConn
+
 		local function stopVentanaDrag()
 			if dragInputConn then dragInputConn:Disconnect(); dragInputConn = nil end
 			if dragEndedConn then dragEndedConn:Disconnect(); dragEndedConn = nil end
@@ -14141,23 +15260,20 @@ end)()
 			local startMouse = input.Position
 			stopVentanaDrag()
 			if _ventanaTween then pcall(function() _ventanaTween:Cancel() end); _ventanaTween = nil end
-			-- Convertir Scale a Offset
 			local vp = workspace.CurrentCamera.ViewportSize
 			local p = ventana.Position
 			local ox = p.X.Scale * vp.X + p.X.Offset
 			local oy = p.Y.Scale * vp.Y + p.Y.Offset
 			ventana.Position = UDim2.fromOffset(ox, oy)
 
-			-- Movimiento directo: el panel sigue al mouse 1:1
 			dragInputConn = UserInputService.InputChanged:Connect(function(i)
 				if i.UserInputType == Enum.UserInputType.MouseMovement
 					or i.UserInputType == Enum.UserInputType.Touch then
 					local d = i.Position - startMouse
-					ventana.Position = UDim2.fromOffset(ox + d.X, oy + d.Y)
+					ventana.Position = UDim2.fromOffset(math.round(ox + d.X), math.round(oy + d.Y))
 				end
 			end)
 
-			-- Al soltar: guardar posición y desconectar
 			dragEndedConn = input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					posGuardada = ventana.Position
