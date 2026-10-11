@@ -361,26 +361,40 @@ do
 		Instance.new("UICorner", card).CornerRadius = DS.corner.md
 		themed(card, "BackgroundColor3", "surface")
 		if THEMES[store.theme] and THEMES[store.theme]._glow then
-			card.BackgroundTransparency = 0.3
+			card.BackgroundTransparency = 0.22
+			local glassGrad = Instance.new("UIGradient", card)
+			glassGrad.Rotation = 135
+			glassGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.35, Color3.fromRGB(220, 220, 230)),
+				ColorSequenceKeypoint.new(0.7, C.surface),
+				ColorSequenceKeypoint.new(1.0, C.surface),
+			})
+			glassGrad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0.0, 0.45),
+				NumberSequenceKeypoint.new(0.25, 0.65),
+				NumberSequenceKeypoint.new(0.6, 0.85),
+				NumberSequenceKeypoint.new(1.0, 0.92),
+			})
 		end
 		local st = Instance.new("UIStroke", card)
 		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		if THEMES[store.theme] and THEMES[store.theme]._glow then
-			st.Color = C.accent; st.Transparency = 0.45; st.Thickness = 1.2
-			themed(st, "Color", "accent")
-			local cg = Instance.new("UIGradient", st)
-			local a = C.accent
-			local dk = _G.NXDS.darken
-			local lt = _G.NXDS.lighten
-			cg.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
-				ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
-				ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
-				ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
-				ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
+			st.Thickness = 1.2
+			st.Transparency = 0.20
+			st.Color = Color3.fromRGB(255, 255, 255)
+			local stGrad = Instance.new("UIGradient", st)
+			stGrad.Rotation = 135
+			stGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.4, Color3.fromRGB(200, 200, 215)),
+				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(80, 80, 100)),
 			})
-			cg.Rotation = math.random(0, 360)
-			card:SetAttribute("_nxGlowGrad", true)
+			stGrad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0.0, 0.10),
+				NumberSequenceKeypoint.new(0.4, 0.40),
+				NumberSequenceKeypoint.new(1.0, 0.75),
+			})
 		else
 			st.Color = C.border; st.Transparency = 0.6; st.Thickness = 1
 			themed(st, "Color", "border")
@@ -455,7 +469,7 @@ do
 			cp.Size = UDim2.fromOffset(cpSize, 22)
 			cp.AnchorPoint = Vector2.new(1, 0.5)
 			cp.Position = UDim2.new(1, 0, 0.5, 0)
-			cp.BackgroundTransparency = 0
+			cp.BackgroundTransparency = THEMES[store.theme] and THEMES[store.theme]._glow and 0.40 or 0
 			cp.BackgroundColor3 = C.surface
 			cp.BorderSizePixel = 0
 			-- Texto: "⊕" en vez de emoji (Gotham no renderiza emojis bien)
@@ -507,10 +521,12 @@ do
 		elseif style == "secondary" then
 			themed(btn, "BackgroundColor3", "surface"); themed(btn, "TextColor3", "text")
 			if THEMES[store.theme] and THEMES[store.theme]._glow then
+				btn.BackgroundTransparency = 0.45
 				local bst = Instance.new("UIStroke", btn)
 				bst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-				bst.Color = C.accent; bst.Transparency = 0.55; bst.Thickness = 1
-				themed(bst, "Color", "accent")
+				bst.Color = Color3.fromRGB(255, 255, 255)
+				bst.Transparency = 0.55
+				bst.Thickness = 1
 			end
 		else
 			themed(btn, "TextColor3", "subtext")
@@ -1575,7 +1591,8 @@ do
 	function S.valid.username(v)
 		if type(v) ~= "string" then return nil end
 		if #v < 3 or #v > 20 then return nil end
-		if v:match("[^%w_]") then return nil end
+		if v:match("[^%w_.]") then return nil end
+		if v:sub(1,1) == "." or v:sub(-1) == "." then return nil end
 		local _, guiones = v:gsub("_", "")
 		if guiones > 1 then return nil end
 		if v:sub(1, 1) == "_" or v:sub(-1) == "_" then return nil end
@@ -1623,7 +1640,9 @@ do
 		if m < 1 or m > 12 or d < 1 or d > 31 then return nil end
 		if y < 2004 then return nil end
 		local t = os.time{ year = y, month = m, day = d }
-		if t > os.time() + 86400 then return nil end   -- 1 día de margen por zonas horarias
+		local reconstructed = os.date("*t", t)
+		if reconstructed.day ~= d then return nil end
+		if t > os.time() + 86400 then return nil end
 		return v
 	end
 
@@ -1685,6 +1704,7 @@ do
 			local msg = (type(e) == "table" and (e.message or e.code)) or "?"
 			return nil, "API: " .. tostring(msg)
 		end
+		if code == 429 then return nil, "Rate limited (temporal)" end
 		if code and code >= 400 then return nil, "HTTP " .. code end
 		return decoded, nil
 	end
@@ -1710,7 +1730,7 @@ do
 		local clean, err = S.inspect(decoded, status, jsonOk)
 		if err then
 			S.stats.blocked = S.stats.blocked + 1
-			S.last = err
+			S.last = { err = err, url = url, time = os.clock() }
 			return nil, status
 		end
 		return clean, status
@@ -1722,7 +1742,7 @@ do
 		local clean, err = S.inspect(body, status, true)
 		if err then
 			S.stats.blocked = S.stats.blocked + 1
-			S.last = err
+			S.last = { err = err, url = url, time = os.clock() }
 			return nil, status
 		end
 		return clean, status
@@ -2737,6 +2757,7 @@ local function gatherData(userId)
 		Shield.finish()
 		return nil, "sin_respuesta"
 	end
+	if _G.NXScan and _G.NXScan.onProfile then pcall(_G.NXScan.onProfile) end
 
 	-- VALIDACIÓN DEL PERFIL BASE. Antes se aceptaba cualquier tabla: una
 	-- respuesta de error de Roblox ({errors:[...]}) pasaba el `if not profile`
@@ -2769,6 +2790,7 @@ local function gatherData(userId)
 			local ok, value = pcall(fn)
 			results[key] = ok and value or nil
 			pending = pending - 1
+			if _G.NXScan and _G.NXScan.onFetch then pcall(_G.NXScan.onFetch, key) end
 		end)
 	end
 
@@ -2864,6 +2886,7 @@ local function gatherData(userId)
 	end
 
 	local estado = Shield.finish()
+	if _G.NXScan and _G.NXScan.onValidation then pcall(_G.NXScan.onValidation, estado) end
 
 	local countryCode, countryName, countryEmoji
 	do
@@ -7481,14 +7504,17 @@ do
 		{ "close",       "Icono X de cerrar panel.png" },
 		{ "shield",      "Icono Shield.png" },
 		{ "discord",     "Icono Discord Top Bar ( el abre discord por el puerto).png" },
-		{ "logo_nx",     "LOGO NX 1.png" },
+		{ "logo_nx",     "01c51235-fad0-4cd8-b594-21715691ee5a.png" },
 		{ "arctic_bg",   "Arctic Titanium.png" },
 		{ "tor_bg",      "Tor Color Fondo.png" },
 		{ "negro_bg",    "Fondo Black And White..png" },
 		{ "rosa_bg",     "Fondo Rosa.png" },
+		{ "tag_icon",    "Icono Tag.png" },
 	}
+	_G.NXIconDefs = {}
 	for _, def in ipairs(defs) do
 		local key, file = def[1], def[2]
+		_G.NXIconDefs[key] = BASE .. file:gsub(" ", "%%20")
 		_G.NXIcons[key] = ""
 		task.spawn(function()
 			pcall(function()
@@ -9182,8 +9208,6 @@ do
 		repairStatus.TextColor3 = C.warn
 		repairBtn.Text = "Reparando…"
 
-		local spinner
-
 		local log = {}
 		local fixes = 0
 		task.defer(function()
@@ -9285,7 +9309,7 @@ do
 			local orphans = 0
 			pcall(function()
 				for _, ch in ipairs(playerGui:GetChildren()) do
-					if ch ~= gui and ch:IsA("ScreenGui") and ch.Name == "UtilityPanel" then
+					if ch ~= gui and ch:IsA("ScreenGui") and (ch.Name == "UtilityPanel" or ch.Name == "ListaJugadoresModerna") then
 						ch:Destroy()
 						orphans = orphans + 1
 					end
@@ -9296,8 +9320,83 @@ do
 				log[#log + 1] = "✓ GUIs huérfanas: " .. orphans .. " eliminadas"
 			end
 
-			-- Parar spinner
-			if spinner then pcall(function() spinner:Cancel() end) end
+			-- 9. Limpiar caché expirado
+			do
+				local expired = 0
+				for uid, data in pairs(profileCache) do
+					if data._fetchedAt and (os.time() - data._fetchedAt) > Shield.TTL then
+						profileCache[uid] = nil
+						expired = expired + 1
+					end
+				end
+				if expired > 0 then
+					local newOrder = {}
+					for _, uid in ipairs(profileCacheOrder) do
+						if profileCache[uid] then
+							newOrder[#newOrder + 1] = uid
+						end
+					end
+					for i = 1, #profileCacheOrder do profileCacheOrder[i] = nil end
+					for i, uid in ipairs(newOrder) do profileCacheOrder[i] = uid end
+					fixes = fixes + 1
+					log[#log + 1] = "✓ Caché expirado: " .. expired .. " perfiles limpiados"
+				end
+			end
+
+			-- 10. Reintentar NXIcons fallidos
+			if _G.NXIcons and _G.NXIconDefs then
+				local failed = {}
+				for key, val in pairs(_G.NXIcons) do
+					if val == "" then failed[#failed + 1] = key end
+				end
+				if #failed > 0 then
+					fixes = fixes + 1
+					log[#log + 1] = "✓ NXIcons: " .. #failed .. " iconos reintentando en background"
+					task.spawn(function()
+						local li = getsynasset or getcustomasset
+						if type(li) ~= "function" then return end
+						for _, key in ipairs(failed) do
+							pcall(function()
+								local url = _G.NXIconDefs[key]
+								if not url then return end
+								local body
+								for att = 1, 3 do
+									local ok2, res = pcall(rawGet, url)
+									if ok2 and res and res ~= "" then body = res; break end
+									task.wait(1 * att)
+								end
+								if not body or body == "" then return end
+								local lp = "NX_icon_" .. key .. ".png"
+								pcall(writefile, lp, body)
+								local ok, asset = pcall(li, lp)
+								if ok and type(asset) == "string" and asset ~= "" then
+									_G.NXIcons[key] = asset
+								end
+							end)
+						end
+					end)
+				end
+			end
+
+			-- 11. Verificar Head Tags
+			if _G.NXHeadTags and _G.NXHeadTags.Refresh then
+				pcall(_G.NXHeadTags.Refresh)
+				fixes = fixes + 1
+				log[#log + 1] = "✓ Head Tags re-sincronizados"
+			end
+
+			-- 12. Verificar _G.NXTheme bridge
+			if _G.NXTheme then
+				local bridgeOk = (_G.NXTheme.C == C and _G.NXTheme.onRepaint == onRepaint)
+				if not bridgeOk then
+					_G.NXTheme.C = C
+					_G.NXTheme.onRepaint = onRepaint
+					_G.NXTheme.themed = themed
+					fixes = fixes + 1
+					log[#log + 1] = "✓ Bridge NXTheme reparado"
+				end
+			end
+
 			local sc = repairBtn:FindFirstChildOfClass("UIScale")
 			if sc then sc.Scale = 1 end
 
@@ -9326,9 +9425,14 @@ do
 					end
 				end)
 			else
-				repairBtn.BackgroundColor3 = C.accent
-				repairBtn.Text = "Reparar RPA"
-				repairing = false
+				repairBtn.BackgroundColor3 = C.good
+				task.delay(2.5, function()
+					if repairBtn and repairBtn.Parent then
+						repairBtn.BackgroundColor3 = C.accent
+						repairBtn.Text = "Reparar RPA"
+						repairing = false
+					end
+				end)
 			end
 		end)
 	end)
@@ -9769,28 +9873,25 @@ local analyzing = false
 -- cada par y un paquete de datos que viaja de uno al siguiente. Nada más: sin
 -- núcleo/hub, sin redes, sin efectos extra.
 --
--- SEPARACIÓN DE RESPONSABILIDADES: toda la animación vive aquí (_G.NXScan). El
--- analizador solo la abre con NXWin.startScan() y, cuando el trabajo REAL
--- termina, llama a _G.NXScan.finish(cb); la animación cierra y ejecuta cb() (que
--- pinta la info) YA sin overlay, así la información nunca sale encima. do...end:
--- sus locals se liberan al cerrar (límite de 200 de Luau). Todo TweenService,
--- sin RenderStepped propio.
+-- NX SCAN SINCRONIZADO: los nodos representan fases reales del análisis.
+-- Perfil → APIs (8 sub-indicadores) → Verificación. Callbacks desde gatherData
+-- iluminan cada indicador en tiempo real. do...end: locals se liberan.
 do
-	-- Tres nodos en fila horizontal, centrados. Etiqueta fija bajo cada uno.
+	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi"}
 	local NODOS = {
-		{ label = "Request",    cx = 0.22, cy = 0.46 },
-		{ label = "Processing", cx = 0.50, cy = 0.46 },
-		{ label = "Complete",   cx = 0.78, cy = 0.46 },
+		{ label = "Perfil",       cx = 0.18, cy = 0.40 },
+		{ label = "Datos",        cx = 0.50, cy = 0.40 },
+		{ label = "Verificación", cx = 0.82, cy = 0.40 },
 	}
 	local GROSOR = 2
 
-	-- Estado del bloque (singleton: un solo análisis a la vez, que garantiza el
-	-- propio analizador). Se reinicia en cada start().
 	local overlay, stage, statusLbl, sizeConn
 	local nodes, lines, packet = {}, {}, nil
+	local fetchDots = {}
 	local alive, finishing, startedAt, gen = false, false, 0, 0
+	local fetchDone = {}
+	local profileDone, validationState = false, nil
 
-	-- "Rack" de servidor: tarjeta con dos barras y una luz. Devuelve body + borde.
 	local function makeRack(parent, w, h, accent)
 		local body = Instance.new("Frame", parent)
 		body.AnchorPoint = Vector2.new(0.5, 0)
@@ -9840,8 +9941,6 @@ do
 		return l
 	end
 
-	-- Recalcula posiciones (escala 0-1 -> px del overlay). 'port' = centro del
-	-- rack (la etiqueta va debajo), que es donde enganchan líneas y paquete.
 	local function layout()
 		if not stage then return end
 		local sz = stage.AbsoluteSize
@@ -9876,9 +9975,19 @@ do
 		if statusLbl then statusLbl.Text = txt; statusLbl.TextColor3 = color or C.accent end
 	end
 
-	-- El paquete recorre un tramo (nodo seg -> seg+1); al llegar enciende el nodo
-	-- y sigue. Tras el último, pausa, apaga los intermedios y repite. Sin bucles:
-	-- se encadena por el Completed del tween.
+	local function lightFetchDot(key)
+		local dot = fetchDots[key]
+		if dot then
+			motionTween(dot, TweenInfo.new(0.2), { BackgroundColor3 = C.good, BackgroundTransparency = 0 })
+		end
+	end
+
+	local function countFetched()
+		local n = 0
+		for _, k in ipairs(FETCH_KEYS) do if fetchDone[k] then n = n + 1 end end
+		return n
+	end
+
 	local function travel(seg, miGen)
 		if not alive or miGen ~= gen or finishing then return end
 		local a, b = nodes[seg].port, nodes[seg + 1].port
@@ -9908,15 +10017,41 @@ do
 		if sizeConn then sizeConn:Disconnect(); sizeConn = nil end
 		if overlay then overlay:Destroy() end
 		overlay, stage, statusLbl, packet = nil, nil, nil, nil
-		nodes, lines = {}, {}
+		nodes, lines, fetchDots = {}, {}, {}
+		fetchDone, profileDone, validationState = {}, false, nil
 	end
 
 	local M = {}
 
-	-- Cierre: converge a "Complete" (líneas y nodos en verde, paquete al final),
-	-- funde el escenario y, YA sin overlay, llama a cb() para que el analizador
-	-- pinte la info. cb SIEMPRE se llama (si no, el perfil no aparecería y la
-	-- herramienta quedaría bloqueada).
+	function M.onProfile()
+		if not alive then return end
+		profileDone = true
+		lightNode(1, C.good)
+		if nodes[1] and nodes[1].label then nodes[1].label.TextColor3 = C.good end
+		setStatus("Consultando APIs... 0/" .. #FETCH_KEYS)
+	end
+
+	function M.onFetch(key)
+		if not alive then return end
+		fetchDone[key] = true
+		lightFetchDot(key)
+		local n = countFetched()
+		setStatus("Consultando APIs... " .. n .. "/" .. #FETCH_KEYS)
+		if n >= #FETCH_KEYS then
+			lightNode(2, C.good)
+			if nodes[2] and nodes[2].label then nodes[2].label.TextColor3 = C.good end
+			setStatus("Validando datos...")
+		end
+	end
+
+	function M.onValidation(state)
+		if not alive then return end
+		validationState = state
+		local color = (state == "verified") and C.good or (state == "partial") and C.warn or C.bad
+		lightNode(3, color)
+		if nodes[3] and nodes[3].label then nodes[3].label.TextColor3 = color end
+	end
+
 	function M.finish(cb)
 		local function done() if cb then task.spawn(cb) end end
 		if not alive then done(); return end
@@ -9925,19 +10060,25 @@ do
 		local miGen = gen
 		task.spawn(function()
 			local elapsed = os.clock() - startedAt
-			if elapsed < 1.0 then task.wait(1.0 - elapsed) end   -- mínimo en pantalla
+			local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.3 or 1.0
+			if elapsed < minTime then task.wait(minTime - elapsed) end
 			if miGen ~= gen then done(); return end
+			local finalColor = C.good
+			if validationState == "partial" then finalColor = C.warn
+			elseif validationState == "error" or validationState == "incomplete" then finalColor = C.bad end
 			for _, ln in ipairs(lines) do
-				motionTween(ln.frame, TweenInfo.new(0.3), { BackgroundColor3 = C.good })
+				motionTween(ln.frame, TweenInfo.new(0.3), { BackgroundColor3 = finalColor })
 			end
-			for i = 1, #nodes do lightNode(i, C.good) end
-			if nodes[3] and nodes[3].label then nodes[3].label.TextColor3 = C.good end
+			for i = 1, #nodes do lightNode(i, finalColor) end
 			if packet then
-				packet.BackgroundColor3 = C.good
+				packet.BackgroundColor3 = finalColor
 				local b = nodes[#nodes].port
 				motionTween(packet, TweenInfo.new(0.3), { Position = UDim2.fromOffset(b.X, b.Y) })
 			end
-			setStatus("Completed", C.good)
+			local statusTxt = (validationState == "verified") and "Verified" or
+				(validationState == "partial") and "Parcial" or
+				(validationState == "error") and "Error" or "Completed"
+			setStatus(statusTxt, finalColor)
 			task.wait(0.45)
 			if miGen ~= gen then done(); return end
 			motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
@@ -9951,15 +10092,12 @@ do
 	function M.stop() destroyNow() end
 
 	function M.start()
-		-- NX Scan corre SIEMPRE: es la animación identitaria del proyecto.
-		-- Las animaciones decorativas (smoosh, fade, stagger) sí respetan ANIM.enabled.
 		destroyNow()
 		gen = gen + 1
 		local miGen = gen
 		alive, finishing, startedAt = true, false, os.clock()
+		fetchDone, profileDone, validationState = {}, false, nil
 
-		-- Cubre SOLO el área de contenido (debajo de tabs/buscador) y es casi
-		-- opaco: la info del perfil anterior queda oculta mientras corre.
 		overlay = Instance.new("Frame")
 		overlay.Name = "ScanOverlay"
 		overlay.Position = UDim2.new(0, 0, 0, 0)
@@ -9981,11 +10119,10 @@ do
 		stage.Parent = overlay
 		motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 0 })
 
-		-- Estado global (una sola línea, arriba).
 		local pill = Instance.new("Frame", stage)
 		pill.AnchorPoint = Vector2.new(0.5, 0)
 		pill.Position = UDim2.new(0.5, 0, 0, 10)
-		pill.Size = UDim2.fromOffset(180, 24)
+		pill.Size = UDim2.fromOffset(220, 24)
 		pill.BackgroundColor3 = C.card
 		pill.BackgroundTransparency = 0.1
 		pill.BorderSizePixel = 0
@@ -9999,11 +10136,10 @@ do
 		statusLbl.Font = Enum.Font.GothamBold
 		statusLbl.TextSize = 12
 		statusLbl.TextColor3 = C.accent
-		statusLbl.Text = "Requesting Data..."
+		statusLbl.Text = "Obteniendo perfil..."
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Center
 
-		-- Nodos (con su etiqueta fija debajo).
-		nodes, lines = {}, {}
+		nodes, lines, fetchDots = {}, {}, {}
 		for _, def in ipairs(NODOS) do
 			local holder = Instance.new("Frame", stage)
 			holder.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -10016,7 +10152,59 @@ do
 			nodes[#nodes + 1] = { def = def, holder = holder, scale = sc, stroke = st, label = lbl }
 		end
 
-		-- Líneas entre nodos consecutivos (1->2, 2->3).
+		-- Sub-indicadores de APIs debajo del nodo 2 (Datos)
+		local dotsHolder = Instance.new("Frame", stage)
+		dotsHolder.AnchorPoint = Vector2.new(0.5, 0)
+		dotsHolder.Size = UDim2.fromOffset(#FETCH_KEYS * 12, 8)
+		dotsHolder.BackgroundTransparency = 1
+		dotsHolder.ZIndex = 4
+		local dotsLayout = Instance.new("UIListLayout", dotsHolder)
+		dotsLayout.FillDirection = Enum.FillDirection.Horizontal
+		dotsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		dotsLayout.Padding = UDim.new(0, 4)
+		for i, key in ipairs(FETCH_KEYS) do
+			local fd = Instance.new("Frame", dotsHolder)
+			fd.Size = UDim2.fromOffset(6, 6)
+			fd.BackgroundColor3 = C.subtext
+			fd.BackgroundTransparency = 0.5
+			fd.BorderSizePixel = 0
+			fd.LayoutOrder = i
+			Instance.new("UICorner", fd).CornerRadius = UDim.new(1, 0)
+			fetchDots[key] = fd
+		end
+		-- Position dots below node 2 after layout
+		task.defer(function()
+			if nodes[2] and nodes[2].holder and dotsHolder.Parent then
+				local n2 = nodes[2]
+				if n2.px then
+					dotsHolder.Position = UDim2.fromOffset(n2.px.X, n2.px.Y + 30)
+				end
+			end
+		end)
+		-- Update dots position on layout change
+		local origLayout = layout
+		layout = function()
+			if not stage then return end
+			local sz = stage.AbsoluteSize
+			if sz.X < 10 or sz.Y < 10 then return end
+			for _, n in ipairs(nodes) do
+				n.px = Vector2.new(n.def.cx * sz.X, n.def.cy * sz.Y)
+				n.port = Vector2.new(n.px.X, n.px.Y - 11)
+				n.holder.Position = UDim2.fromOffset(n.px.X, n.px.Y)
+			end
+			for _, ln in ipairs(lines) do
+				local a, b = nodes[ln.from].port, nodes[ln.to].port
+				local d = b - a
+				ln.len = d.Magnitude
+				ln.frame.Position = UDim2.fromOffset(a.X, a.Y)
+				ln.frame.Rotation = math.deg(math.atan(d.Y, d.X))
+				if ln.grown then ln.frame.Size = UDim2.fromOffset(ln.len, GROSOR) end
+			end
+			if dotsHolder and dotsHolder.Parent and nodes[2] and nodes[2].px then
+				dotsHolder.Position = UDim2.fromOffset(nodes[2].px.X, nodes[2].px.Y + 30)
+			end
+		end
+
 		for i = 1, #nodes - 1 do
 			local line = Instance.new("Frame", stage)
 			line.AnchorPoint = Vector2.new(0, 0.5)
@@ -10034,7 +10222,6 @@ do
 			lines[#lines + 1] = { frame = line, from = i, to = i + 1, grown = false }
 		end
 
-		-- Paquete de datos.
 		packet = Instance.new("Frame", stage)
 		packet.AnchorPoint = Vector2.new(0.5, 0.5)
 		packet.Size = UDim2.fromOffset(8, 8)
@@ -10049,7 +10236,6 @@ do
 		layout()
 		sizeConn = stage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
 
-		-- Aparición en cadena (izq -> der) + crecimiento de las líneas.
 		for i, n in ipairs(nodes) do
 			task.delay(0.12 * (i - 1), function()
 				if miGen ~= gen or not alive then return end
@@ -10064,7 +10250,6 @@ do
 					{ Size = UDim2.fromOffset(ln.len, GROSOR) })
 			end)
 		end
-		-- Nodo 1 encendido (origen) y arranque del tráfico de paquetes.
 		task.delay(0.42, function()
 			if miGen ~= gen or not alive then return end
 			lightNode(1)
@@ -11570,7 +11755,7 @@ do
         STUDS_OFFSET_Y    = 2.6,   -- height above the head.
 
         -- LOD (nivel de detalle): cerca = pill completa; lejos = círculo compacto.
-        CIRCLE_DISTANCE   = 65,    -- a partir de esta distancia (studs) el tag se vuelve un círculo.
+        CIRCLE_DISTANCE   = 45,    -- a partir de esta distancia (studs) el tag se vuelve un círculo.
         CIRCLE_SIZE       = 46,    -- diámetro (px) del círculo lejano.
         CIRCLE_BG_TRANSPARENCY = 0.04,  -- fondo del círculo (más bajo = más oscuro/sólido, tipo tag).
         CIRCLE_LOGO       = "NX",  -- texto del logo dentro del círculo (si no hay imagen).
@@ -11598,7 +11783,7 @@ do
         USERNAME_TEXT_SIZE  = 14,
 
         DEFAULT_ANIMATION = "gradient", -- used when a tag has no animation and its role has no preset.
-        SHOW_USERNAME     = false,      -- nombre debajo del rol. false = SIN nombre (más limpio/pro).
+        SHOW_USERNAME     = true,
 
         CIRCLE_GLOW_BREATHE   = true,
         CIRCLE_LOGO_SPIN      = false,
@@ -12128,48 +12313,33 @@ Animations.luxe = {
         pill.Parent               = container
 
         local pillCorner = Instance.new("UICorner")
-        pillCorner.CornerRadius = UDim.new(1, 0)   -- full stadium / pill shape
+        pillCorner.CornerRadius = UDim.new(0, 7)
         pillCorner.Parent = pill
 
         local pillStroke = Instance.new("UIStroke")
-        pillStroke.Thickness       = 2.2
-        pillStroke.Color           = tag.color
-        pillStroke.Transparency    = 0.05
+        pillStroke.Thickness       = 2.8
+        pillStroke.Color           = Color3.fromRGB(255, 255, 255)
+        pillStroke.Transparency    = 0
         pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         pillStroke.Parent          = pill
 
-        local glowStroke = Instance.new("UIStroke")
-        glowStroke.Thickness       = 4
-        glowStroke.Color           = tag.color
-        glowStroke.Transparency    = 0.40
-        glowStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        glowStroke.Parent          = pill
+        local glowStroke = nil
 
-        local h, s, v = Color3.toHSV(tag.color)
-        local midTint = Color3.fromHSV(h, math.min(s + 0.08, 1), math.max(v * 0.12, 0.04))
-        local pillGradient = Instance.new("UIGradient")
-        pillGradient.Rotation = 90
-        pillGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0.0, CONFIG.PILL_GRADIENT_TOP),
-            ColorSequenceKeypoint.new(0.35, midTint),
-            ColorSequenceKeypoint.new(0.65, CONFIG.PILL_GRADIENT_BOTTOM),
-            ColorSequenceKeypoint.new(1.0, Color3.fromRGB(2, 2, 4)),
-        })
-        pillGradient.Parent = pill
+        local pillGradient = nil
 
         local pillPad = Instance.new("UIPadding")
-        pillPad.PaddingLeft   = UDim.new(0, 14)
-        pillPad.PaddingRight  = UDim.new(0, 14)
-        pillPad.PaddingTop    = UDim.new(0, 6)
-        pillPad.PaddingBottom = UDim.new(0, 6)
+        pillPad.PaddingLeft   = UDim.new(0, 10)
+        pillPad.PaddingRight  = UDim.new(0, 10)
+        pillPad.PaddingTop    = UDim.new(0, 5)
+        pillPad.PaddingBottom = UDim.new(0, 5)
         pillPad.Parent        = pill
 
         local hlist = Instance.new("UIListLayout")
         hlist.FillDirection       = Enum.FillDirection.Horizontal
         hlist.VerticalAlignment   = Enum.VerticalAlignment.Center
-        hlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        hlist.HorizontalAlignment = Enum.HorizontalAlignment.Left
         hlist.SortOrder           = Enum.SortOrder.LayoutOrder
-        hlist.Padding             = UDim.new(0, 6)
+        hlist.Padding             = UDim.new(0, 8)
         hlist.Parent              = pill
 
         -- Icono: imagen personalizada (rbxassetid) si el JSON la trae; si no, emoji/texto.
@@ -12213,21 +12383,33 @@ Animations.luxe = {
             icon.Parent                 = pill
         end
 
+        local textCol = Instance.new("Frame")
+        textCol.Name = "TextColumn"
+        textCol.BackgroundTransparency = 1
+        textCol.AutomaticSize = Enum.AutomaticSize.XY
+        textCol.Size = UDim2.fromOffset(0, 0)
+        textCol.LayoutOrder = 2
+        textCol.Parent = pill
+        local tcLayout = Instance.new("UIListLayout", textCol)
+        tcLayout.FillDirection = Enum.FillDirection.Vertical
+        tcLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        tcLayout.Padding = UDim.new(0, 1)
+
         local role = Instance.new("TextLabel")
         role.Name                 = "Role"
         role.BackgroundTransparency = 1
         role.AutomaticSize        = Enum.AutomaticSize.XY
         role.Font                 = CONFIG.ROLE_FONT
         role.Text                 = tag.tag
-        role.TextSize             = CONFIG.ROLE_TEXT_SIZE
-        role.TextColor3           = tag.color
-        role.LayoutOrder          = 2
-        role.Parent               = pill
+        role.TextSize             = 16
+        role.TextColor3           = Color3.fromRGB(255, 255, 255)
+        role.LayoutOrder          = 1
+        role.Parent               = textCol
 
         local roleStroke = Instance.new("UIStroke")
-        roleStroke.Thickness    = 1.6
+        roleStroke.Thickness    = 1.2
         roleStroke.Color        = Color3.fromRGB(0, 0, 0)
-        roleStroke.Transparency = 0.15
+        roleStroke.Transparency = 0.2
         roleStroke.Parent       = role
 
         ----------------------------------------------------------------------
@@ -12242,17 +12424,42 @@ Animations.luxe = {
             username.BackgroundTransparency = 1
             username.AutomaticSize        = Enum.AutomaticSize.XY
             username.Font                 = CONFIG.USERNAME_FONT
-            username.Text                 = player.DisplayName   -- swap for player.Name if you prefer @usernames
-            username.TextSize             = CONFIG.USERNAME_TEXT_SIZE
-            username.TextColor3           = CONFIG.USERNAME_COLOR
+            username.Text                 = player.DisplayName
+            username.TextSize             = 11
+            username.TextColor3           = Color3.fromRGB(180, 180, 190)
             username.LayoutOrder          = 2
-            username.Parent               = container
+            username.Parent               = textCol
 
             local nameStroke = Instance.new("UIStroke")
-            nameStroke.Thickness    = 1.2
+            nameStroke.Thickness    = 1
             nameStroke.Color        = Color3.fromRGB(0, 0, 0)
             nameStroke.Transparency = 0.3
             nameStroke.Parent       = username
+        end
+
+        local nxBadge = Instance.new("ImageLabel")
+        nxBadge.Name = "NXBadge"
+        nxBadge.BackgroundTransparency = 1
+        nxBadge.Size = UDim2.fromOffset(18, 18)
+        nxBadge.ScaleType = Enum.ScaleType.Fit
+        nxBadge.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        nxBadge.ImageTransparency = 0
+        nxBadge.LayoutOrder = 3
+        nxBadge.Parent = pill
+        if CONFIG.CIRCLE_LOGO_IMAGE and CONFIG.CIRCLE_LOGO_IMAGE ~= "" then
+            nxBadge.Image = CONFIG.CIRCLE_LOGO_IMAGE
+        else
+            task.spawn(function()
+                local tries = 0
+                while not (CONFIG.CIRCLE_LOGO_IMAGE and CONFIG.CIRCLE_LOGO_IMAGE ~= "") do
+                    tries = tries + 1
+                    if tries > 50 then return end
+                    task.wait(0.3)
+                end
+                if nxBadge and nxBadge.Parent then
+                    nxBadge.Image = CONFIG.CIRCLE_LOGO_IMAGE
+                end
+            end)
         end
 
         ----------------------------------------------------------------------
@@ -12275,26 +12482,24 @@ Animations.luxe = {
         circleCorner.Parent = circle
 
         local circleGlow = Instance.new("UIStroke")
-        circleGlow.Thickness    = 3.5
-        circleGlow.Color        = tag.color
-        circleGlow.Transparency = 0.20
+        circleGlow.Thickness    = 1.5
+        circleGlow.Color        = Color3.fromRGB(200, 200, 210)
+        circleGlow.Transparency = 0.05
         circleGlow.Parent       = circle
 
-        -- Logo NX dentro del círculo (nunca queda vacío). Si defines CIRCLE_LOGO_IMAGE
-        -- usa esa imagen; si no, dibuja el monograma "NX" con el color del rol.
         local circleIcon
         circleIcon = Instance.new("ImageLabel")
         circleIcon.Name = "CircleLogo"
         circleIcon.BackgroundTransparency = 1
-        circleIcon.Size                   = UDim2.fromScale(1, 1)
-        circleIcon.Position               = UDim2.fromScale(0.5, 0.5)
-        circleIcon.AnchorPoint            = Vector2.new(0.5, 0.5)
-        circleIcon.ScaleType              = Enum.ScaleType.Fit
-        circleIcon.ResampleMode           = Enum.ResamplerMode.Default
-        circleIcon.ImageColor3            = Color3.fromRGB(255, 255, 255)
-        circleIcon.ImageTransparency      = 0
-        circleIcon.ZIndex                 = 3
-        circleIcon.Parent                 = circle
+        circleIcon.Size = UDim2.fromScale(1.10, 1.10)
+        circleIcon.Position = UDim2.fromScale(0.5, 0.5)
+        circleIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+        circleIcon.ScaleType = Enum.ScaleType.Fit
+        circleIcon.ResampleMode = Enum.ResamplerMode.Default
+        circleIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+        circleIcon.ImageTransparency = 0
+        circleIcon.ZIndex = 3
+        circleIcon.Parent = circle
         local circleFallback = Instance.new("TextLabel")
         circleFallback.Name = "CircleFallback"
         circleFallback.BackgroundTransparency = 1
@@ -13339,6 +13544,58 @@ end)()
 			end
 		end)
 		attachTip(discBtn, "Discord NX")
+
+		-- ── BOTÓN TOGGLE MI TAG ──
+		local TAG_ICON_ID = (_G.NXIcons and _G.NXIcons.tag_icon) or ""
+		local myTagOn = store.ownTag ~= false
+		local tagBtn, tagBtnContent = iconButton(nil, TAG_ICON_ID, function()
+			myTagOn = not myTagOn
+			store.ownTag = myTagOn
+			if _G.NXHeadTags and _G.NXHeadTags.SetShowOwnTag then
+				_G.NXHeadTags.SetShowOwnTag(myTagOn)
+			end
+			if tagBtnContent and tagBtnContent:IsA("ImageLabel") then
+				tagBtnContent.ImageTransparency = myTagOn and 0 or 0.5
+			end
+			if tagBtn then
+				tagBtn.BackgroundTransparency = myTagOn and 0 or 0.4
+			end
+		end)
+		if not myTagOn then
+			if tagBtnContent and tagBtnContent:IsA("ImageLabel") then
+				tagBtnContent.ImageTransparency = 0.5
+			end
+			tagBtn.BackgroundTransparency = 0.4
+		end
+		task.spawn(function()
+			local tries = 0
+			while not (_G.NXIcons and _G.NXIcons.tag_icon and _G.NXIcons.tag_icon ~= "") do
+				tries = tries + 1
+				if tries > 50 then return end
+				task.wait(0.3)
+			end
+			if tagBtn and tagBtn.Parent then
+				local existing = tagBtn:FindFirstChildOfClass("ImageLabel")
+				if existing then
+					existing.Image = _G.NXIcons.tag_icon
+				else
+					local img = Instance.new("ImageLabel", tagBtn)
+					img.BackgroundTransparency = 1
+					img.AnchorPoint = Vector2.new(0.5, 0.5)
+					img.Position = UDim2.fromScale(0.5, 0.5)
+					img.Size = UDim2.fromScale(0.62, 0.62)
+					img.ScaleType = Enum.ScaleType.Fit
+					img.Image = _G.NXIcons.tag_icon
+					img.ZIndex = tagBtn.ZIndex + 1
+					tagBtnContent = img
+				end
+				if not myTagOn then
+					local il = tagBtn:FindFirstChildOfClass("ImageLabel")
+					if il then il.ImageTransparency = 0.5 end
+				end
+			end
+		end)
+		attachTip(tagBtn, "Mi Tag")
 
 		-- NX badge (logo al final de la barra, como en la referencia)
 		order += 1
