@@ -995,7 +995,7 @@ local function loadNXTags()
 	if nxTags ~= nil or nxLoading then return end
 	nxLoading = true
 	task.spawn(function()
-		nxTags = _G.NXJson(_G.NXTagRepo.tags) or {}   -- nunca nil: evita reintentos infinitos
+		nxTags = _G.NXJson(_G.NXTagRepo.tags .. "?v=" .. tostring(os.time())) or {}   -- nunca nil: evita reintentos infinitos
 		nxLoading = false
 		-- Aviso a quien esté esperando (el chip del perfil), en vez de obligarle
 		-- a sondear con task.wait.
@@ -1128,7 +1128,7 @@ do
 		if not force and cache[f] and (os.clock() - (at[f] or 0)) < TTL then return end
 		inflight[f] = true
 		task.spawn(function()
-			local t = _G.NXJson(BASE .. f)
+			local t = _G.NXJson(BASE .. f .. "?v=" .. tostring(os.time()))
 			if t then cache[f], at[f] = t, os.clock() end
 			inflight[f] = nil
 			avisarSiListo()
@@ -7524,10 +7524,29 @@ do
 		{ "rosa_bg",     "Fondo Rosa.png" },
 		{ "tag_icon",    "Icono Tag.png" },
 	}
-	local ICON_VER = 2
+	local ICON_VER = 3
 	_G.NXIconVer = ICON_VER
 	_G.NXIconDefs = {}
 	if hasFS then
+		pcall(function()
+			local cleanFlag = "NXJson_cleaned_v" .. ICON_VER .. ".flag"
+			if not isfile(cleanFlag) then
+				local urls = {
+					_G.NXTagRepo.tags,
+					_G.NXTagRepo.base .. "roles.json",
+					_G.NXTagRepo.base .. "tags.json",
+					_G.NXTagRepo.base .. "v2/tags.json",
+					_G.NXTagRepo.base .. "v2/roles.json",
+				}
+				for _, u in ipairs(urls) do
+					local k = 5381
+					for i = 1, #u do k = (k * 33 + string.byte(u, i)) % 2147483647 end
+					local cf = "NXJson_cache_" .. tostring(k) .. ".json"
+					pcall(function() if isfile(cf) then delfile(cf) end end)
+				end
+				pcall(writefile, cleanFlag, "ok")
+			end
+		end)
 		for _, def in ipairs(defs) do
 			local k = def[1]
 			for oldVer = 1, ICON_VER - 1 do
@@ -7550,36 +7569,44 @@ do
 			pcall(function()
 				if not loadIcon then return end
 				local localPath = "NX_icon_" .. key .. "_v" .. ICON_VER .. ".png"
-				if hasFS and isfile(localPath) then
-					local ok, asset = pcall(loadIcon, localPath)
-					if ok and type(asset) == "string" and asset ~= "" then
-						_G.NXIcons[key] = asset; return
-					end
-					pcall(delfile, localPath)
-				end
 				local url = file:find("^https?://") and file or (BASE .. file:gsub(" ", "%%20"))
+				url = url .. "?v=" .. tostring(os.time())
 				local body
 				for attempt = 1, 5 do
 					local ok2, res = pcall(rawGet, url)
 					if ok2 and res and res ~= "" then body = res; break end
-					if not ok2 and attempt < 5 then task.wait(1 * attempt) end
-					if ok2 and (not res or res == "") and attempt < 5 then task.wait(0.8 * attempt) end
+					if attempt < 5 then task.wait(0.8 * attempt) end
 				end
-				if not body or body == "" then
-					warn("[NXIcons] No se pudo descargar: " .. key .. " -> " .. url)
-					return
-				end
-				if hasFS then
-					local wOk, wErr = pcall(writefile, localPath, body)
-					if not wOk then
-						warn("[NXIcons] writefile falló para " .. key .. ": " .. tostring(wErr))
+				if body and body ~= "" then
+					local needsWrite = true
+					if hasFS and isfile(localPath) then
+						local okR, cached = pcall(readfile, localPath)
+						if okR and cached and #cached == #body then
+							needsWrite = false
+						end
 					end
-				end
-				local ok, asset = pcall(loadIcon, localPath)
-				if ok and type(asset) == "string" and asset ~= "" then
-					_G.NXIcons[key] = asset
+					if needsWrite and hasFS then
+						pcall(delfile, localPath)
+						local wOk = pcall(writefile, localPath, body)
+						if not wOk then
+							warn("[NXIcons] writefile falló para " .. key)
+						end
+					end
+					if hasFS and isfile(localPath) then
+						local ok, asset = pcall(loadIcon, localPath)
+						if ok and type(asset) == "string" and asset ~= "" then
+							_G.NXIcons[key] = asset
+						else
+							warn("[NXIcons] loadIcon falló para " .. key)
+						end
+					end
+				elseif hasFS and isfile(localPath) then
+					local ok, asset = pcall(loadIcon, localPath)
+					if ok and type(asset) == "string" and asset ~= "" then
+						_G.NXIcons[key] = asset
+					end
 				else
-					warn("[NXIcons] loadIcon falló para " .. key)
+					warn("[NXIcons] No se pudo descargar ni cachear: " .. key)
 				end
 			end)
 		end)
@@ -9462,6 +9489,7 @@ do
 							pcall(function()
 								local url = _G.NXIconDefs[key]
 								if not url then return end
+								url = url .. "?v=" .. tostring(os.time())
 								local body
 								for att = 1, 3 do
 									local ok2, res = pcall(rawGet, url)
@@ -9469,7 +9497,7 @@ do
 									task.wait(1 * att)
 								end
 								if not body or body == "" then return end
-								local lp = "NX_icon_" .. key .. "_v" .. (_G.NXIconVer or 2) .. ".png"
+								local lp = "NX_icon_" .. key .. "_v" .. (_G.NXIconVer or 3) .. ".png"
 								pcall(writefile, lp, body)
 								local ok, asset = pcall(li, lp)
 								if ok and type(asset) == "string" and asset ~= "" then
@@ -11963,7 +11991,7 @@ do
         if self._loaded and not force then
             return true
         end
-        local body = httpGet(CONFIG.TAGS_URL)
+        local body = httpGet(CONFIG.TAGS_URL .. "?v=" .. tostring(os.time()))
         if not body then
             warn("[NX Head Tags] Could not download the tag database.")
             return false
