@@ -1956,7 +1956,7 @@ do
 			S.lastTest = S.lastTest or {}
 			local detalleUI = not ok and humanizeShieldErr(detalle) or detalle
 			S.lastTest[which] = { ok = ok, detalle = detalleUI, at = os.time() }
-			if not ok then S.last = detalleUI end
+			if not ok then S.last = { err = detalleUI, url = "selfTest:" .. which, time = os.clock() } end
 			emit()
 			if onDone then onDone(ok, detalle) end
 		end)
@@ -2783,7 +2783,7 @@ local function gatherData(userId)
 	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(vCreated)
 
 	local results = {}
-	local pending = 8   -- 7 contadores + el perfil moderno (user-profile-api)
+	local pending = 9   -- 7 contadores + perfil moderno + name history
 
 	local function task_fetch(key, fn)
 		task.spawn(function()
@@ -2833,6 +2833,11 @@ local function gatherData(userId)
 	-- Campos comprobados el 2026-07-26: names.username / names.displayName /
 	-- names.combinedName / isVerified / isDeleted. NO existen 'description' ni
 	-- 'previousUsernames' (devuelven lista vacía): no los pidas.
+	task_fetch("NameHistory", function()
+		local names, hasMore = getNameHistory(userId)
+		return { names = names, hasMore = hasMore }
+	end)
+
 	task_fetch("ProfileApi", function()
 		local resp = apiPost("https://apis.roblox.com/user-profile-api/v1/user/profiles/get-profiles", {
 			userIds = { userId },
@@ -2886,7 +2891,13 @@ local function gatherData(userId)
 	end
 
 	local estado = Shield.finish()
-	if _G.NXScan and _G.NXScan.onValidation then pcall(_G.NXScan.onValidation, estado) end
+	local estadoScan = estado
+	if not Shield.flags.api and not Shield.flags.data then
+		estadoScan = "skipped"
+	elseif not Shield.flags.api or not Shield.flags.data then
+		estadoScan = "partial"
+	end
+	if _G.NXScan and _G.NXScan.onValidation then pcall(_G.NXScan.onValidation, estadoScan) end
 
 	local countryCode, countryName, countryEmoji
 	do
@@ -2942,6 +2953,8 @@ local function gatherData(userId)
 		_state         = estado,
 		_timedOut      = expiro,
 		_fetchedAt     = os.time(),
+		_namesCached   = results.NameHistory and results.NameHistory.names or false,
+		_namesHasMore  = results.NameHistory and results.NameHistory.hasMore or false,
 	}
 end
 
@@ -7876,74 +7889,147 @@ local function render(data, skipEntrance)
 	end
 
 	-- NX Tag chip (under hero card)
-	local nxChip = Instance.new("Frame", heroCard)
+	local nxRow = Instance.new("Frame", heroCard)
+	nxRow.Name = "NXTagRow"
+	nxRow.LayoutOrder = 15
+	nxRow.Size = UDim2.new(1, 0, 0, 30)
+	nxRow.AutomaticSize = Enum.AutomaticSize.Y
+	nxRow.BackgroundTransparency = 1
+	nxRow.Visible = false
+
+	local nxChip = Instance.new("Frame", nxRow)
 	nxChip.Name = "NXTag"
-	nxChip.LayoutOrder = 15
-	nxChip.Size = UDim2.new(0, 0, 0, 24)
-	nxChip.AutomaticSize = Enum.AutomaticSize.X
-	nxChip.BackgroundColor3 = C.elevated
-	nxChip.BackgroundTransparency = 1
+	nxChip.Size = UDim2.new(0, 0, 0, 0)
+	nxChip.AutomaticSize = Enum.AutomaticSize.XY
+	nxChip.BackgroundColor3 = Color3.fromRGB(8, 8, 14)
+	nxChip.BackgroundTransparency = 0.02
 	nxChip.BorderSizePixel = 0
-	nxChip.Visible = false
-	Instance.new("UICorner", nxChip).CornerRadius = UDim.new(0, 12)
-	themed(nxChip, "BackgroundColor3", "elevated")
+	Instance.new("UICorner", nxChip).CornerRadius = UDim.new(0, 7)
 	local nxStroke = Instance.new("UIStroke", nxChip)
-	nxStroke.Thickness = 1; nxStroke.Transparency = 1
+	nxStroke.Thickness = 2.8
+	nxStroke.Color = Color3.fromRGB(255, 255, 255)
+	nxStroke.Transparency = 0
+	nxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	local nxPad = Instance.new("UIPadding", nxChip)
 	nxPad.PaddingLeft = UDim.new(0, 10); nxPad.PaddingRight = UDim.new(0, 10)
+	nxPad.PaddingTop = UDim.new(0, 5); nxPad.PaddingBottom = UDim.new(0, 5)
 	local nxList = Instance.new("UIListLayout", nxChip)
 	nxList.FillDirection = Enum.FillDirection.Horizontal
 	nxList.VerticalAlignment = Enum.VerticalAlignment.Center
 	nxList.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	nxList.SortOrder = Enum.SortOrder.LayoutOrder
-	nxList.Padding = UDim.new(0, 6)
+	nxList.Padding = UDim.new(0, 8)
 
 	local nxIcon = Instance.new("ImageLabel", nxChip)
 	nxIcon.Name = "NXIcon"
 	nxIcon.BackgroundTransparency = 1
-	nxIcon.Size = UDim2.fromOffset(16, 16)
+	nxIcon.Size = UDim2.fromOffset(24, 24)
+	nxIcon.ScaleType = Enum.ScaleType.Fit
 	nxIcon.LayoutOrder = 1
 	nxIcon.Visible = false
 
-	local nxLabel = Instance.new("TextLabel", nxChip)
-	nxLabel.LayoutOrder = 2
-	nxLabel.AutomaticSize = Enum.AutomaticSize.X
-	nxLabel.Size = UDim2.new(0, 0, 1, 0)
+	local nxTextCol = Instance.new("Frame", nxChip)
+	nxTextCol.Name = "TextColumn"
+	nxTextCol.BackgroundTransparency = 1
+	nxTextCol.AutomaticSize = Enum.AutomaticSize.XY
+	nxTextCol.Size = UDim2.fromOffset(0, 0)
+	nxTextCol.LayoutOrder = 2
+	local nxTextLay = Instance.new("UIListLayout", nxTextCol)
+	nxTextLay.FillDirection = Enum.FillDirection.Vertical
+	nxTextLay.SortOrder = Enum.SortOrder.LayoutOrder
+	nxTextLay.Padding = UDim.new(0, 1)
+
+	local nxLabel = Instance.new("TextLabel", nxTextCol)
+	nxLabel.Name = "Role"
+	nxLabel.LayoutOrder = 1
+	nxLabel.AutomaticSize = Enum.AutomaticSize.XY
+	nxLabel.Size = UDim2.fromOffset(0, 0)
 	nxLabel.BackgroundTransparency = 1
-	nxLabel.Font = Enum.Font.GothamBold
-	nxLabel.TextSize = DS.text.sm
-	nxLabel.TextColor3 = C.text
-	themed(nxLabel, "TextColor3", "text")
+	nxLabel.Font = Enum.Font.GothamBlack
+	nxLabel.TextSize = 16
+	nxLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	nxLabel.Text = ""
+	local nxRoleStroke = Instance.new("UIStroke", nxLabel)
+	nxRoleStroke.Thickness = 1.2
+	nxRoleStroke.Color = Color3.fromRGB(0, 0, 0)
+	nxRoleStroke.Transparency = 0.2
+
+	local nxUsername = Instance.new("TextLabel", nxTextCol)
+	nxUsername.Name = "Username"
+	nxUsername.LayoutOrder = 2
+	nxUsername.AutomaticSize = Enum.AutomaticSize.XY
+	nxUsername.Size = UDim2.fromOffset(0, 0)
+	nxUsername.BackgroundTransparency = 1
+	nxUsername.Font = Enum.Font.GothamMedium
+	nxUsername.TextSize = 11
+	nxUsername.TextColor3 = Color3.fromRGB(180, 180, 190)
+	nxUsername.Text = ""
+	local nxNameStroke = Instance.new("UIStroke", nxUsername)
+	nxNameStroke.Thickness = 1
+	nxNameStroke.Color = Color3.fromRGB(0, 0, 0)
+	nxNameStroke.Transparency = 0.3
+
+	local nxBadge = Instance.new("ImageLabel", nxChip)
+	nxBadge.Name = "NXBadge"
+	nxBadge.BackgroundTransparency = 1
+	nxBadge.Size = UDim2.fromOffset(18, 18)
+	nxBadge.ScaleType = Enum.ScaleType.Fit
+	nxBadge.ImageColor3 = Color3.fromRGB(255, 255, 255)
+	nxBadge.LayoutOrder = 3
+	nxBadge.Image = (_G.NXIcons and _G.NXIcons.logo_nx) or ""
+	if nxBadge.Image == "" then
+		task.spawn(function()
+			local tries = 0
+			while not (_G.NXIcons and _G.NXIcons.logo_nx and _G.NXIcons.logo_nx ~= "") do
+				tries = tries + 1; if tries > 50 then return end; task.wait(0.3)
+			end
+			if nxBadge and nxBadge.Parent then nxBadge.Image = _G.NXIcons.logo_nx end
+		end)
+	end
 
 	do
 		local renderedFor = data.UserId
 		local function applyTag(t)
-			if not t or not nxChip.Parent then return end
+			if not t or not nxRow.Parent then return end
 			if currentData == nil or currentData.UserId ~= renderedFor then return end
-			local IR  = _G.NXV2 and _G.NXV2.image
+
+			local IR = _G.NXV2 and _G.NXV2.image
 			local img = t.iconImage and IR and IR.normalize(t.iconImage)
 			if img and IR.usable(img) then
 				nxIcon.Image = img; nxIcon.Visible = true
-				nxLabel.Text = t.tag
 				IR.preload(img)
 				task.spawn(function()
 					local n = 0
 					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
 					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
 						nxIcon.Visible = false
-						nxLabel.Text = ((t.icon and t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
 					end
 				end)
+			elseif t.icon and t.icon ~= "" then
+				nxIcon.Visible = false
+				local txtIcon = nxChip:FindFirstChild("NXIconText")
+				if not txtIcon then
+					txtIcon = Instance.new("TextLabel", nxChip)
+					txtIcon.Name = "NXIconText"
+					txtIcon.BackgroundTransparency = 1
+					txtIcon.AutomaticSize = Enum.AutomaticSize.XY
+					txtIcon.Font = Enum.Font.GothamBold
+					txtIcon.TextSize = 21
+					txtIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+					txtIcon.LayoutOrder = 1
+				end
+				txtIcon.Text = t.icon
+				txtIcon.Visible = true
 			else
 				nxIcon.Visible = false
-				nxLabel.Text = ((t.icon and t.icon ~= "" and (t.icon .. " ")) or "") .. t.tag
+				local txtIcon = nxChip:FindFirstChild("NXIconText")
+				if txtIcon then txtIcon.Visible = false end
 			end
-			nxLabel.TextColor3 = t.color
-			nxStroke.Color = t.color
-			nxStroke.Transparency = 0.3
-			nxChip.BackgroundTransparency = 0.1
-			nxChip.Visible = true
+
+			nxLabel.Text = t.tag
+			nxUsername.Text = data.DisplayName or data.Username or ""
+
+			nxRow.Visible = true
 		end
 		local now = getNXTag(data.UserId)
 		if now then
@@ -7951,7 +8037,7 @@ local function render(data, skipEntrance)
 		else
 			local function reintentar()
 				if currentData == nil or currentData.UserId ~= renderedFor then return end
-				if not nxChip.Parent then return end
+				if not nxRow.Parent then return end
 				applyTag(getNXTag(renderedFor))
 			end
 			_G.NXTagKit.alCargarLegacy(reintentar)
@@ -9309,7 +9395,7 @@ do
 			local orphans = 0
 			pcall(function()
 				for _, ch in ipairs(playerGui:GetChildren()) do
-					if ch ~= gui and ch:IsA("ScreenGui") and (ch.Name == "UtilityPanel" or ch.Name == "ListaJugadoresModerna") then
+					if ch ~= gui and ch:IsA("ScreenGui") and ch.Name == "UtilityPanel" then
 						ch:Destroy()
 						orphans = orphans + 1
 					end
@@ -9877,7 +9963,7 @@ local analyzing = false
 -- Perfil → APIs (8 sub-indicadores) → Verificación. Callbacks desde gatherData
 -- iluminan cada indicador en tiempo real. do...end: locals se liberan.
 do
-	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi"}
+	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi","NameHistory"}
 	local NODOS = {
 		{ label = "Perfil",       cx = 0.18, cy = 0.40 },
 		{ label = "Datos",        cx = 0.50, cy = 0.40 },
@@ -9888,6 +9974,7 @@ do
 	local overlay, stage, statusLbl, sizeConn
 	local nodes, lines, packet = {}, {}, nil
 	local fetchDots = {}
+	local dotsHolder
 	local alive, finishing, startedAt, gen = false, false, 0, 0
 	local fetchDone = {}
 	local profileDone, validationState = false, nil
@@ -9958,6 +10045,9 @@ do
 			ln.frame.Rotation = math.deg(math.atan(d.Y, d.X))
 			if ln.grown then ln.frame.Size = UDim2.fromOffset(ln.len, GROSOR) end
 		end
+		if dotsHolder and dotsHolder.Parent and nodes[2] and nodes[2].px then
+			dotsHolder.Position = UDim2.fromOffset(nodes[2].px.X, nodes[2].px.Y + 30)
+		end
 	end
 
 	local function lightNode(i, color)
@@ -10018,6 +10108,7 @@ do
 		if overlay then overlay:Destroy() end
 		overlay, stage, statusLbl, packet = nil, nil, nil, nil
 		nodes, lines, fetchDots = {}, {}, {}
+		dotsHolder = nil
 		fetchDone, profileDone, validationState = {}, false, nil
 	end
 
@@ -10047,9 +10138,16 @@ do
 	function M.onValidation(state)
 		if not alive then return end
 		validationState = state
-		local color = (state == "verified") and C.good or (state == "partial") and C.warn or C.bad
+		local color
+		if state == "verified" then color = C.good
+		elseif state == "skipped" then color = C.subtext
+		elseif state == "partial" then color = C.warn
+		else color = C.bad end
 		lightNode(3, color)
-		if nodes[3] and nodes[3].label then nodes[3].label.TextColor3 = color end
+		if nodes[3] and nodes[3].label then
+			nodes[3].label.TextColor3 = color
+			if state == "skipped" then nodes[3].label.Text = "Sin verificar" end
+		end
 	end
 
 	function M.finish(cb)
@@ -10064,7 +10162,8 @@ do
 			if elapsed < minTime then task.wait(minTime - elapsed) end
 			if miGen ~= gen then done(); return end
 			local finalColor = C.good
-			if validationState == "partial" then finalColor = C.warn
+			if validationState == "skipped" then finalColor = C.subtext
+			elseif validationState == "partial" then finalColor = C.warn
 			elseif validationState == "error" or validationState == "incomplete" then finalColor = C.bad end
 			for _, ln in ipairs(lines) do
 				motionTween(ln.frame, TweenInfo.new(0.3), { BackgroundColor3 = finalColor })
@@ -10075,9 +10174,12 @@ do
 				local b = nodes[#nodes].port
 				motionTween(packet, TweenInfo.new(0.3), { Position = UDim2.fromOffset(b.X, b.Y) })
 			end
-			local statusTxt = (validationState == "verified") and "Verified" or
-				(validationState == "partial") and "Parcial" or
-				(validationState == "error") and "Error" or "Completed"
+			local statusTxt
+			if validationState == "verified" then statusTxt = "Verified"
+			elseif validationState == "skipped" then statusTxt = "Sin verificar"
+			elseif validationState == "partial" then statusTxt = "Parcial"
+			elseif validationState == "error" then statusTxt = "Error"
+			else statusTxt = "Completed" end
 			setStatus(statusTxt, finalColor)
 			task.wait(0.45)
 			if miGen ~= gen then done(); return end
@@ -10153,7 +10255,7 @@ do
 		end
 
 		-- Sub-indicadores de APIs debajo del nodo 2 (Datos)
-		local dotsHolder = Instance.new("Frame", stage)
+		dotsHolder = Instance.new("Frame", stage)
 		dotsHolder.AnchorPoint = Vector2.new(0.5, 0)
 		dotsHolder.Size = UDim2.fromOffset(#FETCH_KEYS * 12, 8)
 		dotsHolder.BackgroundTransparency = 1
@@ -10181,30 +10283,6 @@ do
 				end
 			end
 		end)
-		-- Update dots position on layout change
-		local origLayout = layout
-		layout = function()
-			if not stage then return end
-			local sz = stage.AbsoluteSize
-			if sz.X < 10 or sz.Y < 10 then return end
-			for _, n in ipairs(nodes) do
-				n.px = Vector2.new(n.def.cx * sz.X, n.def.cy * sz.Y)
-				n.port = Vector2.new(n.px.X, n.px.Y - 11)
-				n.holder.Position = UDim2.fromOffset(n.px.X, n.px.Y)
-			end
-			for _, ln in ipairs(lines) do
-				local a, b = nodes[ln.from].port, nodes[ln.to].port
-				local d = b - a
-				ln.len = d.Magnitude
-				ln.frame.Position = UDim2.fromOffset(a.X, a.Y)
-				ln.frame.Rotation = math.deg(math.atan(d.Y, d.X))
-				if ln.grown then ln.frame.Size = UDim2.fromOffset(ln.len, GROSOR) end
-			end
-			if dotsHolder and dotsHolder.Parent and nodes[2] and nodes[2].px then
-				dotsHolder.Position = UDim2.fromOffset(nodes[2].px.X, nodes[2].px.Y + 30)
-			end
-		end
-
 		for i = 1, #nodes - 1 do
 			local line = Instance.new("Frame", stage)
 			line.AnchorPoint = Vector2.new(0, 0.5)
@@ -14221,6 +14299,7 @@ end)()
 
 	-- ====================== CACHÉ DE AVATARES (carga en segundo plano) ======================
 	local avatarCache = {}
+	local avatarCacheOrder = {}
 	local PLACEHOLDER = "rbxassetid://0"
 	local function cargarAvatarAsync(userId, imageLabel)
 		if avatarCache[userId] then
@@ -14232,6 +14311,13 @@ end)()
 				return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
 			end)
 			local content = (ok and thumb ~= "" and thumb) or PLACEHOLDER
+			if not avatarCache[userId] then
+				avatarCacheOrder[#avatarCacheOrder + 1] = userId
+				if #avatarCacheOrder > 100 then
+					local oldest = table.remove(avatarCacheOrder, 1)
+					if oldest ~= userId then avatarCache[oldest] = nil end
+				end
+			end
 			avatarCache[userId] = content
 			if imageLabel and imageLabel.Parent then
 				imageLabel.Image = content
