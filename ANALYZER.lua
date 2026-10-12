@@ -7524,7 +7524,24 @@ do
 		{ "rosa_bg",     "Fondo Rosa.png" },
 		{ "tag_icon",    "Icono Tag.png" },
 	}
+	local ICON_VER = 2
+	_G.NXIconVer = ICON_VER
 	_G.NXIconDefs = {}
+	if hasFS then
+		for _, def in ipairs(defs) do
+			local k = def[1]
+			for oldVer = 1, ICON_VER - 1 do
+				pcall(function()
+					local op = "NX_icon_" .. k .. "_v" .. oldVer .. ".png"
+					if isfile(op) then delfile(op) end
+				end)
+			end
+			pcall(function()
+				local lp = "NX_icon_" .. k .. ".png"
+				if isfile(lp) then delfile(lp) end
+			end)
+		end
+	end
 	for _, def in ipairs(defs) do
 		local key, file = def[1], def[2]
 		_G.NXIconDefs[key] = BASE .. file:gsub(" ", "%%20")
@@ -7532,7 +7549,7 @@ do
 		task.spawn(function()
 			pcall(function()
 				if not loadIcon then return end
-				local localPath = "NX_icon_" .. key .. ".png"
+				local localPath = "NX_icon_" .. key .. "_v" .. ICON_VER .. ".png"
 				if hasFS and isfile(localPath) then
 					local ok, asset = pcall(loadIcon, localPath)
 					if ok and type(asset) == "string" and asset ~= "" then
@@ -9452,7 +9469,7 @@ do
 									task.wait(1 * att)
 								end
 								if not body or body == "" then return end
-								local lp = "NX_icon_" .. key .. ".png"
+								local lp = "NX_icon_" .. key .. "_v" .. (_G.NXIconVer or 2) .. ".png"
 								pcall(writefile, lp, body)
 								local ok, asset = pcall(li, lp)
 								if ok and type(asset) == "string" and asset ~= "" then
