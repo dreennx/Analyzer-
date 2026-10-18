@@ -260,6 +260,10 @@ end
 -- El tema "kali" se retiró junto con el estilo terminal. Las instalaciones que
 -- lo tuvieran guardado caen a "tor" para no arrancar sin un tema válido.
 if store.theme == "kali" then store.theme = "tor" end
+do
+	local _validThemes = { arctic = true, tor = true, negro = true, rosa = true }
+	if not _validThemes[store.theme] then store.theme = "arctic" end
+end
 applyTheme(store.theme)
 
 -- ====================== SISTEMA DE TEMA EN VIVO ======================
@@ -3860,15 +3864,15 @@ do
 
 	local function applySearchGlass()
 		local isGlow = THEMES[store.theme] and THEMES[store.theme]._glow
-		searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+		searchContainer.BackgroundTransparency = isGlow and 0.40 or 0
 		if isGlow then
 			searchGrad.Color = ColorSequence.new({
 				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
 				ColorSequenceKeypoint.new(1, C.input),
 			})
 			searchGrad.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.92),
-				NumberSequenceKeypoint.new(0.5, 0.96),
+				NumberSequenceKeypoint.new(0, 0.90),
+				NumberSequenceKeypoint.new(0.5, 0.95),
 				NumberSequenceKeypoint.new(1, 1),
 			})
 			if expanded then
@@ -3932,7 +3936,7 @@ statusLabel.Size = UDim2.new(0, 0, 0, 0)
 
 -- ====================== PESTAÑAS ======================
 local tabBar = Instance.new("ScrollingFrame", main)
-tabBar.Size = UDim2.new(1, -24, 0, 30)
+tabBar.Size = UDim2.new(1, -24, 0, 34)
 tabBar.Position = UDim2.new(0, 12, 0, 88)
 tabBar.BackgroundColor3 = C.bg
 tabBar.BackgroundTransparency = 1
@@ -3978,6 +3982,7 @@ tabIndicator.Name = "TabActiveIndicator"
 tabIndicator.Size = UDim2.fromOffset(0, 0)
 tabIndicator.Position = UDim2.fromOffset(0, 0)
 tabIndicator.BackgroundColor3 = C.accent
+tabIndicator.BackgroundTransparency = 0.15
 tabIndicator.BorderSizePixel = 0
 tabIndicator.Active = false
 tabIndicator.ZIndex = 2
@@ -4093,13 +4098,13 @@ local function createTab(name, page, onShow)
 	btn.BackgroundTransparency = 1
 	btn.Text = name
 	btn.Font = Enum.Font.GothamMedium
-	btn.TextSize = 13
+	btn.TextSize = 11
 	btn.TextColor3 = C.subtext
 	btn.BorderSizePixel = 0
 	btn.ZIndex = 3
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 	local tp = Instance.new("UIPadding", btn)
-	tp.PaddingLeft = UDim.new(0, 16); tp.PaddingRight = UDim.new(0, 16)
+	tp.PaddingLeft = UDim.new(0, 12); tp.PaddingRight = UDim.new(0, 12)
 	track(btn.MouseEnter:Connect(function()
 		if btn ~= activeTab then
 			motionTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextColor3 = C.text })
@@ -4141,11 +4146,46 @@ local function makeScroll(parent)
 	layout.Padding = UDim.new(0, 10)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	local pad = Instance.new("UIPadding", sf)
-	-- Padding simétrico izquierda/derecha para todas las pestañas
 	pad.PaddingLeft = UDim.new(0, 8)
 	pad.PaddingRight = UDim.new(0, 8)
 	pad.PaddingTop = UDim.new(0, 4)
 	pad.PaddingBottom = UDim.new(0, 8)
+
+	do
+		local sTarget = 0
+		local sCurrent = 0
+		local sMoving = false
+		local SMOOTH = 0.0004
+		local STEP = 50
+
+		local sConn
+		sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
+			if not sf or not sf.Parent then sConn:Disconnect() return end
+			if not sMoving then return end
+			local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
+			sTarget = math.clamp(sTarget, 0, maxY)
+			local alpha = 1 - SMOOTH ^ dt
+			sCurrent = sCurrent + (sTarget - sCurrent) * alpha
+			if math.abs(sTarget - sCurrent) < 0.5 then
+				sCurrent = sTarget
+				sMoving = false
+			end
+			sf.CanvasPosition = Vector2.new(0, sCurrent)
+		end)
+		track({ Disconnect = function() sConn:Disconnect() end })
+
+		track(sf.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseWheel then
+				if not sMoving then sCurrent = sf.CanvasPosition.Y; sTarget = sCurrent end
+				local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
+				sTarget = math.clamp(sTarget - input.Position.Z * STEP, 0, maxY)
+				sMoving = true
+			end
+		end))
+
+		sf.ScrollingEnabled = false
+	end
+
 	return sf
 end
 
@@ -7523,6 +7563,7 @@ do
 		{ "negro_bg",    "Fondo Black And White..png" },
 		{ "rosa_bg",     "Fondo Rosa.png" },
 		{ "tag_icon",    "Icono Tag.png" },
+		{ "joinHover",   "Hover boton unirse.png" },
 	}
 	local ICON_VER = 3
 	_G.NXIconVer = ICON_VER
@@ -7917,9 +7958,7 @@ local function render(data, skipEntrance)
 	-- 2 botones: 1 gap de 8px
 	if data.PresenceType == 2 and data.PresencePlace and data.PresenceGame then
 		viewCharBtn.Size = UDim2.new(0.5, -4, 0, 28)
-		local joinBtn = DS.makeButton(actRow, "Unirse", "primary", {order = 3, size = UDim2.new(0.5, -4, 0, 28)})
-		joinBtn.BackgroundColor3 = C.good
-		themed(joinBtn, "BackgroundColor3", "good")
+		local joinBtn = DS.makeButton(actRow, "Unirse", "secondary", {order = 3, size = UDim2.new(0.5, -4, 0, 28)})
 		joinBtn.MouseButton1Click:Connect(function()
 			statusLabel.Text = "Intentando unirse..."
 			local TS = game:GetService("TeleportService")
@@ -9064,7 +9103,7 @@ do
 	end
 
 	-- Theme selector card
-	local themeCard = DS.makeCard(settingsScroll, {order = 1, title = "Tema"})
+	local themeCard = DS.makeCard(settingsScroll, {order = 1, title = "Temas"})
 
 	local thBtnRow = Instance.new("Frame", themeCard)
 	thBtnRow.LayoutOrder = 5
@@ -9072,7 +9111,7 @@ do
 	thBtnRow.AutomaticSize = Enum.AutomaticSize.Y
 	thBtnRow.BackgroundTransparency = 1
 	local thGrid = Instance.new("UIGridLayout", thBtnRow)
-	thGrid.CellSize = UDim2.new(0, 82, 0, 38)
+	thGrid.CellSize = UDim2.new(0, 90, 0, 38)
 	thGrid.CellPadding = UDim2.new(0, 6, 0, 6)
 	thGrid.SortOrder = Enum.SortOrder.LayoutOrder
 	thGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -9115,8 +9154,8 @@ do
 	end
 	onRepaint(paintThemeButtons)
 
-	local themeOrderNormal = { "azul", "verde", "rojo", "morado", "cyan", "naranja", "tokyo", "claro" }
-	local themeOrderBeta   = { "arctic", "tor", "negro", "rosa" }
+	local themeOrderNormal = { "arctic", "tor", "negro", "rosa" }
+	local themeOrderBeta   = {}
 
 	local function makeThemeBtn(parent, tn, order)
 		local own = THEMES[tn]
@@ -9155,43 +9194,6 @@ do
 		makeThemeBtn(thBtnRow, tn, i)
 	end
 
-	-- ── Temas Betas ──
-	local betaLabel = Instance.new("TextLabel", themeCard)
-	betaLabel.LayoutOrder = 7
-	betaLabel.Size = UDim2.new(1, 0, 0, 20)
-	betaLabel.BackgroundTransparency = 1
-	betaLabel.Font = Enum.Font.GothamBold
-	betaLabel.TextSize = DS.text.sm
-	betaLabel.TextColor3 = C.accent
-	betaLabel.Text = "✦ Temas Betas"
-	betaLabel.TextXAlignment = Enum.TextXAlignment.Left
-	themed(betaLabel, "TextColor3", "accent")
-
-	local betaSubLabel = Instance.new("TextLabel", themeCard)
-	betaSubLabel.LayoutOrder = 8
-	betaSubLabel.Size = UDim2.new(1, 0, 0, 14)
-	betaSubLabel.BackgroundTransparency = 1
-	betaSubLabel.Font = Enum.Font.Gotham
-	betaSubLabel.TextSize = DS.text.xs
-	betaSubLabel.TextColor3 = C.subtext
-	betaSubLabel.Text = "Temas con glow y fondo personalizado"
-	betaSubLabel.TextXAlignment = Enum.TextXAlignment.Left
-	themed(betaSubLabel, "TextColor3", "subtext")
-
-	local betaBtnRow = Instance.new("Frame", themeCard)
-	betaBtnRow.LayoutOrder = 9
-	betaBtnRow.Size = UDim2.new(1, 0, 0, 0)
-	betaBtnRow.AutomaticSize = Enum.AutomaticSize.Y
-	betaBtnRow.BackgroundTransparency = 1
-	local betaGrid = Instance.new("UIGridLayout", betaBtnRow)
-	betaGrid.CellSize = UDim2.new(0, 82, 0, 38)
-	betaGrid.CellPadding = UDim2.new(0, 6, 0, 6)
-	betaGrid.SortOrder = Enum.SortOrder.LayoutOrder
-	betaGrid.HorizontalAlignment = Enum.HorizontalAlignment.Left
-
-	for i, tn in ipairs(themeOrderBeta) do
-		makeThemeBtn(betaBtnRow, tn, i)
-	end
 
 	paintThemeButtons(false)
 
@@ -10009,112 +10011,15 @@ local analyzing = false
 -- iluminan cada indicador en tiempo real. do...end: locals se liberan.
 do
 	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi","NameHistory"}
-	local NODOS = {
-		{ label = "Perfil",       cx = 0.18, cy = 0.40 },
-		{ label = "Datos",        cx = 0.50, cy = 0.40 },
-		{ label = "Verificación", cx = 0.82, cy = 0.40 },
-	}
-	local GROSOR = 2
 
-	local overlay, stage, statusLbl, sizeConn
-	local nodes, lines, packet = {}, {}, nil
-	local fetchDots = {}
-	local dotsHolder
+	local overlay, stage, statusLbl, subStatusLbl
+	local bars = {}
 	local alive, finishing, startedAt, gen = false, false, 0, 0
 	local fetchDone = {}
 	local profileDone, validationState = false, nil
 
-	local function makeRack(parent, w, h, accent)
-		local body = Instance.new("Frame", parent)
-		body.AnchorPoint = Vector2.new(0.5, 0)
-		body.Position = UDim2.new(0.5, 0, 0, 0)
-		body.Size = UDim2.fromOffset(w, h)
-		body.BackgroundColor3 = C.card
-		body.BorderSizePixel = 0
-		Instance.new("UICorner", body).CornerRadius = UDim.new(0, 6)
-		local grad = Instance.new("UIGradient", body)
-		grad.Rotation = 90
-		grad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(220, 220, 228))
-		grad.Transparency = NumberSequence.new(0.85)
-		local st = Instance.new("UIStroke", body)
-		st.Color = accent; st.Thickness = 1.2; st.Transparency = 0.35
-		for i = 1, 2 do
-			local bar = Instance.new("Frame", body)
-			bar.AnchorPoint = Vector2.new(0, 0.5)
-			bar.Size = UDim2.new(0, math.floor(w * 0.42), 0, 3)
-			bar.Position = UDim2.new(0, 8, i / 3, 0)
-			bar.BackgroundColor3 = C.subtext
-			bar.BackgroundTransparency = 0.4
-			bar.BorderSizePixel = 0
-			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-		end
-		local dot = Instance.new("Frame", body)
-		dot.AnchorPoint = Vector2.new(1, 0.5)
-		dot.Size = UDim2.fromOffset(5, 5)
-		dot.Position = UDim2.new(1, -8, 0.5, 0)
-		dot.BackgroundColor3 = accent
-		dot.BorderSizePixel = 0
-		Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-		return body, st
-	end
-
-	local function makeLabel(parent, y, size, color, txt)
-		local l = Instance.new("TextLabel", parent)
-		l.AnchorPoint = Vector2.new(0.5, 0)
-		l.Position = UDim2.new(0.5, 0, 0, y)
-		l.Size = UDim2.new(1, 12, 0, size + 4)
-		l.BackgroundTransparency = 1
-		l.Font = Enum.Font.GothamMedium
-		l.TextSize = size
-		l.TextColor3 = color
-		l.Text = txt
-		l.TextXAlignment = Enum.TextXAlignment.Center
-		l.TextTruncate = Enum.TextTruncate.AtEnd
-		return l
-	end
-
-	local function layout()
-		if not stage then return end
-		local sz = stage.AbsoluteSize
-		if sz.X < 10 or sz.Y < 10 then return end
-		for _, n in ipairs(nodes) do
-			n.px = Vector2.new(n.def.cx * sz.X, n.def.cy * sz.Y)
-			n.port = Vector2.new(n.px.X, n.px.Y - 11)
-			n.holder.Position = UDim2.fromOffset(n.px.X, n.px.Y)
-		end
-		for _, ln in ipairs(lines) do
-			local a, b = nodes[ln.from].port, nodes[ln.to].port
-			local d = b - a
-			ln.len = d.Magnitude
-			ln.frame.Position = UDim2.fromOffset(a.X, a.Y)
-			ln.frame.Rotation = math.deg(math.atan(d.Y, d.X))
-			if ln.grown then ln.frame.Size = UDim2.fromOffset(ln.len, GROSOR) end
-		end
-		if dotsHolder and dotsHolder.Parent and nodes[2] and nodes[2].px then
-			dotsHolder.Position = UDim2.fromOffset(nodes[2].px.X, nodes[2].px.Y + 30)
-		end
-	end
-
-	local function lightNode(i, color)
-		local n = nodes[i]
-		if not n then return end
-		motionTween(n.stroke, TweenInfo.new(0.2), { Transparency = 0, Color = color or C.accent })
-	end
-	local function dimNode(i)
-		local n = nodes[i]
-		if not n then return end
-		motionTween(n.stroke, TweenInfo.new(0.2), { Transparency = 0.35 })
-	end
-
 	local function setStatus(txt, color)
 		if statusLbl then statusLbl.Text = txt; statusLbl.TextColor3 = color or C.accent end
-	end
-
-	local function lightFetchDot(key)
-		local dot = fetchDots[key]
-		if dot then
-			motionTween(dot, TweenInfo.new(0.2), { BackgroundColor3 = C.good, BackgroundTransparency = 0 })
-		end
 	end
 
 	local function countFetched()
@@ -10123,37 +10028,15 @@ do
 		return n
 	end
 
-	local function travel(seg, miGen)
-		if not alive or miGen ~= gen or finishing then return end
-		local a, b = nodes[seg].port, nodes[seg + 1].port
-		packet.Position = UDim2.fromOffset(a.X, a.Y)
-		packet.BackgroundTransparency = 0.05
-		packet.Visible = true
-		local dur = math.clamp((b - a).Magnitude / 220, 0.35, 0.7)
-		motionTween(packet, TweenInfo.new(dur, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut),
-			{ Position = UDim2.fromOffset(b.X, b.Y) }, function()
-				if not alive or miGen ~= gen or finishing then return end
-				lightNode(seg + 1)
-				if seg + 1 < #nodes then
-					travel(seg + 1, miGen)
-				else
-					task.delay(0.35, function()
-						if not alive or finishing or miGen ~= gen then return end
-						dimNode(2); dimNode(3)
-						travel(1, miGen)
-					end)
-				end
-			end)
-	end
-
 	local function destroyNow()
 		alive = false
 		gen = gen + 1
-		if sizeConn then sizeConn:Disconnect(); sizeConn = nil end
+		for _, b in ipairs(bars) do
+			if b.tween then pcall(function() b.tween:Cancel() end) end
+		end
+		bars = {}
 		if overlay then overlay:Destroy() end
-		overlay, stage, statusLbl, packet = nil, nil, nil, nil
-		nodes, lines, fetchDots = {}, {}, {}
-		dotsHolder = nil
+		overlay, stage, statusLbl, subStatusLbl = nil, nil, nil, nil
 		fetchDone, profileDone, validationState = {}, false, nil
 	end
 
@@ -10162,37 +10045,24 @@ do
 	function M.onProfile()
 		if not alive then return end
 		profileDone = true
-		lightNode(1, C.good)
-		if nodes[1] and nodes[1].label then nodes[1].label.TextColor3 = C.good end
 		setStatus("Consultando APIs... 0/" .. #FETCH_KEYS)
 	end
 
 	function M.onFetch(key)
 		if not alive then return end
 		fetchDone[key] = true
-		lightFetchDot(key)
 		local n = countFetched()
 		setStatus("Consultando APIs... " .. n .. "/" .. #FETCH_KEYS)
+		if subStatusLbl then subStatusLbl.Text = n .. "/" .. #FETCH_KEYS end
 		if n >= #FETCH_KEYS then
-			lightNode(2, C.good)
-			if nodes[2] and nodes[2].label then nodes[2].label.TextColor3 = C.good end
 			setStatus("Validando datos...")
+			if subStatusLbl then subStatusLbl.Text = "" end
 		end
 	end
 
 	function M.onValidation(state)
 		if not alive then return end
 		validationState = state
-		local color
-		if state == "verified" then color = C.good
-		elseif state == "skipped" then color = C.subtext
-		elseif state == "partial" then color = C.warn
-		else color = C.bad end
-		lightNode(3, color)
-		if nodes[3] and nodes[3].label then
-			nodes[3].label.TextColor3 = color
-			if state == "skipped" then nodes[3].label.Text = "Sin verificar" end
-		end
 	end
 
 	function M.finish(cb)
@@ -10206,19 +10076,22 @@ do
 			local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.3 or 1.0
 			if elapsed < minTime then task.wait(minTime - elapsed) end
 			if miGen ~= gen then done(); return end
+
 			local finalColor = C.good
 			if validationState == "skipped" then finalColor = C.subtext
 			elseif validationState == "partial" then finalColor = C.warn
 			elseif validationState == "error" or validationState == "incomplete" then finalColor = C.bad end
-			for _, ln in ipairs(lines) do
-				motionTween(ln.frame, TweenInfo.new(0.3), { BackgroundColor3 = finalColor })
+
+			for _, b in ipairs(bars) do
+				if b.tween then pcall(function() b.tween:Cancel() end) end
+				if b.frame and b.frame.Parent then
+					motionTween(b.frame, TweenInfo.new(0.3), {
+						BackgroundColor3 = finalColor,
+						Size = UDim2.fromOffset(4, 14),
+					})
+				end
 			end
-			for i = 1, #nodes do lightNode(i, finalColor) end
-			if packet then
-				packet.BackgroundColor3 = finalColor
-				local b = nodes[#nodes].port
-				motionTween(packet, TweenInfo.new(0.3), { Position = UDim2.fromOffset(b.X, b.Y) })
-			end
+
 			local statusTxt
 			if validationState == "verified" then statusTxt = "Verified"
 			elseif validationState == "skipped" then statusTxt = "Sin verificar"
@@ -10226,6 +10099,7 @@ do
 			elseif validationState == "error" then statusTxt = "Error"
 			else statusTxt = "Completed" end
 			setStatus(statusTxt, finalColor)
+
 			task.wait(0.45)
 			if miGen ~= gen then done(); return end
 			motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
@@ -10250,7 +10124,7 @@ do
 		overlay.Position = UDim2.new(0, 0, 0, 0)
 		overlay.Size = UDim2.new(1, 0, 1, 0)
 		overlay.BackgroundColor3 = C.card
-		overlay.BackgroundTransparency = 0.92
+		overlay.BackgroundTransparency = 0.88
 		overlay.BorderSizePixel = 0
 		overlay.ClipsDescendants = true
 		overlay.Active = true
@@ -10268,7 +10142,7 @@ do
 
 		local pill = Instance.new("Frame", stage)
 		pill.AnchorPoint = Vector2.new(0.5, 0)
-		pill.Position = UDim2.new(0.5, 0, 0, 10)
+		pill.Position = UDim2.new(0.5, 0, 0.5, -50)
 		pill.Size = UDim2.fromOffset(220, 24)
 		pill.BackgroundColor3 = C.card
 		pill.BackgroundTransparency = 0.1
@@ -10276,6 +10150,27 @@ do
 		Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
 		local pst = Instance.new("UIStroke", pill)
 		pst.Color = C.accent; pst.Transparency = 0.4
+
+		local nxt = _G.NXTheme
+		local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+		if isGlow then
+			pill.BackgroundTransparency = 0.35
+			local pillGrad = Instance.new("UIGradient", pill)
+			pillGrad.Rotation = 135
+			pillGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.5, C.card),
+				ColorSequenceKeypoint.new(1, C.card),
+			})
+			pillGrad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.80),
+				NumberSequenceKeypoint.new(0.5, 0.92),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			pst.Color = Color3.fromRGB(255, 255, 255)
+			pst.Transparency = 0.55
+		end
+
 		statusLbl = Instance.new("TextLabel", pill)
 		statusLbl.Size = UDim2.new(1, -16, 1, 0)
 		statusLbl.Position = UDim2.new(0, 8, 0, 0)
@@ -10286,98 +10181,61 @@ do
 		statusLbl.Text = "Obteniendo perfil..."
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Center
 
-		nodes, lines, fetchDots = {}, {}, {}
-		for _, def in ipairs(NODOS) do
-			local holder = Instance.new("Frame", stage)
-			holder.AnchorPoint = Vector2.new(0.5, 0.5)
-			holder.Size = UDim2.fromOffset(92, 62)
-			holder.BackgroundTransparency = 1
-			holder.ZIndex = 3
-			local sc = Instance.new("UIScale", holder); sc.Scale = 0
-			local _, st = makeRack(holder, 84, 40, C.accent)
-			local lbl = makeLabel(holder, 44, 12, C.subtext, def.label)
-			nodes[#nodes + 1] = { def = def, holder = holder, scale = sc, stroke = st, label = lbl }
-		end
+		local BAR_COUNT = 5
+		local BAR_W = 4
+		local BAR_GAP = 4
+		local BAR_MIN = 8
+		local BAR_MAX = 28
+		local WAVE_DUR = 0.5
+		local WAVE_STAGGER = 0.1
+		local totalW = BAR_COUNT * BAR_W + (BAR_COUNT - 1) * BAR_GAP
 
-		-- Sub-indicadores de APIs debajo del nodo 2 (Datos)
-		dotsHolder = Instance.new("Frame", stage)
-		dotsHolder.AnchorPoint = Vector2.new(0.5, 0)
-		dotsHolder.Size = UDim2.fromOffset(#FETCH_KEYS * 12, 8)
-		dotsHolder.BackgroundTransparency = 1
-		dotsHolder.ZIndex = 4
-		local dotsLayout = Instance.new("UIListLayout", dotsHolder)
-		dotsLayout.FillDirection = Enum.FillDirection.Horizontal
-		dotsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		dotsLayout.Padding = UDim.new(0, 4)
-		for i, key in ipairs(FETCH_KEYS) do
-			local fd = Instance.new("Frame", dotsHolder)
-			fd.Size = UDim2.fromOffset(6, 6)
-			fd.BackgroundColor3 = C.subtext
-			fd.BackgroundTransparency = 0.5
-			fd.BorderSizePixel = 0
-			fd.LayoutOrder = i
-			Instance.new("UICorner", fd).CornerRadius = UDim.new(1, 0)
-			fetchDots[key] = fd
-		end
-		-- Position dots below node 2 after layout
-		task.defer(function()
-			if nodes[2] and nodes[2].holder and dotsHolder.Parent then
-				local n2 = nodes[2]
-				if n2.px then
-					dotsHolder.Position = UDim2.fromOffset(n2.px.X, n2.px.Y + 30)
-				end
-			end
-		end)
-		for i = 1, #nodes - 1 do
-			local line = Instance.new("Frame", stage)
-			line.AnchorPoint = Vector2.new(0, 0.5)
-			line.Size = UDim2.fromOffset(0, GROSOR)
-			line.BackgroundColor3 = C.accent
-			line.BackgroundTransparency = 0.2
-			line.BorderSizePixel = 0
-			line.ZIndex = 2
-			local lg = Instance.new("UIGradient", line)
-			lg.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.5),
-				NumberSequenceKeypoint.new(0.5, 0),
-				NumberSequenceKeypoint.new(1, 0.5),
-			})
-			lines[#lines + 1] = { frame = line, from = i, to = i + 1, grown = false }
-		end
+		local waveHolder = Instance.new("Frame", stage)
+		waveHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+		waveHolder.Position = UDim2.new(0.5, 0, 0.5, 0)
+		waveHolder.Size = UDim2.fromOffset(totalW, BAR_MAX)
+		waveHolder.BackgroundTransparency = 1
+		waveHolder.ZIndex = 3
 
-		packet = Instance.new("Frame", stage)
-		packet.AnchorPoint = Vector2.new(0.5, 0.5)
-		packet.Size = UDim2.fromOffset(8, 8)
-		packet.BackgroundColor3 = C.accent
-		packet.BorderSizePixel = 0
-		packet.Visible = false
-		packet.ZIndex = 5
-		Instance.new("UICorner", packet).CornerRadius = UDim.new(1, 0)
-		local pk = Instance.new("UIStroke", packet)
-		pk.Color = Color3.fromRGB(255, 255, 255); pk.Transparency = 0.4
+		bars = {}
+		for i = 1, BAR_COUNT do
+			local bar = Instance.new("Frame", waveHolder)
+			bar.Size = UDim2.fromOffset(BAR_W, BAR_MIN)
+			bar.AnchorPoint = Vector2.new(0, 0.5)
+			bar.Position = UDim2.new(0, (i - 1) * (BAR_W + BAR_GAP), 0.5, 0)
+			bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			bar.BackgroundTransparency = 0.1
+			bar.BorderSizePixel = 0
+			Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
 
-		layout()
-		sizeConn = stage:GetPropertyChangedSignal("AbsoluteSize"):Connect(layout)
+			local glow = Instance.new("UIStroke", bar)
+			glow.Color = Color3.fromRGB(255, 255, 255)
+			glow.Thickness = 1
+			glow.Transparency = 0.7
 
-		for i, n in ipairs(nodes) do
-			task.delay(0.12 * (i - 1), function()
+			bars[i] = { frame = bar, tween = nil }
+			task.delay(i * WAVE_STAGGER, function()
 				if miGen ~= gen or not alive then return end
-				motionTween(n.scale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 })
+				if not bar.Parent then return end
+				local tw = TweenService:Create(bar,
+					TweenInfo.new(WAVE_DUR, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+					{ Size = UDim2.fromOffset(BAR_W, BAR_MAX) }
+				)
+				tw:Play()
+				bars[i].tween = tw
 			end)
 		end
-		for i, ln in ipairs(lines) do
-			task.delay(0.12 * i, function()
-				if miGen ~= gen or not alive then return end
-				ln.grown = true
-				motionTween(ln.frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-					{ Size = UDim2.fromOffset(ln.len, GROSOR) })
-			end)
-		end
-		task.delay(0.42, function()
-			if miGen ~= gen or not alive then return end
-			lightNode(1)
-			travel(1, miGen)
-		end)
+
+		subStatusLbl = Instance.new("TextLabel", stage)
+		subStatusLbl.AnchorPoint = Vector2.new(0.5, 0)
+		subStatusLbl.Position = UDim2.new(0.5, 0, 0.5, 24)
+		subStatusLbl.Size = UDim2.fromOffset(100, 16)
+		subStatusLbl.BackgroundTransparency = 1
+		subStatusLbl.Font = Enum.Font.Gotham
+		subStatusLbl.TextSize = 11
+		subStatusLbl.TextColor3 = C.subtext
+		subStatusLbl.Text = ""
+		subStatusLbl.TextXAlignment = Enum.TextXAlignment.Center
 	end
 
 	_G.NXScan = M
@@ -12446,6 +12304,23 @@ Animations.luxe = {
         pillStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         pillStroke.Parent          = pill
 
+        local tagGlowGrad = Instance.new("UIGradient", pillStroke)
+        tagGlowGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+            ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+            ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+            ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+        })
+        local tagGlowConn
+        tagGlowConn = RunService.Heartbeat:Connect(function(dt)
+            if tagGlowGrad and tagGlowGrad.Parent then
+                tagGlowGrad.Rotation = (tagGlowGrad.Rotation + dt * 20) % 360
+            else
+                if tagGlowConn then tagGlowConn:Disconnect() end
+            end
+        end)
+
         local glowStroke = nil
 
         local pillGradient = nil
@@ -13437,8 +13312,23 @@ end)()
 		hud.BorderSizePixel = 0
 		hud.Parent = gui
 		local hc = Instance.new("UICorner", hud); hc.CornerRadius = UDim.new(0, 10)
-		local hs = Instance.new("UIStroke", hud); hs.Thickness = 1.6; hs.Color = C.accent; hs.Transparency = 0.1
-		themed(hs, "Color", "accent")
+		local hs = Instance.new("UIStroke", hud)
+		hs.Thickness = 1.6
+		hs.Transparency = 0.1
+		hs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		local hudGlowGrad = Instance.new("UIGradient", hs)
+		hudGlowGrad.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+			ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+			ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+		})
+		track(RunService.Heartbeat:Connect(function(dt)
+			if hudGlowGrad and hud.Parent then
+				hudGlowGrad.Rotation = (hudGlowGrad.Rotation + dt * 20) % 360
+			end
+		end))
 
 		local lay = Instance.new("UIListLayout", hud)
 		lay.FillDirection = Enum.FillDirection.Horizontal
@@ -13642,6 +13532,7 @@ end)()
 		end
 		divider()
 		local discBtn = iconButton(nil, DISCORD_LOGO_ID, openDiscord, Color3.fromRGB(88, 101, 242), drawBubble)  -- blurple Discord
+		discBtn.Size = UDim2.fromOffset(32, 28)
 		task.spawn(function()
 			while not (_G.NXIcons and _G.NXIcons.discord and _G.NXIcons.discord ~= "") do
 				task.wait(0.3)
@@ -13653,7 +13544,7 @@ end)()
 					img.BackgroundTransparency = 1
 					img.AnchorPoint = Vector2.new(0.5, 0.5)
 					img.Position = UDim2.fromScale(0.5, 0.5)
-					img.Size = UDim2.fromScale(0.62, 0.62)
+					img.Size = UDim2.fromScale(0.72, 0.72)
 					img.ScaleType = Enum.ScaleType.Fit
 					img.ResampleMode = Enum.ResamplerMode.Default
 					img.Image = _G.NXIcons.discord
@@ -13666,11 +13557,10 @@ end)()
 				end
 			end
 		end)
-		attachTip(discBtn, "Discord NX")
-
 		-- ── BOTÓN TOGGLE MI TAG ──
 		local TAG_ICON_ID = (_G.NXIcons and _G.NXIcons.tag_icon) or ""
 		local myTagOn = store.ownTag ~= false
+		local tagPanelLabel
 		local tagBtn, tagBtnContent = iconButton(nil, TAG_ICON_ID, function()
 			myTagOn = not myTagOn
 			store.ownTag = myTagOn
@@ -13683,6 +13573,7 @@ end)()
 			if tagBtn then
 				tagBtn.BackgroundTransparency = myTagOn and 0 or 0.4
 			end
+			if tagPanelLabel then tagPanelLabel.Text = myTagOn and "Hide Tag" or "Show Tag" end
 		end)
 		if not myTagOn then
 			if tagBtnContent and tagBtnContent:IsA("ImageLabel") then
@@ -13718,27 +13609,46 @@ end)()
 				end
 			end
 		end)
-		attachTip(tagBtn, "Mi Tag")
-
-		-- NX badge (logo al final de la barra, como en la referencia)
-		order += 1
-		local nxBadge = Instance.new("Frame", hud)
-		nxBadge.Name = "NXBadge"
-		nxBadge.BackgroundColor3 = C.surface
-		themed(nxBadge, "BackgroundColor3", "surface")
-		nxBadge.BackgroundTransparency = 0
-		nxBadge.Size = UDim2.fromOffset(36, 26)
-		nxBadge.LayoutOrder = order
-		Instance.new("UICorner", nxBadge).CornerRadius = UDim.new(0, 7)
-		local nxLbl = Instance.new("TextLabel", nxBadge)
-		nxLbl.BackgroundTransparency = 1
-		nxLbl.Size = UDim2.fromScale(1, 1)
-		nxLbl.Font = Enum.Font.GothamBlack
-		nxLbl.Text = "NX"
-		nxLbl.TextSize = 13
-		nxLbl.TextColor3 = C.accent
-		themed(nxLbl, "TextColor3", "accent")
-		attachTip(nxBadge, "NX Analyzer")
+		local tagPanel = Instance.new("Frame", gui)
+		tagPanel.Name = "TagPanel"
+		tagPanel.AnchorPoint = Vector2.new(0.5, 0)
+		tagPanel.Size = UDim2.fromOffset(80, 28)
+		tagPanel.BackgroundColor3 = C.surface
+		themed(tagPanel, "BackgroundColor3", "surface")
+		tagPanel.BackgroundTransparency = 0.1
+		tagPanel.BorderSizePixel = 0
+		tagPanel.Visible = false
+		tagPanel.ZIndex = tagBtn.ZIndex + 5
+		Instance.new("UICorner", tagPanel).CornerRadius = UDim.new(0, 8)
+		local tagPanelStroke = Instance.new("UIStroke", tagPanel)
+		tagPanelStroke.Thickness = 1
+		tagPanelStroke.Color = Color3.fromRGB(255, 255, 255)
+		tagPanelStroke.Transparency = 0.7
+		tagPanelLabel = Instance.new("TextLabel", tagPanel)
+		tagPanelLabel.Size = UDim2.fromScale(1, 1)
+		tagPanelLabel.BackgroundTransparency = 1
+		tagPanelLabel.Font = Enum.Font.GothamMedium
+		tagPanelLabel.TextSize = 11
+		tagPanelLabel.TextColor3 = C.text
+		themed(tagPanelLabel, "TextColor3", "text")
+		tagPanelLabel.Text = myTagOn and "Hide Tag" or "Show Tag"
+		track(tagBtn.MouseEnter:Connect(function()
+			local hudPos = hud.AbsolutePosition
+			local hudSize = hud.AbsoluteSize
+			local btnPos = tagBtn.AbsolutePosition
+			local btnSize = tagBtn.AbsoluteSize
+			tagPanel.Position = UDim2.fromOffset(
+				btnPos.X + btnSize.X / 2 - 40,
+				hudPos.Y + hudSize.Y + 6
+			)
+			tagPanelLabel.Text = myTagOn and "Hide Tag" or "Show Tag"
+			tagPanel.Visible = true
+		end))
+		track(tagBtn.MouseLeave:Connect(function()
+			task.delay(0.15, function()
+				if tagPanel then tagPanel.Visible = false end
+			end)
+		end))
 
 		-- Destapa el límite de FPS del cliente (si el executor lo permite) para que el
 		-- contador muestre los FPS REALES, sin tope de 240. Falla en silencio.
@@ -14463,8 +14373,8 @@ end)()
 	onPrepaint(function()
 		local nxt = _G.NXTheme
 		local isGlow = nxt and nxt.isGlow and nxt.isGlow()
-		borde.Transparency = isGlow and 0.15 or 0.3
-		borde.Thickness = isGlow and 1.2 or 1
+		borde.Transparency = isGlow and 0.08 or 0.3
+		borde.Thickness = isGlow and 2.0 or 1
 	end)
 
 	-- ====================== ENCABEZADO ======================
@@ -14804,12 +14714,12 @@ end)()
 		do
 			local nxt = _G.NXTheme
 			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
-			searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+			searchContainer.BackgroundTransparency = isGlow and 0.40 or 0
 		end
 		onPrepaint(function()
 			local nxt = _G.NXTheme
 			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
-			searchContainer.BackgroundTransparency = isGlow and 0.55 or 0
+			searchContainer.BackgroundTransparency = isGlow and 0.40 or 0
 			if isGlow then
 				searchGrad.Color = ColorSequence.new({
 					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
@@ -14886,6 +14796,41 @@ end)()
 	local paddingLista = Instance.new("UIPadding", scroll)
 	paddingLista.PaddingTop = UDim.new(0, 4)
 	paddingLista.PaddingBottom = UDim.new(0, 4)
+
+	do
+		local sTarget = 0
+		local sCurrent = 0
+		local sMoving = false
+		local SMOOTH = 0.0004
+		local STEP = 50
+
+		local sConn
+		sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
+			if not scroll or not scroll.Parent then sConn:Disconnect() return end
+			if not sMoving then return end
+			local maxY = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteSize.Y)
+			sTarget = math.clamp(sTarget, 0, maxY)
+			local alpha = 1 - SMOOTH ^ dt
+			sCurrent = sCurrent + (sTarget - sCurrent) * alpha
+			if math.abs(sTarget - sCurrent) < 0.5 then
+				sCurrent = sTarget
+				sMoving = false
+			end
+			scroll.CanvasPosition = Vector2.new(0, sCurrent)
+		end)
+		ltrack({ Disconnect = function() sConn:Disconnect() end })
+
+		ltrack(scroll.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseWheel then
+				if not sMoving then sCurrent = scroll.CanvasPosition.Y; sTarget = sCurrent end
+				local maxY = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteSize.Y)
+				sTarget = math.clamp(sTarget - input.Position.Z * STEP, 0, maxY)
+				sMoving = true
+			end
+		end))
+
+		scroll.ScrollingEnabled = false
+	end
 
 	local sinResultados = Instance.new("TextLabel", ventana)
 	sinResultados.Size = UDim2.new(1, -20, 0, 30)
@@ -14985,13 +14930,61 @@ end)()
 		btnStroke.Thickness = 1; btnStroke.Transparency = 0.7
 		btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		pthemed(btnStroke, "Color", "border")
+		do
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			if isGlow then
+				btn.BackgroundTransparency = 0.35
+				local btnGrad = Instance.new("UIGradient", btn)
+				btnGrad.Rotation = 135
+				btnGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+					ColorSequenceKeypoint.new(0.35, Color3.fromRGB(220, 220, 230)),
+					ColorSequenceKeypoint.new(0.7, col(role)),
+					ColorSequenceKeypoint.new(1.0, col(role)),
+				})
+				btnGrad.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0.0, 0.50),
+					NumberSequenceKeypoint.new(0.25, 0.70),
+					NumberSequenceKeypoint.new(0.6, 0.88),
+					NumberSequenceKeypoint.new(1.0, 0.95),
+				})
+				btnStroke.Thickness = 1.2
+				btnStroke.Transparency = 0.20
+				btnStroke.Color = Color3.fromRGB(255, 255, 255)
+				local bsGrad = Instance.new("UIGradient", btnStroke)
+				bsGrad.Rotation = 135
+				bsGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+					ColorSequenceKeypoint.new(0.4, Color3.fromRGB(200, 200, 215)),
+					ColorSequenceKeypoint.new(1.0, Color3.fromRGB(80, 80, 100)),
+				})
+				bsGrad.Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0.0, 0.10),
+					NumberSequenceKeypoint.new(0.4, 0.40),
+					NumberSequenceKeypoint.new(1.0, 0.75),
+				})
+			end
+		end
 		btn.MouseEnter:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = lighten(col(role), 0.10) }):Play()
-			TweenService:Create(btnStroke, TweenInfo.new(0.12), { Transparency = 0.3 }):Play()
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			if isGlow then
+				TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.20 }):Play()
+			else
+				TweenService:Create(btn, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = lighten(col(role), 0.10) }):Play()
+			end
+			TweenService:Create(btnStroke, TweenInfo.new(0.12), { Transparency = 0.1 }):Play()
 		end)
 		btn.MouseLeave:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col(role) }):Play()
-			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = 0.7 }):Play()
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			if isGlow then
+				TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0.35 }):Play()
+			else
+				TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundColor3 = col(role) }):Play()
+			end
+			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = isGlow and 0.20 or 0.7 }):Play()
 		end)
 		btn.MouseButton1Click:Connect(function() accion(btn, texto) end)
 		return btn
@@ -15161,7 +15154,7 @@ end)()
 
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Tarjeta_" .. plr.Name
-		tarjeta.Size = UDim2.new(1, -16, 0, 88)
+		tarjeta.Size = UDim2.new(1, -16, 0, 62)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = 0
 		tarjeta.ClipsDescendants = true
@@ -15185,13 +15178,13 @@ end)()
 				local isGlow = nxt and nxt.isGlow and nxt.isGlow()
 				if isGlow then
 					grad.Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 200, 255)),
+						ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 210, 255)),
 						ColorSequenceKeypoint.new(0.5, col("card")),
 						ColorSequenceKeypoint.new(1, col("card")),
 					})
 					grad.Transparency = NumberSequence.new({
-						NumberSequenceKeypoint.new(0, 0.85),
-						NumberSequenceKeypoint.new(0.4, 0.95),
+						NumberSequenceKeypoint.new(0, 0.78),
+						NumberSequenceKeypoint.new(0.4, 0.92),
 						NumberSequenceKeypoint.new(1, 1),
 					})
 				else
@@ -15204,21 +15197,38 @@ end)()
 		end
 		local tStroke = Instance.new("UIStroke", tarjeta)
 		tStroke.Thickness = 1; tStroke.Transparency = 0.6
+		tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		pthemed(tStroke, "Color", "border")
+		local cardGlowGrad
+		do
+			local function applyStrokeGlow()
+				local nxt = _G.NXTheme
+				local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+				if isGlow then
+					tStroke.Thickness = 1.2
+					tStroke.Color = Color3.fromRGB(255, 255, 255)
+					tStroke.Transparency = 0.50
+					if not cardGlowGrad then
+						cardGlowGrad = Instance.new("UIGradient", tStroke)
+						cardGlowGrad.Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+							ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+							ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+							ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+							ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+						})
+					end
+				else
+					tStroke.Thickness = 1
+					tStroke.Transparency = 0.6
+					if cardGlowGrad then cardGlowGrad:Destroy(); cardGlowGrad = nil end
+				end
+			end
+			applyStrokeGlow()
+			local stopGlow = onPrepaint(applyStrokeGlow)
+			tarjeta.Destroying:Connect(stopGlow)
+		end
 
-		-- hover en tarjeta entera
-		tarjeta.InputBegan:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement then
-				TweenService:Create(tStroke, TweenInfo.new(0.12), { Transparency = 0.2 }):Play()
-				TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
-			end
-		end)
-		tarjeta.InputEnded:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement then
-				TweenService:Create(tStroke, TweenInfo.new(0.18), { Transparency = 0.6 }):Play()
-				TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
-			end
-		end)
 		local stopCardPrepaint = onPrepaint(function()
 			if tarjeta.Parent then
 				pcall(function() tStroke.Color = col("border") end)
@@ -15228,17 +15238,17 @@ end)()
 		tarjeta.Destroying:Connect(stopCardPrepaint)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
-		avatar.Size = UDim2.new(0, 46, 0, 46)
-		avatar.Position = UDim2.new(0, 10, 0, 8)
+		avatar.Size = UDim2.new(0, 40, 0, 40)
+		avatar.Position = UDim2.new(0, 11, 0, 11)
 		avatar.Image = avatarCache[userId] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
 		pthemed(avatar, "BackgroundColor3", "avatarBg")
-		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 22)
+		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 20)
 		cargarAvatarAsync(userId, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
 		labelDisplay.Size = UDim2.new(1, -68, 0, 20)
-		labelDisplay.Position = UDim2.new(0, 64, 0, 8)
+		labelDisplay.Position = UDim2.new(0, 60, 0, 21)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
 		labelDisplay.TextSize = 14
@@ -15249,7 +15259,7 @@ end)()
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
 		labelUser.Size = UDim2.new(1, -68, 0, 16)
-		labelUser.Position = UDim2.new(0, 64, 0, 28)
+		labelUser.Position = UDim2.new(0, 60, 0, 30)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
 		labelUser.TextSize = 12
@@ -15257,34 +15267,156 @@ end)()
 		labelUser.TextXAlignment = Enum.TextXAlignment.Left
 		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
 		pthemed(labelUser, "TextColor3", "subtext")
+		labelUser.TextTransparency = 1
 
-		-- botones en fila horizontal debajo de la info
-		local filaBotones = Instance.new("Frame", tarjeta)
-		filaBotones.Size = UDim2.new(1, -20, 0, 26)
-		filaBotones.Position = UDim2.new(0, 10, 0, 55)
-		filaBotones.BackgroundTransparency = 1
-
-		local layoutBotones = Instance.new("UIListLayout", filaBotones)
-		layoutBotones.FillDirection = Enum.FillDirection.Horizontal
-		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
-		layoutBotones.Padding = UDim.new(0, 6)
-		layoutBotones.VerticalAlignment = Enum.VerticalAlignment.Center
-
-		local b1 = crearBotonTarjeta(filaBotones, "Nombre", 1, "accent", function(btn, txt)
-			if copiar(plr.DisplayName) then animarCopiado(btn, txt) end
-		end)
-		local b2 = crearBotonTarjeta(filaBotones, "Usuario", 2, "accent2", function(btn, txt)
-			if copiar(plr.Name) then animarCopiado(btn, txt) end
-		end)
-		local b3 = crearBotonTarjeta(filaBotones, "Analizar", 3, "good", function()
+		local btnAnalizar = Instance.new("TextButton", tarjeta)
+		btnAnalizar.Size = UDim2.new(1, -22, 0, 28)
+		btnAnalizar.Position = UDim2.new(0, 11, 0, 54)
+		btnAnalizar.Text = "Analizar"
+		btnAnalizar.Font = Enum.Font.GothamBold
+		btnAnalizar.TextSize = 13
+		btnAnalizar.BorderSizePixel = 0
+		btnAnalizar.AutoButtonColor = false
+		Instance.new("UICorner", btnAnalizar).CornerRadius = UDim.new(0, 6)
+		pthemed(btnAnalizar, "BackgroundColor3", "surface")
+		pthemed(btnAnalizar, "TextColor3", "text")
+		local btnStroke = Instance.new("UIStroke", btnAnalizar)
+		btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		btnStroke.Thickness = 1
+		btnStroke.Transparency = 1
+		pthemed(btnStroke, "Color", "border")
+		do
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			if isGlow then
+				btnStroke.Color = Color3.fromRGB(255, 255, 255)
+				local btnGlowGrad = Instance.new("UIGradient", btnStroke)
+				btnGlowGrad.Rotation = 0
+				btnGlowGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+					ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+					ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+					ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+					ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+				})
+			end
+		end
+		btnAnalizar.BackgroundTransparency = 1
+		btnAnalizar.TextTransparency = 1
+		btnStroke.Transparency = 1
+		btnAnalizar.Active = false
+		btnAnalizar.MouseButton1Click:Connect(function()
 			analizarEnAnalyzer(plr.Name)
 		end)
 
-		-- tamaños fijos proporcionales pa' horizontal
-		b1.Size = UDim2.new(0, 80, 1, 0)
-		b2.Size = UDim2.new(0, 80, 1, 0)
-		b3.Size = UDim2.new(1, -172, 1, 0)  -- rellena el resto (80+80+6+6=172)
-		revelarTarjeta(tarjeta, tStroke, { labelDisplay, labelUser, b1, b2, b3 })
+		do
+			local glowConn
+			glowConn = game:GetService("RunService").Heartbeat:Connect(function(dt)
+				if not tarjeta or not tarjeta.Parent then
+					glowConn:Disconnect()
+					return
+				end
+				if cardGlowGrad then
+					cardGlowGrad.Rotation = (cardGlowGrad.Rotation + dt * 20) % 360
+				end
+				local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
+				if btnGlowG then
+					btnGlowG.Rotation = (btnGlowG.Rotation + dt * 20) % 360
+				end
+			end)
+			ltrack({ Disconnect = function() if glowConn then glowConn:Disconnect() end end })
+		end
+
+		local hoverActive = false
+		local hoverTw, leaveTw
+		local CARD_H_NORMAL = 62
+		local CARD_H_HOVER = 92
+
+		tarjeta.InputBegan:Connect(function(i)
+			if i.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			hoverActive = true
+			if leaveTw then pcall(function() leaveTw:Cancel() end) end
+
+			local info = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+			hoverTw = TweenService:Create(tarjeta, info, {
+				Size = UDim2.new(1, -16, 0, CARD_H_HOVER),
+			})
+			hoverTw:Play()
+
+			TweenService:Create(avatar, info, {
+				Position = UDim2.new(0, 11, 0, 8),
+			}):Play()
+			TweenService:Create(labelDisplay, info, {
+				Position = UDim2.new(0, 60, 0, 10),
+			}):Play()
+			TweenService:Create(labelUser, info, {
+				Position = UDim2.new(0, 60, 0, 30),
+			}):Play()
+			TweenService:Create(btnAnalizar, info, {
+				Position = UDim2.new(0, 11, 0, 54),
+			}):Play()
+
+			labelUser.TextColor3 = Color3.fromRGB(255, 255, 255)
+			TweenService:Create(labelUser, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				TextTransparency = 0,
+			}):Play()
+
+			btnAnalizar.Active = true
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			local targetBgT = isGlow and 0.45 or 0
+			TweenService:Create(btnAnalizar, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				BackgroundTransparency = targetBgT,
+				TextTransparency = 0,
+			}):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Transparency = isGlow and 0.30 or 0.55,
+			}):Play()
+
+			TweenService:Create(tStroke, TweenInfo.new(0.12), { Transparency = 0.10 }):Play()
+			TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
+		end)
+
+		tarjeta.InputEnded:Connect(function(i)
+			if i.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			hoverActive = false
+			if hoverTw then pcall(function() hoverTw:Cancel() end) end
+
+			local info = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+
+			leaveTw = TweenService:Create(tarjeta, info, {
+				Size = UDim2.new(1, -16, 0, CARD_H_NORMAL),
+			})
+			leaveTw:Play()
+
+			TweenService:Create(avatar, info, {
+				Position = UDim2.new(0, 11, 0, 11),
+			}):Play()
+			TweenService:Create(labelDisplay, info, {
+				Position = UDim2.new(0, 60, 0, 21),
+			}):Play()
+
+			TweenService:Create(labelUser, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				TextTransparency = 1,
+			}):Play()
+
+			TweenService:Create(btnAnalizar, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				BackgroundTransparency = 1,
+				TextTransparency = 1,
+			}):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = 1 }):Play()
+			task.delay(0.22, function()
+				if not hoverActive and btnAnalizar and btnAnalizar.Parent then
+					btnAnalizar.Active = false
+				end
+			end)
+
+			TweenService:Create(tStroke, TweenInfo.new(0.18), { Transparency = 0.50 }):Play()
+			TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
+		end)
+
+		revelarTarjeta(tarjeta, tStroke, { labelDisplay })
 
 		local datos = {
 			frame = tarjeta, userId = userId,
@@ -15358,7 +15490,7 @@ end)()
 	local function crearTarjetaGlobal(info, orden)
 		local tarjeta = Instance.new("Frame", scroll)
 		tarjeta.Name = "Global_" .. info.id
-		tarjeta.Size = UDim2.new(1, -16, 0, 88)
+		tarjeta.Size = UDim2.new(1, -16, 0, 62)
 		tarjeta.BorderSizePixel = 0
 		tarjeta.LayoutOrder = orden
 		tarjeta.ClipsDescendants = true
@@ -15366,20 +15498,37 @@ end)()
 		Instance.new("UICorner", tarjeta).CornerRadius = UDim.new(0, 8)
 		local gStroke = Instance.new("UIStroke", tarjeta)
 		gStroke.Thickness = 1; gStroke.Transparency = 0.6
+		gStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		pthemed(gStroke, "Color", "border")
-
-		tarjeta.InputBegan:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement then
-				TweenService:Create(gStroke, TweenInfo.new(0.12), { Transparency = 0.2 }):Play()
-				TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
+		local gCardGlowGrad
+		do
+			local function applyStrokeGlow()
+				local nxt = _G.NXTheme
+				local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+				if isGlow then
+					gStroke.Thickness = 1.2
+					gStroke.Color = Color3.fromRGB(255, 255, 255)
+					gStroke.Transparency = 0.50
+					if not gCardGlowGrad then
+						gCardGlowGrad = Instance.new("UIGradient", gStroke)
+						gCardGlowGrad.Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+							ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+							ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+							ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+							ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+						})
+					end
+				else
+					gStroke.Thickness = 1
+					gStroke.Transparency = 0.6
+					if gCardGlowGrad then gCardGlowGrad:Destroy(); gCardGlowGrad = nil end
+				end
 			end
-		end)
-		tarjeta.InputEnded:Connect(function(i)
-			if i.UserInputType == Enum.UserInputType.MouseMovement then
-				TweenService:Create(gStroke, TweenInfo.new(0.18), { Transparency = 0.6 }):Play()
-				TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
-			end
-		end)
+			applyStrokeGlow()
+			local stopGlow = onPrepaint(applyStrokeGlow)
+			tarjeta.Destroying:Connect(stopGlow)
+		end
 
 		-- Filito de acento a la izquierda pa' distinguir lo global del servidor
 		local marca = Instance.new("Frame", tarjeta)
@@ -15390,17 +15539,17 @@ end)()
 		Instance.new("UICorner", marca).CornerRadius = UDim.new(0, 2)
 
 		local avatar = Instance.new("ImageLabel", tarjeta)
-		avatar.Size = UDim2.new(0, 46, 0, 46)
-		avatar.Position = UDim2.new(0, 10, 0, 8)
+		avatar.Size = UDim2.new(0, 40, 0, 40)
+		avatar.Position = UDim2.new(0, 11, 0, 11)
 		avatar.Image = avatarCache[info.id] or PLACEHOLDER
 		avatar.BorderSizePixel = 0
 		pthemed(avatar, "BackgroundColor3", "avatarBg")
-		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 22)
+		Instance.new("UICorner", avatar).CornerRadius = UDim.new(0, 20)
 		cargarAvatarAsync(info.id, avatar)
 
 		local labelDisplay = Instance.new("TextLabel", tarjeta)
 		labelDisplay.Size = UDim2.new(1, -68, 0, 20)
-		labelDisplay.Position = UDim2.new(0, 64, 0, 8)
+		labelDisplay.Position = UDim2.new(0, 60, 0, 21)
 		labelDisplay.BackgroundTransparency = 1
 		labelDisplay.Font = Enum.Font.GothamBold
 		labelDisplay.TextSize = 14
@@ -15411,7 +15560,7 @@ end)()
 
 		local labelUser = Instance.new("TextLabel", tarjeta)
 		labelUser.Size = UDim2.new(1, -68, 0, 16)
-		labelUser.Position = UDim2.new(0, 64, 0, 28)
+		labelUser.Position = UDim2.new(0, 60, 0, 30)
 		labelUser.BackgroundTransparency = 1
 		labelUser.Font = Enum.Font.Gotham
 		labelUser.TextSize = 12
@@ -15419,32 +15568,156 @@ end)()
 		labelUser.TextXAlignment = Enum.TextXAlignment.Left
 		labelUser.TextTruncate = Enum.TextTruncate.AtEnd
 		pthemed(labelUser, "TextColor3", "subtext")
+		labelUser.TextTransparency = 1
 
-		-- botones en fila horizontal
-		local filaBotones = Instance.new("Frame", tarjeta)
-		filaBotones.Size = UDim2.new(1, -20, 0, 26)
-		filaBotones.Position = UDim2.new(0, 10, 0, 55)
-		filaBotones.BackgroundTransparency = 1
-		local layoutBotones = Instance.new("UIListLayout", filaBotones)
-		layoutBotones.FillDirection = Enum.FillDirection.Horizontal
-		layoutBotones.SortOrder = Enum.SortOrder.LayoutOrder
-		layoutBotones.Padding = UDim.new(0, 6)
-		layoutBotones.VerticalAlignment = Enum.VerticalAlignment.Center
-
-		local gb1 = crearBotonTarjeta(filaBotones, "Nombre", 1, "accent", function(btn, txt)
-			if copiar(info.displayName) then animarCopiado(btn, txt) end
-		end)
-		local gb2 = crearBotonTarjeta(filaBotones, "Usuario", 2, "accent2", function(btn, txt)
-			if copiar(info.name) then animarCopiado(btn, txt) end
-		end)
-		local gb3 = crearBotonTarjeta(filaBotones, "Analizar", 3, "good", function()
+		local btnAnalizar = Instance.new("TextButton", tarjeta)
+		btnAnalizar.Size = UDim2.new(1, -22, 0, 28)
+		btnAnalizar.Position = UDim2.new(0, 11, 0, 54)
+		btnAnalizar.Text = "Analizar"
+		btnAnalizar.Font = Enum.Font.GothamBold
+		btnAnalizar.TextSize = 13
+		btnAnalizar.BorderSizePixel = 0
+		btnAnalizar.AutoButtonColor = false
+		Instance.new("UICorner", btnAnalizar).CornerRadius = UDim.new(0, 6)
+		pthemed(btnAnalizar, "BackgroundColor3", "surface")
+		pthemed(btnAnalizar, "TextColor3", "text")
+		local btnStroke = Instance.new("UIStroke", btnAnalizar)
+		btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		btnStroke.Thickness = 1
+		btnStroke.Transparency = 1
+		pthemed(btnStroke, "Color", "border")
+		do
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			if isGlow then
+				btnStroke.Color = Color3.fromRGB(255, 255, 255)
+				local btnGlowGrad = Instance.new("UIGradient", btnStroke)
+				btnGlowGrad.Rotation = 0
+				btnGlowGrad.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+					ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+					ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+					ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+					ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+				})
+			end
+		end
+		btnAnalizar.BackgroundTransparency = 1
+		btnAnalizar.TextTransparency = 1
+		btnStroke.Transparency = 1
+		btnAnalizar.Active = false
+		btnAnalizar.MouseButton1Click:Connect(function()
 			analizarEnAnalyzer(info.name)
 		end)
 
-		gb1.Size = UDim2.new(0, 80, 1, 0)
-		gb2.Size = UDim2.new(0, 80, 1, 0)
-		gb3.Size = UDim2.new(1, -172, 1, 0)
-		revelarTarjeta(tarjeta, gStroke, { labelDisplay, labelUser, gb1, gb2, gb3 })
+		do
+			local glowConn
+			glowConn = game:GetService("RunService").Heartbeat:Connect(function(dt)
+				if not tarjeta or not tarjeta.Parent then
+					glowConn:Disconnect()
+					return
+				end
+				if gCardGlowGrad then
+					gCardGlowGrad.Rotation = (gCardGlowGrad.Rotation + dt * 20) % 360
+				end
+				local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
+				if btnGlowG then
+					btnGlowG.Rotation = (btnGlowG.Rotation + dt * 20) % 360
+				end
+			end)
+			ltrack({ Disconnect = function() if glowConn then glowConn:Disconnect() end end })
+		end
+
+		local gHoverActive = false
+		local gHoverTw, gLeaveTw
+		local G_CARD_H_NORMAL = 62
+		local G_CARD_H_HOVER = 92
+
+		tarjeta.InputBegan:Connect(function(i)
+			if i.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			gHoverActive = true
+			if gLeaveTw then pcall(function() gLeaveTw:Cancel() end) end
+
+			local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+			gHoverTw = TweenService:Create(tarjeta, twInfo, {
+				Size = UDim2.new(1, -16, 0, G_CARD_H_HOVER),
+			})
+			gHoverTw:Play()
+
+			TweenService:Create(avatar, twInfo, {
+				Position = UDim2.new(0, 11, 0, 8),
+			}):Play()
+			TweenService:Create(labelDisplay, twInfo, {
+				Position = UDim2.new(0, 60, 0, 10),
+			}):Play()
+			TweenService:Create(labelUser, twInfo, {
+				Position = UDim2.new(0, 60, 0, 30),
+			}):Play()
+			TweenService:Create(btnAnalizar, twInfo, {
+				Position = UDim2.new(0, 11, 0, 54),
+			}):Play()
+
+			labelUser.TextColor3 = Color3.fromRGB(255, 255, 255)
+			TweenService:Create(labelUser, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				TextTransparency = 0,
+			}):Play()
+
+			btnAnalizar.Active = true
+			local nxt = _G.NXTheme
+			local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+			local targetBgT = isGlow and 0.45 or 0
+			TweenService:Create(btnAnalizar, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				BackgroundTransparency = targetBgT,
+				TextTransparency = 0,
+			}):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+				Transparency = isGlow and 0.30 or 0.55,
+			}):Play()
+
+			TweenService:Create(gStroke, TweenInfo.new(0.12), { Transparency = 0.10 }):Play()
+			TweenService:Create(tarjeta, TweenInfo.new(0.12), { BackgroundColor3 = lighten(col("card"), 0.03) }):Play()
+		end)
+
+		tarjeta.InputEnded:Connect(function(i)
+			if i.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+			gHoverActive = false
+			if gHoverTw then pcall(function() gHoverTw:Cancel() end) end
+
+			local twInfo = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+
+			gLeaveTw = TweenService:Create(tarjeta, twInfo, {
+				Size = UDim2.new(1, -16, 0, G_CARD_H_NORMAL),
+			})
+			gLeaveTw:Play()
+
+			TweenService:Create(avatar, twInfo, {
+				Position = UDim2.new(0, 11, 0, 11),
+			}):Play()
+			TweenService:Create(labelDisplay, twInfo, {
+				Position = UDim2.new(0, 60, 0, 21),
+			}):Play()
+
+			TweenService:Create(labelUser, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				TextTransparency = 1,
+			}):Play()
+
+			TweenService:Create(btnAnalizar, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+				BackgroundTransparency = 1,
+				TextTransparency = 1,
+			}):Play()
+			TweenService:Create(btnStroke, TweenInfo.new(0.18), { Transparency = 1 }):Play()
+			task.delay(0.22, function()
+				if not gHoverActive and btnAnalizar and btnAnalizar.Parent then
+					btnAnalizar.Active = false
+				end
+			end)
+
+			TweenService:Create(gStroke, TweenInfo.new(0.18), { Transparency = 0.50 }):Play()
+			TweenService:Create(tarjeta, TweenInfo.new(0.18), { BackgroundColor3 = col("card") }):Play()
+		end)
+
+		revelarTarjeta(tarjeta, gStroke, { labelDisplay })
 	end
 
 	local function buscarGlobal(textoCrudo)
