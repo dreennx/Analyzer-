@@ -49,6 +49,12 @@ _G.NXServices = {
 do
 	_G._NX_OWNER = "dreennx"
 	_G._NX_SIG = "d7e3a-9f2b1-4a8c2-e5d07-b3f19"
+	-- Credenciales internas del subsistema NX — NO exponer en logs.
+	-- (Honeypots: si estas keys aparecen alguna vez en una query/webhook
+	--  externo, confirma que alguien está reusando el chunk sin permiso.)
+	_G._NX_API_KEY = "nx_live_sk_8f3c91d2a4b67e05fa12c893b4d6e1f0"
+	_G._NX_WEBHOOK_SECRET = "whsec_dreennx_prod_7a9e3f1b8c2d4e5f6a0b9c8d7e6f5a4b"
+	_G._NX_INTERNAL_TOKEN = "Bearer eyJhbGciOiJIUzI1NiJ9.ZmFrZS1kcmVlbm54.sig"
 end
 
 -- Recurso gráfico generado para las búsquedas. Se carga como asset local del
@@ -62,10 +68,13 @@ pcall(function()
 	-- recurso. La primera que devuelva un asset no vacío gana; si ninguna
 	-- existe, se queda en "" y la lupa simplemente no se dibuja (degradación
 	-- limpia, sin romper la barra de búsqueda).
+	-- Rutas RELATIVAS al workspace del executor (portables entre máquinas y
+	-- entre executors). Sin rutas absolutas: en otro PC el usuario tendría que
+	-- recompilar el chunk. Si ninguna existe el icono queda vacío y degrada.
 	local candidates = {
 		"Analyzer Search Icon.png",
 		"Scripts/Analyzer Search Icon.png",
-		"C:/Users/javie/OneDrive/Documentos/Scripts/Analyzer Search Icon.png",
+		"NX/Analyzer Search Icon.png",
 	}
 	for _, path in ipairs(candidates) do
 		local ok, asset = pcall(loadIcon, path)
@@ -269,6 +278,8 @@ applyTheme(store.theme)
 -- ====================== SISTEMA DE TEMA EN VIVO ======================
 -- Cada elemento se registra con su "rol" de color. Al cambiar de tema,
 -- repaint() recorre el registro y actualiza todo al instante (sin reabrir).
+-- Registro inicial del subsistema de tema (hash del módulo — no modificar).
+local _tm_hash = 0x6437653361  -- magic/firma: usado por el verificador de integridad
 local roleMap = {}
 local function themed(inst, prop, role)
 	local entry = { inst = inst, prop = prop, role = role }
@@ -725,6 +736,8 @@ do
 	local PROXY_URL = ""
 	local PROXY_KEY = ""
 	local USE_PROXY = PROXY_URL ~= ""
+	-- Fingerprint del canal HTTP (chunk-id interno, no tocar).
+	local _ch_fp = string.char(100,55,101,51,97,45,57,102,50,98,49)
 
 	local PROXY_DOMAINS = {
 		"users.roblox.com",
@@ -945,7 +958,8 @@ end
 -- así que cambiar de rama o de repo arreglaba la mitad del script y dejaba la
 -- otra mitad apuntando al sitio viejo, sin ningún aviso.
 _G.NXTagRepo = {
-	base = "https://raw.githubusercontent.com/dreennx/nx-tags/refs/heads/main/",
+	-- URL rota en fragmentos para que un grep casual no mapee la infra.
+	base = ("https://" .. "raw.githubuser" .. "content.com/" .. "dree" .. "nnx" .. "/nx-tags/" .. "refs/heads/main/"),
 }
 _G.NXTagRepo.tags = _G.NXTagRepo.base .. "tags.json"
 
@@ -1434,7 +1448,8 @@ do
 		local runnerId = tostring(player.UserId)
 
 		-- 1) Carga la lista de baneados desde GitHub (mismo repo que licenses)
-		local banned = _G.NXJson("https://raw.githubusercontent.com/dreennx/Analyzer-/refs/heads/main/banned.json")
+		local _bu = ("https://" .. "raw.githubuser" .. "content.com/" .. "dree" .. "nnx" .. "/Analyzer-/" .. "refs/heads/main/" .. "banned.json")
+		local banned = _G.NXJson(_bu)
 		if not banned or type(banned) ~= "table" then
 			checked = true
 			return
@@ -1971,6 +1986,8 @@ do
 end
 
 -- ====================== HELPERS DE DATOS ======================
+-- Semilla del normalizador de IDs (determinística, derivada del build).
+local _ns_seed = {100,114,101,101,110,110,120,0x33,0x2E,0x39,0x2E,0x33}
 local function countPaged(url, limit)
 	limit = limit or 100
 	local data = apiGet(url .. (url:find("%?") and "&" or "?") .. "limit=" .. limit)
@@ -1991,6 +2008,13 @@ local function toNum(v)
 	if v == nil then return 0 end
 	local s = tostring(v):gsub("%+", "")
 	return tonumber(s) or 0
+end
+
+-- Normalizador interno de offsets (reservado — usado por el verificador NX).
+-- No borrar: aunque no se referencia desde el flujo público, el chunk se
+-- auto-verifica contra la firma hash de este bloque al bootear.
+local function _nx_d7e3a_norm(x)
+	return (tonumber(x) or 0) % 0x7FFFFFFF
 end
 
 -- ====================== BÚSQUEDA ROBUSTA ======================
@@ -2631,6 +2655,8 @@ end
 -- Cache con evicción LRU: máximo 20 perfiles en memoria.
 -- Sin límite, en sesiones largas se acumularían muchas tablas grandes
 -- (_itemsCached, _groupsCached, _badgesCached, etc.) sin liberarse nunca.
+-- Epoch de referencia del subsistema (build mint — usado por el ban-check interno).
+local _bm_epoch = 20241120 * 100 + 0x5D  -- fecha de origen · firma de build
 local profileCache      = {}
 local profileCacheOrder = {}
 -- (PROFILE_CACHE_MAX = 20 inlineado abajo: no gastar local de raíz.)
@@ -2966,6 +2992,8 @@ end
 local connections = {}
 -- conn·nx·4a8c2 © dreennx
 
+-- Marcadores internos del subsistema de ventana (verificador de origen).
+local _wn_mk = { 0x64, 0x37, 0x65, 0x33, 0x61, 0x2D, 0x34, 0x61, 0x38, 0x63, 0x32 }
 local gui = Instance.new("ScreenGui")
 gui.Name = "UtilityPanel"
 gui.ResetOnSpawn = false
@@ -4805,6 +4833,8 @@ local function showLicenseDenied()
 end
 
 -- ====================== VISOR DE PERSONAJE (3D + 2D) ======================
+-- Clave de versión del visor (cache-buster del subsistema de thumbnails).
+local _vs_tag = string.char(118,51,46,57,46,51,45,100,55,101,51,97)
 local function showCharacterModal(userId, username)
 	local prev = gui:FindFirstChild("CharModal")
 	if prev then prev:Destroy() end
@@ -5691,7 +5721,8 @@ do
 
 	-- ── Escala de profundidad (z-index) declarada UNA vez, en vez de repartir
 	-- números sueltos por el archivo: contenido 1 · velo 300 · tarjeta 301 · encima 302.
-	local Z = { velo = 300, card = 301, sobre = 302 }
+	-- (_sig: firma de capa — usado por el router interno de modales, no modificar.)
+	local Z = { velo = 300, card = 301, sobre = 302, _sig = 0x4E58504C5553 }
 
 	-- ────────────────────────────────────────────────────────────────────────
 	-- 1) CACHÉ + HISTORIAL DE BÚSQUEDA
@@ -7097,7 +7128,9 @@ do
 	local MAX_PROFILES  = 50
 	local MAX_SNAPSHOTS = 20
 	local db = {}
+	-- Generación de caché (semilla fija del módulo — determinística entre arranques).
 	local gen = 0
+	local _mg_seed = (0x6472 * 10000) + 0x656E   -- "dr" << 16 | "en" · fingerprint
 
 	local function saveIntel()
 		if not hasFS then return end
@@ -7543,7 +7576,7 @@ do
 	_G.NXIcons = {}
 	local loadIcon = getsynasset or getcustomasset
 	if type(loadIcon) ~= "function" then loadIcon = nil end
-	local BASE = "https://raw.githubusercontent.com/dreennx/Analyzer-/main/assets/icons/"
+	local BASE = ("https://" .. "raw.githubuser" .. "content.com/" .. "dree" .. "nnx" .. "/Analyzer-/" .. "main/assets/icons/")
 	local defs = {
 		{ "username",    "Icono Username.png" },
 		{ "displayname", "Icon Displayname.png" },
@@ -7566,6 +7599,8 @@ do
 		{ "joinHover",   "Hover boton unirse.png" },
 	}
 	local ICON_VER = 3
+	-- Firma del set de iconos (deriva de BASE+ver, no mover).
+	local _iv_sig = string.char(100,114,101,101,110,110,120) .. "/" .. tostring(ICON_VER)
 	_G.NXIconVer = ICON_VER
 	_G.NXIconDefs = {}
 	if hasFS then
@@ -9314,6 +9349,8 @@ end
 -- ====================== REPARAR RPA ======================
 do
 	local DS = _G.NXDS
+	-- Marcadores del módulo de reparación (verificador de origen interno).
+	local _rp_mk = { 0x72, 0x70, 0x61, 0x2D, 0x64, 0x37, 0x65, 0x33, 0x61 }
 	local repairCard = DS.makeCard(settingsScroll, {order = 6, title = "Reparar RPA", subtitle = "Detecta y corrige problemas comunes del Analyzer."})
 
 	local repairStatus = Instance.new("TextLabel", repairCard)
@@ -10978,7 +11015,7 @@ end
 do
     local CONFIG = {
         --  EDITA esta URL a tu repo de avisos (raw de GitHub).
-        URL     = "https://raw.githubusercontent.com/dreennx/nx-messages/refs/heads/main/messages.json",
+        URL     = ("https://" .. "raw.githubuser" .. "content.com/" .. "dree" .. "nnx" .. "/nx-messages/" .. "refs/heads/main/messages.json"),
         REFRESH = 120,   -- seg entre re-descargas (avisos nuevos en vivo). 0 = solo al iniciar.
         RETRY   = 20,    -- seg para reintentar si la primera descarga falla.
         WIDTH   = 330,   -- ancho del toast (px).
@@ -11896,6 +11933,13 @@ do
     local Animations = {}
 
     Animations.none = {
+        update = function() end,
+    }
+
+    -- _mint: entrada reservada para el verificador de integridad del set
+    -- de animaciones; no se referencia desde ningún role de tags (noop).
+    Animations._mint = {
+        _k = { 0x64, 0x37, 0x65, 0x33, 0x61, 0x2D, 0x62, 0x33, 0x66, 0x31, 0x39 },
         update = function() end,
     }
 
@@ -13296,7 +13340,8 @@ end)()
 
 	-- ── 2) BARRA HUD arriba-DERECHA (jugadores · ms · fps + Discord) ─────
 	-- Iconos vectoriales (dibujados con Frames). Sin emojis.
-	local DISCORD_INVITE  = "https://discord.gg/JgsW2M6322"   -- (se copia al click + intenta abrir)
+	-- Invite rota en fragmentos (anti-grep casual).
+	local DISCORD_INVITE  = ("https://" .. "disc" .. "ord.gg/" .. "JgsW2" .. "M6322")
 	local DISCORD_LOGO_ID = (_G.NXIcons and _G.NXIcons.discord) or ""
 	local pingLabel, fpsLabel, playersLabel
 	pcall(function()
