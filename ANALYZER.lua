@@ -3023,6 +3023,30 @@ local function track(conn)
 	return conn
 end
 
+-- ══ DESTRUIR notificación nativa "se unió a ti" ══
+do
+	local function nukeToast(container)
+		for _, desc in ipairs(container:GetDescendants()) do
+			if desc.Name == "ToastRoot" and desc:IsA("Frame") then
+				pcall(function() desc.Visible = false; desc:Destroy() end)
+			end
+		end
+		local conn = container.DescendantAdded:Connect(function(desc)
+			if desc.Name == "ToastRoot" and desc:IsA("Frame") then
+				pcall(function() desc.Visible = false; desc:Destroy() end)
+			end
+		end)
+		track(conn)
+	end
+
+	pcall(function() nukeToast(game:GetService("CoreGui")) end)
+	pcall(function()
+		if type(gethui) == "function" then
+			nukeToast(gethui())
+		end
+	end)
+end
+
 -- Declarada antes de cleanupAll para que el cierre siempre resuelva el local
 -- correcto, incluso aunque la implementación de animaciones aparezca después.
 local cancelAllInfinites
@@ -4187,27 +4211,31 @@ local function makeScroll(parent)
 		local STEP = 50
 
 		local sConn
-		sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
-			if not sf or not sf.Parent then sConn:Disconnect() return end
-			if not sMoving then return end
-			local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
-			sTarget = math.clamp(sTarget, 0, maxY)
-			local alpha = 1 - SMOOTH ^ dt
-			sCurrent = sCurrent + (sTarget - sCurrent) * alpha
-			if math.abs(sTarget - sCurrent) < 0.5 then
-				sCurrent = sTarget
-				sMoving = false
-			end
-			sf.CanvasPosition = Vector2.new(0, sCurrent)
-		end)
-		track({ Disconnect = function() sConn:Disconnect() end })
+		local function startSmooth()
+			if sConn then return end
+			sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
+				if not sf or not sf.Parent then sConn:Disconnect(); sConn = nil return end
+				local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
+				sTarget = math.clamp(sTarget, 0, maxY)
+				local alpha = 1 - SMOOTH ^ dt
+				sCurrent = sCurrent + (sTarget - sCurrent) * alpha
+				if math.abs(sTarget - sCurrent) < 0.5 then
+					sCurrent = sTarget
+					sf.CanvasPosition = Vector2.new(0, sCurrent)
+					sConn:Disconnect(); sConn = nil
+					return
+				end
+				sf.CanvasPosition = Vector2.new(0, sCurrent)
+			end)
+		end
+		track({ Disconnect = function() if sConn then sConn:Disconnect(); sConn = nil end end })
 
 		track(sf.InputChanged:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseWheel then
-				if not sMoving then sCurrent = sf.CanvasPosition.Y; sTarget = sCurrent end
+				if not sConn then sCurrent = sf.CanvasPosition.Y; sTarget = sCurrent end
 				local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
 				sTarget = math.clamp(sTarget - input.Position.Z * STEP, 0, maxY)
-				sMoving = true
+				startSmooth()
 			end
 		end))
 
@@ -7805,6 +7833,179 @@ do
 	end
 end
 
+-- ====================== JOIN TOAST · amigos · pantalla ======================
+-- Reemplaza la notificación nativa de Roblox "X se unió a ti".
+-- Parent = gui (ScreenGui), posición = arriba-centro de la pantalla.
+-- Estilo = botón "secondary" (C.surface bg, C.text, GothamBold) con glass.
+-- Solo se dispara cuando un AMIGO se une al servidor.
+-- toast·join·nx·e5d07
+do
+	local activeJoinToast = nil
+	local joinTweens = {}
+	local TS = TweenService
+	local RunService = game:GetService("RunService")
+
+	local friendCache = {}
+	_G._nxFriendCache = friendCache
+
+	task.spawn(function()
+		pcall(function()
+			local pages = player:GetFriendsAsync()
+			while true do
+				for _, item in ipairs(pages:GetCurrentPage()) do
+					friendCache[item.Id] = true
+				end
+				if pages.IsFinished then break end
+				pages:AdvanceToNextPageAsync()
+			end
+		end)
+
+		if next(friendCache) == nil then
+			pcall(function()
+				local http = game:GetService("HttpService")
+				local url = "https://friends.roblox.com/v1/users/" .. player.UserId .. "/friends"
+				local resp = (syn and syn.request or http_request or request)({Url = url, Method = "GET"})
+				if resp and resp.Body then
+					local data = http:JSONDecode(resp.Body)
+					if data and data.data then
+						for _, f in ipairs(data.data) do
+							friendCache[f.id] = true
+						end
+					end
+				end
+			end)
+		end
+	end)
+
+	_G.NXJoinToast = function(plr)
+		if not plr or not plr:IsA("Player") then return end
+
+		for _, tw in ipairs(joinTweens) do
+			pcall(function() tw:Cancel() end)
+		end
+		joinTweens = {}
+		if activeJoinToast and activeJoinToast.Parent then
+			activeJoinToast:Destroy()
+		end
+		activeJoinToast = nil
+
+		local displayName = plr.DisplayName or plr.Name
+		local userId = plr.UserId
+		local thumbUrl = ("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150"):format(userId)
+
+		local nxt = _G.NXTheme
+		local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+
+		local toast = Instance.new("Frame")
+		toast.Name = "NXJoinToast"
+		toast.Size = UDim2.new(0, 320, 0, 50)
+		toast.AnchorPoint = Vector2.new(0.5, 0)
+		toast.Position = UDim2.new(0.5, 0, 0, -60)
+		toast.BorderSizePixel = 0
+		toast.ZIndex = 9999
+		toast.ClipsDescendants = true
+
+		toast.BackgroundColor3 = C.card
+		toast.BackgroundTransparency = 0
+		themed(toast, "BackgroundColor3", "card")
+
+		Instance.new("UICorner", toast).CornerRadius = UDim.new(0, 23)
+
+		local tStroke = Instance.new("UIStroke", toast)
+		tStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		tStroke.Thickness = 1.5
+		tStroke.Color = C.accent
+		tStroke.Transparency = 0.2
+		themed(tStroke, "Color", "accent")
+
+		local strokeGrad
+		if isGlow then
+			strokeGrad = Instance.new("UIGradient", tStroke)
+			strokeGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.00, Color3.fromRGB(180, 180, 190)),
+				ColorSequenceKeypoint.new(0.15, Color3.fromRGB(220, 220, 230)),
+				ColorSequenceKeypoint.new(0.30, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
+				ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
+			})
+			if type(strokeGrads) == "table" then
+				table.insert(strokeGrads, strokeGrad)
+			else
+				_G._nxPendingGrads = _G._nxPendingGrads or {}
+				table.insert(_G._nxPendingGrads, strokeGrad)
+			end
+		end
+
+		local AV = 36
+		local avatarFrame = Instance.new("Frame", toast)
+		avatarFrame.Name = "AvatarMask"
+		avatarFrame.Size = UDim2.fromOffset(AV, AV)
+		avatarFrame.AnchorPoint = Vector2.new(0, 0.5)
+		avatarFrame.Position = UDim2.new(0, 9, 0.5, 0)
+		avatarFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		avatarFrame.BackgroundTransparency = 0.5
+		avatarFrame.ZIndex = toast.ZIndex + 1
+		avatarFrame.ClipsDescendants = true
+		Instance.new("UICorner", avatarFrame).CornerRadius = UDim.new(1, 0)
+
+		local avatarImg = Instance.new("ImageLabel", avatarFrame)
+		avatarImg.Size = UDim2.fromScale(1, 1)
+		avatarImg.BackgroundTransparency = 1
+		avatarImg.Image = thumbUrl
+		avatarImg.ScaleType = Enum.ScaleType.Crop
+		avatarImg.ImageTransparency = 0
+		avatarImg.ZIndex = toast.ZIndex + 1
+
+		local avStroke = Instance.new("UIStroke", avatarFrame)
+		avStroke.Thickness = 1.5
+		avStroke.Color = C.accent
+		avStroke.Transparency = 0.2
+		themed(avStroke, "Color", "accent")
+
+		local textX = 9 + AV + 8
+		local lbl = Instance.new("TextLabel", toast)
+		lbl.Size = UDim2.new(1, -(textX + 14), 1, 0)
+		lbl.Position = UDim2.new(0, textX, 0, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Font = Enum.Font.GothamBold
+		lbl.TextSize = 13
+		lbl.TextColor3 = C.text
+		lbl.TextTransparency = 0
+		lbl.Text = displayName .. " se unió"
+		lbl.TextXAlignment = Enum.TextXAlignment.Left
+		lbl.TextTruncate = Enum.TextTruncate.AtEnd
+		lbl.ZIndex = toast.ZIndex + 1
+		themed(lbl, "TextColor3", "text")
+
+		toast.Parent = gui
+		activeJoinToast = toast
+
+		local expandInfo = TweenInfo.new(0.38, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		local tw1 = TS:Create(toast, expandInfo, { Position = UDim2.new(0.5, 0, 0, 12) })
+		tw1:Play()
+		joinTweens[#joinTweens + 1] = tw1
+
+		task.delay(3.5, function()
+			if activeJoinToast ~= toast then return end
+			local fadeOut = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			TS:Create(lbl, fadeOut, { TextTransparency = 1 }):Play()
+			TS:Create(avatarImg, fadeOut, { ImageTransparency = 1 }):Play()
+
+			task.delay(0.2, function()
+				if activeJoinToast ~= toast then return end
+				local shrink = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+				local tw5 = TS:Create(toast, shrink, { Position = UDim2.new(0.5, 0, 0, -60) })
+				tw5:Play()
+				task.delay(0.35, function()
+					if activeJoinToast == toast then activeJoinToast = nil end
+					if toast and toast.Parent then toast:Destroy() end
+					joinTweens = {}
+				end)
+			end)
+		end)
+	end
+end
+
 local function render(data, skipEntrance)
 -- render·nx·b3f19 © dreennx
 	clearScroll(profileScroll)
@@ -7816,6 +8017,10 @@ local function render(data, skipEntrance)
 	-- se invalida lo que hubiera pintado del perfil anterior.
 	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
 	if _G.NXIntel and _G.NXIntel.reset then pcall(_G.NXIntel.reset) end
+
+	if not data then return end
+
+	pcall(function() statusLabel.Text = "Renderizando..." end)
 
 	-- Compactación de roleMap: themed() añade una entrada por instancia en CADA
 	-- render, pero la limpieza de entradas muertas (inst == nil, lo pone el
@@ -10109,41 +10314,48 @@ do
 		finishing = true
 		local miGen = gen
 		task.spawn(function()
-			local elapsed = os.clock() - startedAt
-			local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.3 or 1.0
-			if elapsed < minTime then task.wait(minTime - elapsed) end
-			if miGen ~= gen then done(); return end
+			local spawnOk, spawnErr = pcall(function()
+				local elapsed = os.clock() - startedAt
+				local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.3 or 1.0
+				if elapsed < minTime then task.wait(minTime - elapsed) end
+				if miGen ~= gen then done(); return end
 
-			local finalColor = C.good
-			if validationState == "skipped" then finalColor = C.subtext
-			elseif validationState == "partial" then finalColor = C.warn
-			elseif validationState == "error" or validationState == "incomplete" then finalColor = C.bad end
+				local finalColor = C.good
+				if validationState == "skipped" then finalColor = C.subtext
+				elseif validationState == "partial" then finalColor = C.warn
+				elseif validationState == "error" or validationState == "incomplete" then finalColor = C.bad end
 
-			for _, b in ipairs(bars) do
-				if b.tween then pcall(function() b.tween:Cancel() end) end
-				if b.frame and b.frame.Parent then
-					motionTween(b.frame, TweenInfo.new(0.3), {
-						BackgroundColor3 = finalColor,
-						Size = UDim2.fromOffset(4, 14),
-					})
+				for _, b in ipairs(bars) do
+					if b.tween then pcall(function() b.tween:Cancel() end) end
+					if b.frame and b.frame.Parent then
+						motionTween(b.frame, TweenInfo.new(0.3), {
+							BackgroundColor3 = finalColor,
+							Size = UDim2.fromOffset(4, 14),
+						})
+					end
 				end
-			end
 
-			local statusTxt
-			if validationState == "verified" then statusTxt = "Verified"
-			elseif validationState == "skipped" then statusTxt = "Sin verificar"
-			elseif validationState == "partial" then statusTxt = "Parcial"
-			elseif validationState == "error" then statusTxt = "Error"
-			else statusTxt = "Completed" end
-			setStatus(statusTxt, finalColor)
+				local statusTxt
+				if validationState == "verified" then statusTxt = "Verified"
+				elseif validationState == "skipped" then statusTxt = "Sin verificar"
+				elseif validationState == "partial" then statusTxt = "Parcial"
+				elseif validationState == "error" then statusTxt = "Error"
+				else statusTxt = "Completed" end
+				setStatus(statusTxt, finalColor)
 
-			task.wait(0.45)
-			if miGen ~= gen then done(); return end
-			motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
-			motionTween(overlay, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }, function()
+				task.wait(0.45)
+				if miGen ~= gen then done(); return end
+				motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
+				motionTween(overlay, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }, function()
+					destroyNow()
+					done()
+				end)
+			end)
+			if not spawnOk then
+				warn("[NX Analyzer] scan finish error: " .. tostring(spawnErr))
 				destroyNow()
 				done()
-			end)
+			end
 		end)
 	end
 
@@ -10316,6 +10528,14 @@ analyze = function(input)
 	if _G.NXIntel and _G.NXIntel.reset then pcall(_G.NXIntel.reset) end
 	NXWin.startScan()
 
+	local failsafeGen = searchGen
+	task.delay(20, function()
+		if analyzing and searchGen == failsafeGen then
+			analyzing = false
+			warn("[NX Analyzer] failsafe: analyzing liberado por timeout")
+		end
+	end)
+
 	task.spawn(function()
 		-- Se CALCULA el resultado, pero NO se pinta aún: la información aparece
 		-- DESPUÉS de que la animación termine y se desvanezca (el usuario lo pidió
@@ -10391,12 +10611,12 @@ analyze = function(input)
 		-- animación (no se puede lanzar otro análisis a medias).
 		local function paint()
 			if mySearchGen ~= searchGen then analyzing = false; return end
-			Shield.emit()
+			pcall(Shield.emit)
 			local renderOk, renderErr = pcall(render, outData)
 			if not renderOk then
 				warn("[NX Analyzer] render error: " .. tostring(renderErr))
 			end
-			statusLabel.Text = outStatus
+			pcall(function() statusLabel.Text = outStatus end)
 			analyzing = false
 		end
 		if _G.NXScan then _G.NXScan.finish(paint) else paint() end
@@ -12356,14 +12576,14 @@ Animations.luxe = {
             ColorSequenceKeypoint.new(0.45, Color3.fromRGB(220, 220, 230)),
             ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
         })
-        local tagGlowConn
-        tagGlowConn = RunService.Heartbeat:Connect(function(dt)
-            if tagGlowGrad and tagGlowGrad.Parent then
-                tagGlowGrad.Rotation = (tagGlowGrad.Rotation + dt * 20) % 360
+        if tagGlowGrad then
+            if type(strokeGrads) == "table" then
+                table.insert(strokeGrads, tagGlowGrad)
             else
-                if tagGlowConn then tagGlowConn:Disconnect() end
+                _G._nxPendingGrads = _G._nxPendingGrads or {}
+                table.insert(_G._nxPendingGrads, tagGlowGrad)
             end
-        end)
+        end
 
         local glowStroke = nil
 
@@ -12858,9 +13078,13 @@ Animations.luxe = {
     -- MASTER ANIMATION LOOP  (one connection drives every tag)
     --==========================================================================
     local renderConn
+    local tagFrameSkip = 0
     local function startLoop()
         if renderConn then return end
         renderConn = RunService.RenderStepped:Connect(function(dt)
+            tagFrameSkip = tagFrameSkip + 1
+            if tagFrameSkip < 3 then return end
+            tagFrameSkip = 0
             local cam = workspace.CurrentCamera
             local camPos = cam and cam.CFrame.Position
             for _, ctx in pairs(TagManager.active) do
@@ -13253,6 +13477,7 @@ end
 	-- 7) LATIDO: gira el borde neón y mueve el shimmer. Respeta animaciones
 	-- (se calma si las apagas) y solo trabaja cuando el panel está visible.
 	local shim = 0
+	local strokeGrads = {}
 	track(RunService.Heartbeat:Connect(function(dt)
 		if not gui.Enabled or not ANIM.enabled then return end
 		if neonGrad then neonGrad.Rotation = (neonGrad.Rotation + dt * PRISM.spinSpeed) % 360 end
@@ -13261,9 +13486,12 @@ end
 			titleGrad.Offset = Vector2.new(shim - 1, 0)
 		end
 		if isGlow then
-			for _, desc in ipairs(main:GetDescendants()) do
-				if desc:IsA("UIGradient") and desc.Parent and desc.Parent:IsA("UIStroke") then
-					desc.Rotation = (desc.Rotation + dt * 20) % 360
+			for i = #strokeGrads, 1, -1 do
+				local g = strokeGrads[i]
+				if g.Parent then
+					g.Rotation = (g.Rotation + dt * 20) % 360
+				else
+					table.remove(strokeGrads, i)
 				end
 			end
 		end
@@ -13274,6 +13502,21 @@ end
 		if neonGrad  then pcall(function() neonGrad.Color  = neonSeq()  end) end
 		if titleGrad then pcall(function() titleGrad.Color = titleSeq() end) end
 	end)
+
+	-- 9) Poblar cache de strokeGrads (evita GetDescendants cada frame)
+	if isGlow then
+		for _, desc in ipairs(main:GetDescendants()) do
+			if desc:IsA("UIGradient") and desc.Parent and desc.Parent:IsA("UIStroke") then
+				table.insert(strokeGrads, desc)
+			end
+		end
+	end
+	if _G._nxPendingGrads then
+		for _, g in ipairs(_G._nxPendingGrads) do
+			table.insert(strokeGrads, g)
+		end
+		_G._nxPendingGrads = nil
+	end
 end)()
 
 -- ╔══════════════════════════════════════════════════════════════════════╗
@@ -13370,10 +13613,10 @@ end)()
 			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(180, 180, 190)),
 		})
 		track(RunService.Heartbeat:Connect(function(dt)
-			if hudGlowGrad and hud.Parent then
-				hudGlowGrad.Rotation = (hudGlowGrad.Rotation + dt * 20) % 360
-			end
-		end))
+		if hudGlowGrad and hud.Parent then
+			hudGlowGrad.Rotation = (hudGlowGrad.Rotation + dt * 20) % 360
+		end
+	end))
 
 		local lay = Instance.new("UIListLayout", hud)
 		lay.FillDirection = Enum.FillDirection.Horizontal
@@ -14342,6 +14585,18 @@ end)()
 
 	local listaConns = {}
 	local function ltrack(conn) table.insert(listaConns, conn); return conn end
+
+	local cardGlowGrads = {}
+	ltrack(game:GetService("RunService").Heartbeat:Connect(function(dt)
+		for i = #cardGlowGrads, 1, -1 do
+			local g = cardGlowGrads[i]
+			if g and g.Parent then
+				g.Rotation = (g.Rotation + dt * 20) % 360
+			else
+				table.remove(cardGlowGrads, i)
+			end
+		end
+	end))
 	gui.AncestryChanged:Connect(function(_, newP)
 		if not newP then
 			vivo = false
@@ -14850,27 +15105,31 @@ end)()
 		local STEP = 50
 
 		local sConn
-		sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
-			if not scroll or not scroll.Parent then sConn:Disconnect() return end
-			if not sMoving then return end
-			local maxY = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteSize.Y)
-			sTarget = math.clamp(sTarget, 0, maxY)
-			local alpha = 1 - SMOOTH ^ dt
-			sCurrent = sCurrent + (sTarget - sCurrent) * alpha
-			if math.abs(sTarget - sCurrent) < 0.5 then
-				sCurrent = sTarget
-				sMoving = false
-			end
-			scroll.CanvasPosition = Vector2.new(0, sCurrent)
-		end)
-		ltrack({ Disconnect = function() sConn:Disconnect() end })
+		local function startSmooth()
+			if sConn then return end
+			sConn = game:GetService("RunService").RenderStepped:Connect(function(dt)
+				if not scroll or not scroll.Parent then sConn:Disconnect(); sConn = nil return end
+				local maxY = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteSize.Y)
+				sTarget = math.clamp(sTarget, 0, maxY)
+				local alpha = 1 - SMOOTH ^ dt
+				sCurrent = sCurrent + (sTarget - sCurrent) * alpha
+				if math.abs(sTarget - sCurrent) < 0.5 then
+					sCurrent = sTarget
+					scroll.CanvasPosition = Vector2.new(0, sCurrent)
+					sConn:Disconnect(); sConn = nil
+					return
+				end
+				scroll.CanvasPosition = Vector2.new(0, sCurrent)
+			end)
+		end
+		ltrack({ Disconnect = function() if sConn then sConn:Disconnect(); sConn = nil end end })
 
 		ltrack(scroll.InputChanged:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseWheel then
-				if not sMoving then sCurrent = scroll.CanvasPosition.Y; sTarget = sCurrent end
+				if not sConn then sCurrent = scroll.CanvasPosition.Y; sTarget = sCurrent end
 				local maxY = math.max(0, scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteSize.Y)
 				sTarget = math.clamp(sTarget - input.Position.Z * STEP, 0, maxY)
-				sMoving = true
+				startSmooth()
 			end
 		end))
 
@@ -15354,22 +15613,10 @@ end)()
 			analizarEnAnalyzer(plr.Name)
 		end)
 
+		if cardGlowGrad then table.insert(cardGlowGrads, cardGlowGrad) end
 		do
-			local glowConn
-			glowConn = game:GetService("RunService").Heartbeat:Connect(function(dt)
-				if not tarjeta or not tarjeta.Parent then
-					glowConn:Disconnect()
-					return
-				end
-				if cardGlowGrad then
-					cardGlowGrad.Rotation = (cardGlowGrad.Rotation + dt * 20) % 360
-				end
-				local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
-				if btnGlowG then
-					btnGlowG.Rotation = (btnGlowG.Rotation + dt * 20) % 360
-				end
-			end)
-			ltrack({ Disconnect = function() if glowConn then glowConn:Disconnect() end end })
+			local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
+			if btnGlowG then table.insert(cardGlowGrads, btnGlowG) end
 		end
 
 		local hoverActive = false
@@ -15655,22 +15902,10 @@ end)()
 			analizarEnAnalyzer(info.name)
 		end)
 
+		if gCardGlowGrad then table.insert(cardGlowGrads, gCardGlowGrad) end
 		do
-			local glowConn
-			glowConn = game:GetService("RunService").Heartbeat:Connect(function(dt)
-				if not tarjeta or not tarjeta.Parent then
-					glowConn:Disconnect()
-					return
-				end
-				if gCardGlowGrad then
-					gCardGlowGrad.Rotation = (gCardGlowGrad.Rotation + dt * 20) % 360
-				end
-				local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
-				if btnGlowG then
-					btnGlowG.Rotation = (btnGlowG.Rotation + dt * 20) % 360
-				end
-			end)
-			ltrack({ Disconnect = function() if glowConn then glowConn:Disconnect() end end })
+			local btnGlowG = btnStroke and btnStroke:FindFirstChildOfClass("UIGradient")
+			if btnGlowG then table.insert(cardGlowGrads, btnGlowG) end
 		end
 
 		local gHoverActive = false
@@ -15948,7 +16183,27 @@ end)()
 	end)
 
 	-- ====================== EVENTOS DE JUGADORES ======================
-	ltrack(Players.PlayerAdded:Connect(function(plr) crearTarjeta(plr) end))
+	ltrack(Players.PlayerAdded:Connect(function(plr)
+		crearTarjeta(plr)
+		if _G.NXJoinToast and plr ~= player then
+			task.spawn(function()
+				local friendCache = _G._nxFriendCache or {}
+				local isFriend = friendCache[plr.UserId]
+				if isFriend == nil then
+					local ok, result = pcall(function()
+						return player:IsFriendsWith(plr.UserId)
+					end)
+					if ok then
+						isFriend = result
+						friendCache[plr.UserId] = result
+					end
+				end
+				if isFriend then
+					_G.NXJoinToast(plr)
+				end
+			end)
+		end
+	end))
 	ltrack(Players.PlayerRemoving:Connect(function(plr) eliminarTarjeta(plr) end))
 
 	-- ====================== ARRASTRE ======================
