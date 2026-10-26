@@ -3079,6 +3079,7 @@ end))
 local HIDE_KEY = Enum.KeyCode.RightShift
 local guiHidden = false
 local NXWin = {}
+NXWin.analyzing = false
 local function setHidden(h)
 	guiHidden = h
 	gui.Enabled = not h
@@ -4169,7 +4170,10 @@ local function createTab(name, page, onShow)
 	end))
 	tabByPage[page] = btn
 	if onShow then onShowByPage[page] = onShow end
-	track(btn.MouseButton1Click:Connect(function() showPage(page) end))
+	track(btn.MouseButton1Click:Connect(function()
+		if NXWin.analyzing then return end
+		showPage(page)
+	end))
 	table.insert(tabs, btn)
 	table.insert(pages, page)
 	if #tabs == 1 then
@@ -7669,10 +7673,36 @@ do
 		local key, file = def[1], def[2]
 		_G.NXIconDefs[key] = BASE .. file:gsub(" ", "%%20")
 		_G.NXIcons[key] = ""
+		if loadIcon and hasFS then
+			local localPath = "NX_icon_" .. key .. "_v" .. ICON_VER .. ".png"
+			if isfile(localPath) then
+				local ok, asset = pcall(loadIcon, localPath)
+				if ok and type(asset) == "string" and asset ~= "" then
+					_G.NXIcons[key] = asset
+				end
+			end
+		end
 		task.spawn(function()
 			pcall(function()
 				if not loadIcon then return end
 				local localPath = "NX_icon_" .. key .. "_v" .. ICON_VER .. ".png"
+				if _G.NXIcons[key] ~= "" and hasFS and isfile(localPath) then
+					local url = file:find("^https?://") and file or (BASE .. file:gsub(" ", "%%20"))
+					url = url .. "?v=" .. tostring(os.time())
+					local ok2, res = pcall(rawGet, url)
+					if ok2 and res and res ~= "" then
+						local okR, cached = pcall(readfile, localPath)
+						if not (okR and cached and #cached == #res) then
+							pcall(delfile, localPath)
+							pcall(writefile, localPath, res)
+							local ok, asset = pcall(loadIcon, localPath)
+							if ok and type(asset) == "string" and asset ~= "" then
+								_G.NXIcons[key] = asset
+							end
+						end
+					end
+					return
+				end
 				local url = file:find("^https?://") and file or (BASE .. file:gsub(" ", "%%20"))
 				url = url .. "?v=" .. tostring(os.time())
 				local body
@@ -7682,14 +7712,7 @@ do
 					if attempt < 5 then task.wait(0.8 * attempt) end
 				end
 				if body and body ~= "" then
-					local needsWrite = true
-					if hasFS and isfile(localPath) then
-						local okR, cached = pcall(readfile, localPath)
-						if okR and cached and #cached == #body then
-							needsWrite = false
-						end
-					end
-					if needsWrite and hasFS then
+					if hasFS then
 						pcall(delfile, localPath)
 						local wOk = pcall(writefile, localPath, body)
 						if not wOk then
@@ -7715,7 +7738,7 @@ do
 			end)
 		end)
 	end
-	task.wait(0.5)
+	task.wait()
 end
 
 -- ====================== TOAST NOTIFICATION ======================
@@ -10510,13 +10533,26 @@ function Shield.textoEstado(data)
 end
 
 local searchGen = 0
+local function unlockTabs()
+	NXWin.analyzing = false
+	for _, t in ipairs(tabs) do
+		t.AutoButtonColor = true
+		TweenService:Create(t, TweenInfo.new(0.2), { TextTransparency = 0 }):Play()
+	end
+	paintTabs(false)
+end
 analyze = function(input)
 	if analyzing then return end
 	input = (input or ""):gsub("%s", "")
 	if input == "" then return end
 
 	analyzing = true
+	NXWin.analyzing = true
 	searchGen = searchGen + 1
+	for _, t in ipairs(tabs) do
+		t.AutoButtonColor = false
+		TweenService:Create(t, TweenInfo.new(0.2), { TextTransparency = 0.5 }):Play()
+	end
 	local mySearchGen = searchGen
 	hideAllSuggestions()
 	statusLabel.Text = "Buscando..."
@@ -10532,6 +10568,7 @@ analyze = function(input)
 	task.delay(20, function()
 		if analyzing and searchGen == failsafeGen then
 			analyzing = false
+			unlockTabs()
 			warn("[NX Analyzer] failsafe: analyzing liberado por timeout")
 		end
 	end)
@@ -10610,7 +10647,11 @@ analyze = function(input)
 		-- dentro, de modo que la herramienta sigue "ocupada" durante toda la
 		-- animación (no se puede lanzar otro análisis a medias).
 		local function paint()
-			if mySearchGen ~= searchGen then analyzing = false; return end
+			if mySearchGen ~= searchGen then
+				analyzing = false
+				unlockTabs()
+				return
+			end
 			pcall(Shield.emit)
 			local renderOk, renderErr = pcall(render, outData)
 			if not renderOk then
@@ -10618,6 +10659,7 @@ analyze = function(input)
 			end
 			pcall(function() statusLabel.Text = outStatus end)
 			analyzing = false
+			unlockTabs()
 		end
 		if _G.NXScan then _G.NXScan.finish(paint) else paint() end
 	end)
@@ -10995,12 +11037,14 @@ createTab("Ajustes", settingsPage)
 --   2) salta a la pestaña "Perfil",
 --   3) escribe el nombre en el buscador y lanza el análisis.
 -- Va envuelto en pcall: si algo no está listo, no rompe nada.
-_G.NXAnalyze = function(input)
+_G.NXAnalyze = function(input, source)
 	input = tostring(input or ""):gsub("%s", "")
 	if input == "" then return end
 	pcall(function()
 		setHidden(false)            -- por si estaba en modo discreto
-		searchBox.Text = input
+		if source ~= "lista" then
+			searchBox.Text = input
+		end
 		showPage(profilePage)       -- ir a Perfil (ya pinta la pestaña activa)
 	end)
 	analyze(input)
@@ -14510,20 +14554,6 @@ end)()
 
 	-- ====================== HTTP (pa' la búsqueda global en TODO Roblox) ======================
 	local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
-	local function apiGet(url)
-		local body
-		if httpRequest then
-			local ok, res = pcall(httpRequest, { Url = url, Method = "GET" })
-			if ok and res and res.Body then body = res.Body end
-		end
-		if not body then
-			local ok, res = pcall(function() return game:HttpGet(url) end)
-			if ok then body = res end
-		end
-		if not body then return nil end
-		local ok, decoded = pcall(function() return HttpService:JSONDecode(body) end)
-		return ok and decoded or nil
-	end
 
 	-- POST JSON (pa' resolver el username EXACTO). El endpoint usernames/users es
 	-- de lectura y NO necesita CSRF/sesión → encuentra nombres exactos que el
@@ -14782,10 +14812,23 @@ end)()
 		closeIco.AnchorPoint = Vector2.new(0.5, 0.5)
 		closeIco.Position = UDim2.new(0.5, 0, 0.5, 0)
 		closeIco.BackgroundTransparency = 1
-		closeIco.Image = (_G.NXIcons and _G.NXIcons.close) or ""
+		closeIco.Image = (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "" and _G.NXIcons.close) or ""
 		closeIco.ImageColor3 = Color3.fromRGB(255, 255, 255)
 		closeIco.ScaleType = Enum.ScaleType.Fit
 		closeIco.ZIndex = cerrarBtn.ZIndex + 1
+		if closeIco.Image == "" then
+			task.spawn(function()
+				local tries = 0
+				while not (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "") do
+					tries = tries + 1
+					if tries > 50 then return end
+					task.wait(0.3)
+				end
+				if closeIco and closeIco.Parent then
+					closeIco.Image = _G.NXIcons.close
+				end
+			end)
+		end
 	end
 	cerrarBtn.BackgroundTransparency = 1
 	cerrarBtn:FindFirstChildOfClass("UIStroke"):Destroy()
@@ -14878,6 +14921,17 @@ end)()
 			closeBtn.Image = _G.NXIcons.close
 		else
 			closeBtn.Image = "rbxassetid://6031094678"
+			task.spawn(function()
+				local tries = 0
+				while not (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "") do
+					tries = tries + 1
+					if tries > 50 then return end
+					task.wait(0.3)
+				end
+				if closeBtn and closeBtn.Parent then
+					closeBtn.Image = _G.NXIcons.close
+				end
+			end)
 		end
 		closeBtn.ImageColor3 = col("subtext")
 		pthemed(closeBtn, "ImageColor3", "subtext")
@@ -15297,7 +15351,7 @@ end)()
 	-- Llama al Analyzer (si está cargado) pa' analizar a esa persona.
 	local function analizarEnAnalyzer(usernameOId)
 		if type(_G.NXAnalyze) == "function" then
-			pcall(_G.NXAnalyze, usernameOId)
+			pcall(_G.NXAnalyze, usernameOId, "lista")
 			return true
 		end
 		warn("[Lista] El Analyzer no está cargado (sin _G.NXAnalyze).")
@@ -15611,6 +15665,7 @@ end)()
 		btnAnalizar.Active = false
 		btnAnalizar.MouseButton1Click:Connect(function()
 			analizarEnAnalyzer(plr.Name)
+			cajaBusqueda.Text = ""
 		end)
 
 		if cardGlowGrad then table.insert(cardGlowGrads, cardGlowGrad) end
@@ -15900,6 +15955,7 @@ end)()
 		btnAnalizar.Active = false
 		btnAnalizar.MouseButton1Click:Connect(function()
 			analizarEnAnalyzer(info.name)
+			cajaBusqueda.Text = ""
 		end)
 
 		if gCardGlowGrad then table.insert(cardGlowGrads, gCardGlowGrad) end
@@ -16245,14 +16301,29 @@ end)()
 	end
 
 	-- ====================== INICIALIZACIÓN ======================
-	for _, plr in ipairs(Players:GetPlayers()) do
-		crearTarjeta(plr, true)
+	do
+		local jugadores = Players:GetPlayers()
+		local BATCH = 4
+		for i = 1, #jugadores do
+			local plr = jugadores[i]
+			if plr and plr.Parent then
+				crearTarjeta(plr, true)
+			end
+			if i % BATCH == 0 and i < #jugadores then
+				task.wait()
+			end
+		end
+		actualizarLista()
 	end
-	actualizarLista()
 
 	-- open animation: fade in only
-	ventana.BackgroundTransparency = 0.4
-	TweenService:Create(ventana, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0 }):Play()
+	do
+		local nxt = _G.NXTheme
+		local isGlow = nxt and nxt.isGlow and nxt.isGlow()
+		local finalBgT = isGlow and 0.18 or 0
+		ventana.BackgroundTransparency = finalBgT + 0.35
+		TweenService:Create(ventana, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = finalBgT }):Play()
+	end
 
 	-- ====================== DOCKING (ancla la Lista a la derecha del Analyzer) ======================
 	-- Lee la posición/tamaño REAL del Analyzer al primer frame y se pega a su
@@ -16278,8 +16349,9 @@ end)()
 	task.defer(function()
 		if not dockNextToAnalyzer() then
 			task.wait(0.1)
-			dockNextToAnalyzer()   -- segundo intento, sin drama si tampoco entra
+			dockNextToAnalyzer()
 		end
+
 	end)
 
 	print("[Lista de Jugadores v2.5] Cargada · UI rediseñada + animaciones.")
