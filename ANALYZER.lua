@@ -1715,12 +1715,14 @@ do
 		local code = tonumber(status)
 		if decoded == nil then
 			if jsonOk == false then return nil, "JSON inválido" end
+			if code == 403 or code == 400 then return nil, nil end
 			return nil, code and ("HTTP " .. code) or "sin respuesta"
 		end
 		if type(decoded) ~= "table" then return nil, "formato inesperado" end
 		if type(decoded.errors) == "table" and decoded.errors[1] then
 			local e = decoded.errors[1]
 			local msg = (type(e) == "table" and (e.message or e.code)) or "?"
+			if code == 403 or code == 400 then return nil, nil end
 			return nil, "API: " .. tostring(msg)
 		end
 		if code == 429 then return nil, "Rate limited (temporal)" end
