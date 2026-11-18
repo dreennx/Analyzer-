@@ -1701,16 +1701,14 @@ do
 		return f
 	end
 
-	-- Username de Roblox: 3-20 caracteres, [A-Za-z0-9_], máximo UN guion bajo,
-	-- y nunca al principio ni al final.
+	-- Username de Roblox: 3-30 caracteres, [A-Za-z0-9_.], no empieza/termina
+	-- con _ o punto. Roblox genera nombres largos tipo roblox_user_XXXXX (26+ chars).
 	function S.valid.username(v)
 		if type(v) ~= "string" then return nil end
-		if #v < 3 or #v > 20 then return nil end
+		if #v < 3 or #v > 30 then return nil end
 		if v:match("[^%w_.]") then return nil end
+		if v:sub(1,1) == "_" or v:sub(-1) == "_" then return nil end
 		if v:sub(1,1) == "." or v:sub(-1) == "." then return nil end
-		local _, guiones = v:gsub("_", "")
-		if guiones > 1 then return nil end
-		if v:sub(1, 1) == "_" or v:sub(-1) == "_" then return nil end
 		return v
 	end
 
@@ -2911,7 +2909,7 @@ local function gatherData(userId)
 	local createdDate, accountAge, accountAgeDays, accountAgeYears = formatAge(vCreated)
 
 	local results = {}
-	local pending = 13   -- 7 contadores + perfil moderno + name history + 4 extras
+	local pending = 14   -- 7 contadores + perfil moderno + name history + 4 extras + presence
 
 	local function task_fetch(key, fn)
 		task.spawn(function()
@@ -2937,7 +2935,7 @@ local function gatherData(userId)
 	task_fetch("Badges", function()
 		local result = countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges")
 		if result == nil then
-			task.wait(1)
+			task.wait(0.3)
 			result = countPaged("https://badges.roblox.com/v1/users/" .. userId .. "/badges")
 		end
 		if result == nil then
@@ -3011,6 +3009,10 @@ local function gatherData(userId)
 		return nil
 	end)
 
+	task_fetch("Presence", function()
+		return {getPresence(userId)}
+	end)
+
 	local started = os.clock()
 	while pending > 0 and (os.clock() - started) < 15 do
 		task.wait(0.05)
@@ -3019,8 +3021,12 @@ local function gatherData(userId)
 	-- registran abajo como "missing": el análisis saldrá PARCIAL, no completo.
 	local expiro = (pending > 0)
 
-	-- Presencia (estado en tiempo real)
-	local presText, presColor, presPlaceId, presGameId, presType = getPresence(userId)
+	-- Presencia (estado en tiempo real) — ya se obtuvo en paralelo vía task_fetch
+	local presText, presColor, presPlaceId, presGameId, presType
+	if type(results.Presence) == "table" then
+		presText, presColor, presPlaceId, presGameId, presType =
+			results.Presence[1], results.Presence[2], results.Presence[3], results.Presence[4], results.Presence[5]
+	end
 
 	-- Cada contador pasa por su validador antes de entrar en 'data'. Un valor
 	-- corrupto (negativo, no numérico, formato raro) NO se muestra como cifra
@@ -3074,7 +3080,7 @@ local function gatherData(userId)
 		if targetPlayer and _G._NX_getPlayerCountry then
 			countryCode, countryName, countryEmoji = _G._NX_getPlayerCountry(targetPlayer)
 			if not countryCode and targetPlayer.Character then
-				task.wait(0.5)
+				task.wait(0.2)
 				countryCode, countryName, countryEmoji = _G._NX_getPlayerCountry(targetPlayer)
 			end
 		end
@@ -4363,7 +4369,7 @@ local function makeScroll(parent)
 				if not sf or not sf.Parent then sConn:Disconnect(); sConn = nil return end
 				local maxY = math.max(0, sf.AbsoluteCanvasSize.Y - sf.AbsoluteSize.Y)
 				sTarget = math.clamp(sTarget, 0, maxY)
-				local alpha = 1 - SMOOTH ^ dt
+				local alpha = 1 - SMOOTH ^ math.min(dt, 0.05)
 				sCurrent = sCurrent + (sTarget - sCurrent) * alpha
 				if math.abs(sTarget - sCurrent) < 0.5 then
 					sCurrent = sTarget
@@ -8257,17 +8263,21 @@ local function render(data, skipEntrance)
 		local st = card:FindFirstChildOfClass("UIStroke")
 		local stOrig = st and st.Transparency or 0.45
 		if st then st.Transparency = 1 end
+
+		local texts, images = {}, {}
 		for _, d in ipairs(card:GetDescendants()) do
 			if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
 				d.TextTransparency = 1
+				texts[#texts + 1] = d
 			elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
 				d.ImageTransparency = 1
+				images[#images + 1] = d
 			end
 		end
 
 		task.delay(delay_, function()
 			if not card.Parent then return end
-			local fadeInfo = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 			local glassT = (THEMES[store.theme] and THEMES[store.theme]._glow) and 0.3 or 0
 			motionTween(card, fadeInfo, { BackgroundTransparency = glassT })
@@ -8276,14 +8286,13 @@ local function render(data, skipEntrance)
 				TweenService:Create(st, fadeInfo, { Transparency = stOrig }):Play()
 			end
 
-			task.delay(0.05, function()
+			task.delay(0.03, function()
 				if not card.Parent then return end
-				for _, d in ipairs(card:GetDescendants()) do
-					if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
-						TweenService:Create(d, fadeInfo, { TextTransparency = 0 }):Play()
-					elseif d:IsA("ImageLabel") or d:IsA("ImageButton") then
-						TweenService:Create(d, fadeInfo, { ImageTransparency = 0 }):Play()
-					end
+				for _, d in ipairs(texts) do
+					if d.Parent then TweenService:Create(d, fadeInfo, { TextTransparency = 0 }):Play() end
+				end
+				for _, d in ipairs(images) do
+					if d.Parent then TweenService:Create(d, fadeInfo, { ImageTransparency = 0 }):Play() end
 				end
 			end)
 		end)
@@ -8607,8 +8616,25 @@ local function render(data, skipEntrance)
 	end
 
 	-- Identity card (grid layout)
+	-- NO usar animateCardIn aquí: idCard tiene su propio cellStagger por fila
+	-- que ya anima cada celda individualmente. Doble animación causa conflicto
+	-- de tweens y delay visual.
 	local idCard = DS.makeCard(profileScroll, {order = 1})
-	animateCardIn(idCard, 0.12)
+	if ANIM.enabled and not skipEntrance then
+		local glassT = (THEMES[store.theme] and THEMES[store.theme]._glow) and 0.3 or 0
+		idCard.BackgroundTransparency = 1
+		local idSt = idCard:FindFirstChildOfClass("UIStroke")
+		local idStOrig = idSt and idSt.Transparency or 0.45
+		if idSt then idSt.Transparency = 1 end
+		task.defer(function()
+			if not idCard.Parent then return end
+			local fadeInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			motionTween(idCard, fadeInfo, { BackgroundTransparency = glassT })
+			if idSt and idSt.Parent then
+				TweenService:Create(idSt, fadeInfo, { Transparency = idStOrig }):Play()
+			end
+		end)
+	end
 
 	-- Custom header: circular icon + title/subtitle
 	do
@@ -8658,20 +8684,6 @@ local function render(data, skipEntrance)
 	themed(idGrid, "BackgroundColor3", "card")
 	if THEMES[store.theme] and THEMES[store.theme]._glow then
 		idGrid.BackgroundTransparency = 0.22
-		local gg = Instance.new("UIGradient", idGrid)
-		gg.Rotation = 135
-		gg.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
-			ColorSequenceKeypoint.new(0.35, Color3.fromRGB(220, 220, 230)),
-			ColorSequenceKeypoint.new(0.7, C.surface),
-			ColorSequenceKeypoint.new(1.0, C.surface),
-		})
-		gg.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0.0, 0.45),
-			NumberSequenceKeypoint.new(0.25, 0.65),
-			NumberSequenceKeypoint.new(0.6, 0.85),
-			NumberSequenceKeypoint.new(1.0, 0.92),
-		})
 	else
 		idGrid.BackgroundTransparency = 0
 	end
@@ -8679,20 +8691,8 @@ local function render(data, skipEntrance)
 		local gst = Instance.new("UIStroke", idGrid)
 		gst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 		if THEMES[store.theme] and THEMES[store.theme]._glow then
-			gst.Thickness = 1.2; gst.Transparency = 0.20
-			gst.Color = Color3.fromRGB(255, 255, 255)
-			local stGrad = Instance.new("UIGradient", gst)
-			stGrad.Rotation = 135
-			stGrad.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0.0, Color3.fromRGB(255, 255, 255)),
-				ColorSequenceKeypoint.new(0.4, Color3.fromRGB(200, 200, 215)),
-				ColorSequenceKeypoint.new(1.0, Color3.fromRGB(80, 80, 100)),
-			})
-			stGrad.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0.0, 0.10),
-				NumberSequenceKeypoint.new(0.4, 0.40),
-				NumberSequenceKeypoint.new(1.0, 0.75),
-			})
+			gst.Thickness = 1; gst.Transparency = 0.45
+			gst.Color = Color3.fromRGB(200, 200, 215)
 		else
 			gst.Color = C.border; gst.Transparency = 0.6; gst.Thickness = 1
 			themed(gst, "Color", "border")
@@ -8704,6 +8704,10 @@ local function render(data, skipEntrance)
 		lay.SortOrder = Enum.SortOrder.LayoutOrder
 		lay.Padding = UDim.new(0, 0)
 	end
+
+	-- Suspender AutomaticSize durante construcción de celdas para evitar
+	-- recálculos de layout por cada celda (10 recálculos → 1 solo al final)
+	idGrid.AutomaticSize = Enum.AutomaticSize.None
 
 	-- Helper: one row in the identity list (do..end to avoid root locals)
 	do
@@ -8825,22 +8829,13 @@ local function render(data, skipEntrance)
 			themed(div, "BackgroundColor3", "divider")
 
 			if ANIM.enabled and not skipEntrance then
-				local delay = cellStagger * 0.04
+				local delay = cellStagger * 0.02
 				cellStagger = cellStagger + 1
-				cell.BackgroundTransparency = 1
 				div.BackgroundTransparency = 1
-				for _, ch in ipairs(cell:GetChildren()) do
-					if ch:IsA("TextLabel") then ch.TextTransparency = 1 end
-					if ch:IsA("ImageLabel") then ch.ImageTransparency = 1 end
-				end
 				task.delay(delay, function()
 					if not cell.Parent then return end
 					local info = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 					TweenService:Create(div, info, { BackgroundTransparency = 0.5 }):Play()
-					for _, ch in ipairs(cell:GetChildren()) do
-						if ch:IsA("TextLabel") then TweenService:Create(ch, info, { TextTransparency = 0 }):Play() end
-						if ch:IsA("ImageLabel") then TweenService:Create(ch, info, { ImageTransparency = 0 }):Play() end
-					end
 				end)
 			end
 
@@ -8882,6 +8877,9 @@ local function render(data, skipEntrance)
 			end
 		end
 	end
+
+	-- Restaurar AutomaticSize: un solo recálculo de layout para las 10 celdas
+	idGrid.AutomaticSize = Enum.AutomaticSize.Y
 
 	if data.RobloxBadges and #data.RobloxBadges > 0 then
 		local names = {}
@@ -10586,7 +10584,7 @@ local analyzing = false
 -- Perfil → APIs (8 sub-indicadores) → Verificación. Callbacks desde gatherData
 -- iluminan cada indicador en tiempo real. do...end: locals se liberan.
 do
-	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi","NameHistory"}
+	local FETCH_KEYS = {"Friends","Followers","Following","Groups","Badges","Favorites","CreatedGames","ProfileApi","NameHistory","Presence"}
 
 	local overlay, stage, statusLbl, subStatusLbl
 	local bars = {}
@@ -10650,7 +10648,7 @@ do
 		task.spawn(function()
 			local spawnOk, spawnErr = pcall(function()
 				local elapsed = os.clock() - startedAt
-				local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.3 or 1.0
+				local minTime = (profileDone and countFetched() >= #FETCH_KEYS) and 0.15 or 0.6
 				if elapsed < minTime then task.wait(minTime - elapsed) end
 				if miGen ~= gen then done(); return end
 
@@ -10677,12 +10675,12 @@ do
 				else statusTxt = "Completed" end
 				setStatus(statusTxt, finalColor)
 
-				task.wait(0.45)
+				task.wait(0.15)
 				if miGen ~= gen then done(); return end
-				motionTween(stage, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
-				motionTween(overlay, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }, function()
+				done()
+				motionTween(stage, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { GroupTransparency = 1 })
+				motionTween(overlay, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }, function()
 					destroyNow()
-					done()
 				end)
 			end)
 			if not spawnOk then
